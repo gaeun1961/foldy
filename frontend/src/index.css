@@ -10,10 +10,10 @@ h2 {
   font-size: 18px;
 }
 
-/* 왼쪽: 업로드 / 가운데: 뷰어 / 오른쪽: 챗봇 */
+/* 왼쪽: 업로드 / 오른쪽: 뷰어. 챗봇은 칸 없이 오른쪽 아래 동그란 아이콘으로 연다 (TODO-13) */
 .layout {
   display: grid;
-  grid-template: 'head head head' auto 'upload viewer chat' 1fr / 260px 1fr 320px;
+  grid-template: 'head head' auto 'upload viewer' 1fr / 260px 1fr;
   height: 100vh;
 }
 
@@ -24,15 +24,13 @@ h2 {
   border-bottom: 1px solid #e5e7eb;
 }
 
-.upload,
-.chat {
+.upload {
   padding: 16px;
   color: #6b7280;
 }
 
 .upload { grid-area: upload; border-right: 1px solid #e5e7eb; }
 .viewer { grid-area: viewer; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-.chat { grid-area: chat; border-left: 1px solid #e5e7eb; }
 
 /* 3D 뷰 + 상태 배지 + 접기 조작 (docs/specs/ui.md) */
 .viewer-canvas {
@@ -55,36 +53,52 @@ h2 {
 }
 .status-badge.done { color: #2e7d4f; font-weight: 700; }
 
+/* 접기 패널: 세 줄(방식·속도 / 슬라이더 / 버튼)로 작고 촘촘하게. 버튼 높이 40px, 터치 화면 44px (ui.md 눈높이) */
 .fold-controls {
-  padding: 16px;
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
   border-top: 1px solid #e5e7eb;
   background: #fff;
+  --button-height: 40px;
+}
+@media (pointer: coarse) {
+  .fold-controls { --button-height: 44px; }
+}
+
+.option-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .slider-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
+  grid-template-columns: auto 1fr 3.5em;
+  align-items: center;
+  gap: 12px;
   font-size: 16px;
   font-weight: 700;
 }
+.slider-row output { text-align: right; }
 .slider-row input {
-  grid-column: 1 / -1;
   width: 100%;
-  height: 28px;
+  height: 24px;
+  margin: 0;
   accent-color: #3d6fd9;
 }
 
 .fold-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
 }
 .fold-buttons button {
-  min-height: 52px;
-  border-radius: 12px;
-  font-size: 18px;
+  min-height: var(--button-height);
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 16px;
   cursor: pointer;
 }
 .fold-buttons .primary { border: 0; background: #3d6fd9; color: #fff; }
@@ -94,20 +108,18 @@ h2 {
 /* 단계별/한 번에, 속도: 붙어 있는 버튼 묶음. 고른 것만 파랗게 */
 .toggle-row {
   display: flex;
-  margin: 12px 0;
   border: 1px solid #d0d5dd;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
 }
-.toggle-row:first-child { margin-top: 0; }
 .toggle-row button {
-  flex: 1;
-  min-height: 48px;
+  min-height: var(--button-height);
+  padding: 0 14px;
   border: 0;
   border-left: 1px solid #d0d5dd;
   background: #fff;
   color: #1f2430;
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
 }
 .toggle-row button:first-child { border-left: 0; }
@@ -139,8 +151,8 @@ h2 {
 
 @media (max-width: 800px) {
   .layout {
-    grid-template: 'head' auto 'upload' auto 'viewer' 80vh 'chat' auto / 1fr;
+    grid-template: 'head' auto 'upload' auto 'viewer' 85vh / 1fr;
     height: auto;
   }
-  .upload, .chat { border: 0; }
+  .upload { border: 0; }
 }

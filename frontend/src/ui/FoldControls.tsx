@@ -67,27 +67,36 @@ export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPl
 
   const percent = foldPercent(unfold)
   return (
+    // 세 줄: 방식·속도 / 슬라이더 / 버튼 (ui.md 눈높이)
     <div className="fold-controls">
-      {steps > 0 && (
-        <div className="toggle-row" role="group" aria-label="접는 방식">
-          {(['step', 'all'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => {
-                stop()
-                onModeChange(m)
-              }}
-            >
-              {m === 'step' ? '단계별' : '한 번에'}
+      <div className="option-row">
+        {steps > 0 && (
+          <div className="toggle-row" role="group" aria-label="접는 방식">
+            {(['step', 'all'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => {
+                  stop()
+                  onModeChange(m)
+                }}
+              >
+                {m === 'step' ? '단계별' : '한 번에'}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="toggle-row" role="group" aria-label="속도">
+          {(Object.keys(SPEEDS) as Speed[]).map((s) => (
+            <button key={s} type="button" aria-pressed={speed === s} onClick={() => setSpeed(s)}>
+              {SPEEDS[s].label}
             </button>
           ))}
         </div>
-      )}
+      </div>
       <label className="slider-row">
         <span>접기</span>
-        <output>{percent}%</output>
         <input
           type="range"
           min={0}
@@ -100,31 +109,25 @@ export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPl
             onChange(unfoldOf(Number(e.target.value)))
           }}
         />
+        <output>{percent}%</output>
       </label>
       <div className="fold-buttons">
         <button type="button" className="secondary" disabled={percent <= 0} onClick={() => go('unfold')}>
           ◀ 펼치기
         </button>
+        {stepMode && (
+          <>
+            <button type="button" className="secondary" disabled={percent <= 0} onClick={() => go('unfold', true)}>
+              이전 단계
+            </button>
+            <button type="button" className="secondary" disabled={percent >= 100} onClick={() => go('fold', true)}>
+              다음 단계
+            </button>
+          </>
+        )}
         <button type="button" className="primary" disabled={percent >= 100} onClick={() => go('fold')}>
           접기 ▶
         </button>
-      </div>
-      {stepMode && (
-        <div className="fold-buttons">
-          <button type="button" className="secondary" disabled={percent <= 0} onClick={() => go('unfold', true)}>
-            이전 단계
-          </button>
-          <button type="button" className="secondary" disabled={percent >= 100} onClick={() => go('fold', true)}>
-            다음 단계
-          </button>
-        </div>
-      )}
-      <div className="toggle-row" role="group" aria-label="속도">
-        {(Object.keys(SPEEDS) as Speed[]).map((s) => (
-          <button key={s} type="button" aria-pressed={speed === s} onClick={() => setSpeed(s)}>
-            {SPEEDS[s].label}
-          </button>
-        ))}
       </div>
     </div>
   )
