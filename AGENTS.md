@@ -30,6 +30,7 @@
 
 ## 핵심 규칙
 
+- **언어**: 답변과 문서는 한국어로 쓴다
 - **ShapeScene 변경**: 이슈로 먼저 합의 → `docs/specs/shape-scene.md`부터 고침 → `types.ts`, `schema.py`, 목 데이터를 같은 PR에서 함께 고침
 - **ViewerProps 변경**: `docs/specs/viewer.md`에 먼저 적는다
 - **문서 먼저**: 작업이 문서와 다르면 문서부터 고친다. 이 문서와 01·specs·03이 충돌하면 01·specs·03이 우선이다

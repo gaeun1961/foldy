@@ -32,9 +32,11 @@ function subjectParticle(word: string) {
   return code >= 0 && code <= 11171 && code % 28 !== 0 ? '이' : '가'
 }
 
-export function foldStatus(shape: ShapeKind, unfold: number) {
+// playing: 애니메이션 중이면 숫자를 숨긴다 (ui.md 친절한 설명 원칙: 숫자는 멈춘 뒤에)
+export function foldStatus(shape: ShapeKind, unfold: number, playing = false) {
   const name = SHAPE_NAME[shape]
   const percent = foldPercent(unfold)
+  if (playing && percent > 0 && percent < 100) return { done: false, text: `${name} · 접는 중` }
   if (percent >= 100) return { done: true, text: `빈틈없이 ${name}${subjectParticle(name)} 됐어요` }
   if (percent <= 0) return { done: false, text: `${name} · 펼친 상태` }
   return { done: false, text: `${name} · 접는 중 ${percent}%` }

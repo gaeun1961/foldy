@@ -20,6 +20,10 @@ eq(foldStatus('cylinder', 0).text, '빈틈없이 원기둥이 됐어요')
 eq(foldStatus('cone', 0).text, '빈틈없이 원뿔이 됐어요')
 // 반올림 경계: 99.6% 는 "접는 중"이 아니라 다 접힘으로 보인다 (슬라이더와 숫자가 같게)
 eq(foldStatus('cube', 0.004).done, true)
+// 애니메이션 중에는 숫자 없이 "접는 중"만, 끝에 닿으면 평소 문구
+eq(foldStatus('cuboid', 0.57, true), { done: false, text: '직육면체 · 접는 중' })
+eq(foldStatus('cuboid', 1, true).text, '직육면체 · 펼친 상태')
+eq(foldStatus('cuboid', 0, true).done, true)
 
 // 단계 경계: 5단계, 펼침 값 1 → 0.8 → 0.6 → 0.4 → 0.2 → 0
 const near = (a: number[], b: number[]) => check(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} != ${b}`)

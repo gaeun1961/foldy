@@ -56,9 +56,11 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all' }: ViewerProps
 
     // 다 접은 모양, 다 펼친 모양, 두 방식의 중간 모양을 모두 담는 범위의 가운데를 보고, 전체가 화면에 들어오는 거리에 둔다.
     // 그래서 펼치고 접는 동안 카메라를 옮기지 않아도 화면 밖으로 나가지 않는다 (단계별 중간 모양은 더 높이 솟을 수 있다)
+    // 한 단계를 8 칸으로 나눠 본다 (면이 휘두르며 지나가는 가장 높은 곳까지 담으려고)
     const bounds = new THREE.Box3()
-    for (let k = 0; k <= 2 * order.length; k++) {
-      const s = 1 - k / (2 * order.length)
+    const samples = 8 * order.length
+    for (let k = 0; k <= samples; k++) {
+      const s = 1 - k / samples
       for (const values of [s, stepUnfold(order, poly.faces.length, s)]) {
         applyUnfold(tree, values)
         bounds.expandByObject(tree.root)

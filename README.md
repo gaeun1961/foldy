@@ -27,6 +27,15 @@ copy .env.example .env        # macOS/Linux: cp .env.example .env, 그 뒤 값 �
 uvicorn app.main:app --reload --env-file .env
 ```
 
+backend 검사 (PR 전에, 가상환경을 켠 상태에서). 검사 도구 `ruff`는 `requirements.txt`에 들어 있어서 위 `pip install -r requirements.txt`로 같이 설치됩니다. 가상환경 없이 쓰려면 `pip install ruff`.
+
+```sh
+cd backend
+ruff check .
+ruff format --check .
+python -m tests.test_schema
+```
+
 ## 일하는 방식
 
 1. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md) 맨 위 "지금 시작 가능"에서 하나 고른다

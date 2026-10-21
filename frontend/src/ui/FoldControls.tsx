@@ -11,6 +11,7 @@ interface Props {
   mode: FoldMode
   onModeChange: (mode: FoldMode) => void
   steps: number // 단계 수 (0 이면 단계별 접기 없음)
+  onPlayingChange: (playing: boolean) => void // 애니메이션 시작·끝 (상태 배지가 숫자를 숨기려고)
 }
 
 // 속도별 시간. 보통도 TODO-3 처음 버전(끝까지 1.5초)보다 느리다
@@ -23,26 +24,31 @@ type Speed = keyof typeof SPEEDS
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2) // ease-in-out
 
-export function FoldControls({ unfold, onChange, mode, onModeChange, steps }: Props) {
+export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPlayingChange }: Props) {
   const [speed, setSpeed] = useState<Speed>('normal')
   const frame = useRef(0)
-  const stop = () => cancelAnimationFrame(frame.current)
-  useEffect(() => stop, [])
+  const stop = () => {
+    cancelAnimationFrame(frame.current)
+    onPlayingChange(false)
+  }
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
   // targets 를 차례로 지나간다. 구간마다 이징, 구간 사이에 pauseMs 멈춤. 시간은 거리에 비례 (펼침 값 1 당 msPerUnit)
   const play = (targets: number[], msPerUnit: number, pauseMs: number) => {
     stop()
     if (targets.length === 0) return
+    onPlayingChange(true)
     let from = unfold
     let i = 0
-    let t0 = performance.now()
+    let t0 = -1 // 첫 프레임 시각에서 시작
     const step = (now: number) => {
+      if (t0 < 0) t0 = now
       const to = targets[i]
       const ms = Math.abs(to - from) * msPerUnit
       const t = ms > 0 ? Math.min(1, Math.max(0, (now - t0) / ms)) : 1
       onChange(t < 1 ? from + (to - from) * ease(t) : to)
       if (t >= 1) {
-        if (++i >= targets.length) return
+        if (++i >= targets.length) return onPlayingChange(false)
         from = to
         t0 = now + pauseMs
       }

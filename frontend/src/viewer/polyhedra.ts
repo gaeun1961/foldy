@@ -15,7 +15,7 @@ export interface FaceDef {
 export interface Polyhedron {
   positions: Vec3[] // 꼭짓점 인덱스 → 접힌 상태의 좌표 (three.js: x 가로, y 높이, z 깊이, 앞면 +z)
   faces: FaceDef[]
-  foldOrder?: number[] // 단계별 접기 순서 (루트가 아닌 면 인덱스, 부모가 먼저). 없으면 면 인덱스 순서
+  foldOrder?: number[] // 단계별 접기 순서 (루트가 아닌 면 인덱스를 한 번씩). 없으면 면 인덱스 순서
 }
 
 // 단계별 접기 순서 (docs/specs/viewer.md "단계별 접기")
@@ -37,7 +37,8 @@ const BOX_FACES: FaceDef[] = [
   { vertices: [0, 3, 2, 1], parent: 0, hinge: [0, 1], dihedral: 90 }, // 4 아랫면
   { vertices: [3, 7, 6, 2], parent: 2, hinge: [2, 6], dihedral: 90 }, // 5 뒷면 (오른쪽에 붙음)
 ]
-const BOX_FOLD_ORDER = [1, 2, 5, 3, 4] // 왼쪽 → 오른쪽 → 뒷면 → 윗면 → 아랫면
+// 왼쪽 → 뒷면 → 오른쪽 → 윗면 → 아랫면. 뒷면이 먼저 오른쪽 면 끝에서 일어서고, 오른쪽 면이 접히며 뒷면을 덮개로 얹는다
+const BOX_FOLD_ORDER = [1, 5, 2, 3, 4]
 
 type SizeOf<S extends ShapeKind> = S extends 'cuboid' ? BoxSize : S extends 'cylinder' | 'cone' ? RoundSize : EdgeSize
 

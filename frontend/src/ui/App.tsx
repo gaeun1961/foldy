@@ -9,8 +9,9 @@ export default function App() {
   const scene = mockScene
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
+  const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
   const steps = foldStepCount(scene)
-  const status = foldStatus(scene.shape, unfold)
+  const status = foldStatus(scene.shape, unfold, playing)
 
   return (
     <div className="layout">
@@ -28,7 +29,7 @@ export default function App() {
           </div>
           {foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
         </div>
-        <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} />
+        <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} />
       </main>
       <aside className="chat">
         <h2>챗봇</h2>

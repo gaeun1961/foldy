@@ -73,10 +73,8 @@ function checkStepFold(scene: ShapeScene, poly: Polyhedron, tree: ReturnType<typ
   const order = foldOrderOf(poly)
   const nonRoot = poly.faces.flatMap((f, i) => (f.parent === undefined ? [] : [i]))
   check(order.length === nonRoot.length && nonRoot.every((i) => order.includes(i)), `${scene.shape}: foldOrder 가 루트 아닌 면을 한 번씩 담지 않음`)
-  order.forEach((face, k) => {
-    const parent = poly.faces[face].parent!
-    check(poly.faces[parent].parent === undefined || order.indexOf(parent) < k, `${scene.shape} 면 ${face}: 부모보다 먼저 접힘`)
-  })
+  // 자식 면이 부모보다 먼저 접힐 수 있다 (직육면체: 뒷면이 오른쪽 면보다 먼저). 그 면과 조상이 모두 접혔을 때만 입체 좌표에 온다
+  const chain = (f: number): number[] => (poly.faces[f].parent === undefined ? [] : [f, ...chain(poly.faces[f].parent!)])
 
   const n = order.length
   const count = poly.faces.length
@@ -84,7 +82,7 @@ function checkStepFold(scene: ShapeScene, poly: Polyhedron, tree: ReturnType<typ
   const mid = stepUnfold(order, count, 1 - 1.5 / n) // 첫 면 다 접힘, 둘째 면 반, 나머지 펼침
   check(Math.abs(mid[order[0]]) < EPS && Math.abs(mid[order[1]] - 0.5) < EPS && order.slice(2).every((f) => mid[f] === 1), `${scene.shape}: 단계 중간값 ${mid}`)
 
-  // 단계 경계 k 마다: 순서상 앞의 k 개 면은 입체 좌표, 나머지 면은 펼침 값 1
+  // 단계 경계 k 마다: 순서상 앞의 k 개 면은 펼침 값 0, 나머지는 1. 자기와 조상이 모두 접힌 면은 입체 좌표, k = n 이면 모든 면
   for (let k = 0; k <= n; k++) {
     const values = stepUnfold(order, count, 1 - k / n)
     check(order.every((f, j) => Math.abs(values[f] - (j < k ? 0 : 1)) < EPS), `${scene.shape}: ${k}단계 값 ${values}`)
@@ -92,12 +90,14 @@ function checkStepFold(scene: ShapeScene, poly: Polyhedron, tree: ReturnType<typ
     tree.root.quaternion.identity()
     applyUnfold(tree, values)
     tree.root.updateMatrixWorld(true)
-    for (const face of order.slice(0, k)) {
+    const folded = order.slice(0, k)
+    for (const face of folded.filter((f) => chain(f).every((a) => folded.includes(a)))) {
       const node = tree.nodes[face]
       const expected = node.vertices.map((i) => new THREE.Vector3(...poly.positions[i]))
       check(worldPoints(node.mesh).every((p) => expected.some((e) => e.distanceTo(p) < EPS)), `${scene.shape} ${k}단계 면 ${face}: 접힌 좌표가 다름`)
     }
   }
+  check(JSON.stringify(order) === '[1,5,2,3,4]', `${scene.shape}: 접는 순서는 왼쪽 → 뒷면 → 오른쪽 → 윗면 → 아랫면`)
 }
 
 const base = { vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' as const } }
