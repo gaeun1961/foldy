@@ -16,9 +16,9 @@
 ## 완료 조건
 - [ ] 각 면이 자기 꼭짓점 4개의 표시점(작은 구)과 라벨(`vertexLabels`)을 자식으로 가진다
 - [ ] 꼭짓점 인덱스마다 색을 하나 정하고, 같은 인덱스의 복사본 `(면, 꼭짓점)`을 모두 같은 색으로 칠한다. 펼치면 한 꼭짓점이 최대 3곳에 같은 색으로 보인다
-- [ ] 특정 꼭짓점만 강조하고 나머지는 흐리게 하는 값(꼭짓점 인덱스 목록)을 `ViewerProps`로 넣을 수 있다 (챗봇 화면 조작 TODO-10에서 사용). props 변경은 `docs/02-specs.md`에 먼저 적는다
+- [ ] 특정 꼭짓점만 강조하고 나머지는 흐리게 하는 값(꼭짓점 인덱스 목록)을 `ViewerProps`로 넣을 수 있다 (챗봇 화면 조작 TODO-10에서 사용). props 변경은 `docs/specs/viewer.md`에 먼저 적는다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B(three.js 뷰어 규칙: 꼭짓점 복사본), C. 꼭짓점 인덱스 규칙
+- 관련 문서: `docs/specs/viewer.md` (꼭짓점 복사본), `docs/specs/shape-scene.md` (꼭짓점 인덱스 규칙)
 - 동작 참고: `frontend/lab/geogebra.html`의 "꼭짓점 ㄱ 하이라이트" 버튼
 - 라벨은 `CSS2DRenderer`나 Sprite 텍스처 중 하나를 고른다

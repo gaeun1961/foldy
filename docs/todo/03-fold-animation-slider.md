@@ -17,8 +17,8 @@
 - [ ] 펼침 값 `s`(0 = 입체, 1 = 전개도)에 따라 각 면 pivot이 회전축을 중심으로 `s × (180° − 이면각)` 회전한다 (직육면체는 `s × 90°`). 면 트리만 쓰고 도형 이름으로 분기하지 않는다
 - [ ] 화면에 슬라이더가 있고, 움직이면 면이 연속으로 접히고 펴진다
 - [ ] "펼치기/접기" 버튼으로 0↔1 애니메이션이 된다 (`requestAnimationFrame`)
-- [ ] 펼침 정도를 `ViewerProps`로 밖에서 넣을 수 있다 (챗봇 화면 조작 TODO-10에서 사용). 값은 숫자 하나로 두고, props 변경은 `docs/02-specs.md`에 먼저 적는다
+- [ ] 펼침 정도를 `ViewerProps`로 밖에서 넣을 수 있다 (챗봇 화면 조작 TODO-10에서 사용). 값은 숫자 하나로 두고, props 변경은 `docs/specs/viewer.md`에 먼저 적는다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B(three.js 뷰어 규칙), C. 전개도 `cross`
+- 관련 문서: `docs/specs/viewer.md`, `docs/specs/shape-scene.md` (전개도 `cross`)
 - 동작 참고: `frontend/lab/geogebra.html`의 슬라이더와 애니메이션 버튼

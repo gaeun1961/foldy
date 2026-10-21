@@ -6,12 +6,12 @@ import type { CuboidScene, PolyhedronPoint as LinePoint, VertexIndex } from '../
 
 declare const GGBApplet: any
 
-// 꼭짓점 인덱스 → 좌표 (docs/02-specs.md 규칙. GeoGebra 는 z 가 위, 앞면은 y = 0)
+// 꼭짓점 인덱스 → 좌표 (docs/specs/shape-scene.md 규칙. GeoGebra 는 z 가 위, 앞면은 y = 0)
 function vertexCoord(i: number, { width, depth, height }: CuboidScene['size']) {
   return [[1, 2, 5, 6].includes(i) ? width : 0, [2, 3, 6, 7].includes(i) ? depth : 0, i >= 4 ? height : 0]
 }
 
-// 면 = 꼭짓점 4개 (docs/02-specs.md: 앞, 뒤, 위, 아래, 왼, 오)
+// 면 = 꼭짓점 4개 (docs/specs/shape-scene.md: 앞, 뒤, 위, 아래, 왼, 오)
 const FACES: VertexIndex[][] = [
   [0, 1, 5, 4], [3, 2, 6, 7], [4, 5, 6, 7], [0, 1, 2, 3], [0, 3, 7, 4], [1, 2, 6, 5],
 ]
@@ -42,7 +42,7 @@ function build(api: any) {
   for (let i = 0; i < 8; i++) run(`V_${i} = ${c(i)}`)
 
   // 밑면(전개도에서 고정되는 면)을 앞면으로, 첫 모서리를 오른쪽 면과 맞닿은 1-5 로 잡으면
-  // 뒷면이 오른쪽 면에 붙어서 docs/02-specs.md 의 cross 배치가 된다
+  // 뒷면이 오른쪽 면에 붙어서 docs/specs/shape-scene.md 의 cross 배치가 된다
   const beforePrism = names()
   run('box = Prism(V_1, V_5, V_4, V_0, V_2)')
   const beforeNet = names()

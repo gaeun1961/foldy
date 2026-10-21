@@ -19,4 +19,4 @@
 - [ ] 사진별 결과(맞은 필드, 자주 틀리는 부분)와 사용한 모델을 `docs/reports/`에 기록했다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` C. ShapeScene
+- 관련 문서: `docs/specs/shape-scene.md` (ShapeScene)

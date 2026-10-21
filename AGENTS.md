@@ -1,108 +1,69 @@
-# Agent Working Agreement
+# AGENTS.md
 
-이 파일은 이 저장소에서 작업하는 모든 팀원과 코딩 에이전트(Claude Code, Codex, Copilot 등)를 위한 공통 합의서입니다.
-어떤 에이전트를 쓰든 같은 기준으로 작업하는 것이 목표입니다.
+모든 팀원과 코딩 에이전트(Claude Code, Codex, Copilot 등)의 공통 작업 합의서다. 프로젝트 소개와 실행 방법은 [README.md](README.md)에 있다.
 
-foldy: 학습지 사진 → 입체도형·전개도 3D 표시, 접는 과정과 면 위 선 위치 시각화, 화면을 조작하며 힌트를 주는 챗봇.
-frontend는 Vite + React + TypeScript + three.js, backend는 FastAPI.
+## 읽기 안내
 
-## 반드시 읽기 (매 작업 전)
-- `docs/01-folder-architecture.md`
-- `docs/02-specs.md`
-- `docs/03-product-plan.md`
-- `docs/todo/00-todo-list.md`
+**항상 읽기** (세션 시작 시): 이 문서, [docs/01-folder-architecture.md](docs/01-folder-architecture.md), [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md), 지금 작업하는 TODO 파일 하나
+
+**필요할 때만 읽기**
+
+| 이런 작업이면 | 이 문서 |
+|---|---|
+| 도형 데이터(ShapeScene)를 만들거나 읽음 | [docs/specs/shape-scene.md](docs/specs/shape-scene.md) |
+| 3D 뷰어 (`frontend/src/viewer/`) | [docs/specs/viewer.md](docs/specs/viewer.md) |
+| API 호출·수정 | [docs/specs/api.md](docs/specs/api.md) |
+| 의존성, 새 모듈, frontend↔backend 경계 | [docs/specs/stack.md](docs/specs/stack.md) |
+| 화면·디자인 (`frontend/src/ui/`) | [docs/specs/ui.md](docs/specs/ui.md) |
+| 범위·대상 사용자 판단 | [docs/03-product-plan.md](docs/03-product-plan.md) |
+| 어떤 spec이 있는지 모를 때 | [docs/02-specs.md](docs/02-specs.md) (목차) |
+
+**기본으로 읽지 않기**: `docs/reports/`(지난 작업 기록), `docs/design/`(시안 이미지). 지난 결정의 이유나 시안이 필요할 때만 찾아본다.
 
 ## 작업 시작 체크리스트
-- 위 필수 문서를 읽었는가
-- `docs/todo/00-todo-list.md`를 확인했는가
-- 우선순위를 지키는가: 1차(직육면체 완성) → 2차(정다면체) → 3차(원기둥·원뿔과 곡면 선). 1차 TODO가 남아 있는데 2·3차를 먼저 가져가지 않는다 (`docs/todo/00-todo-list.md` 단계 칸)
-- 할 TODO의 GitHub 이슈(`docs/todo/00-todo-list.md`의 이슈 칸)에 자기 자신을 assignee로 지정했는가. 이미 assignee가 있는 이슈는 아닌가
+
+- 할 TODO의 이슈에 자기 자신을 assignee로 지정했는가 (`gh issue edit N --add-assignee @me`). 이미 assignee가 있는 이슈는 아닌가
 - 선행 TODO가 모두 끝났는가
-- 폴더 책임과 의존 규칙(`docs/01-folder-architecture.md` B, C)을 지키는가
-- LLM 호출은 backend(`backend/app/ai/`)에서만 하는가
-- UI/스타일링은 일반 CSS(`frontend/src/index.css`) 방식인가
-- 현재 작업과 관련된 TODO가 있으면 해당 `docs/todo/*.md`를 읽고, 내용을 사용자에게 먼저 알린 뒤 이번 요청 범위에 함께 반영할지 확인했는가
+- 우선순위를 지키는가: 1차(직육면체 완성) → 2차(정다면체) → 3차(원기둥·원뿔). 1차가 남아 있으면 2·3차를 먼저 가져가지 않는다
+- 폴더 책임과 의존 규칙(01의 B, C)을 지키는가
+- 요청과 관련된 다른 TODO가 있으면 먼저 사용자에게 알리고, 이번에 같이 할지 물어본 뒤 진행한다. 범위를 나눠 달라고 하면 그 TODO는 건드리지 않는다
 
-## 코드 변경 규칙 (요약)
-- ShapeScene 타입은 `frontend/src/shared/types.ts`, `backend/app/ai/schema.py`에만 정의하고 가져다 쓴다
-- **ShapeScene 변경은 GitHub 이슈로 먼저 합의하고 `docs/02-specs.md`부터 고친다.** 그 뒤 `types.ts`, `schema.py`, 목 데이터(`mock.ts`, `vision.py`)를 같은 PR에서 함께 고친다
-- UI는 `frontend/src/viewer/index.ts`의 `Viewer`, `ViewerProps`만 사용한다 (구현 파일 직접 import 금지)
-- `backend/app/api/` 라우터는 얇게 두고, 로직은 `backend/app/ai/`에 둔다
-- 사진 인식이 실패해도 수동 입력 경로가 동작해야 한다
+## 핵심 규칙
 
-## 명령어
+- **ShapeScene 변경**: 이슈로 먼저 합의 → `docs/specs/shape-scene.md`부터 고침 → `types.ts`, `schema.py`, 목 데이터를 같은 PR에서 함께 고침
+- **ViewerProps 변경**: `docs/specs/viewer.md`에 먼저 적는다
+- **문서 먼저**: 작업이 문서와 다르면 문서부터 고친다. 이 문서와 01·specs·03이 충돌하면 01·specs·03이 우선이다
+- 공통 구현 규칙(LLM 호출 위치, 수동 입력 경로, 뷰어 인터페이스, 목 데이터, 스타일링)은 [docs/specs/stack.md](docs/specs/stack.md)에 있다
+
+## Git 흐름
+
+1. 이슈: TODO 작업이면 그 `[TODO-N]` 이슈, 아니면 새 이슈(제목 `[기능]`/`[문서]`/`[버그]`/`[계약]` ..., 본문 2~3줄)
+2. main에서 브랜치: `{타입}/{이슈번호}-{짧은-설명}` (예: TODO-3 → 이슈 #9 → `feature/9-fold-animation-slider`)
+3. 커밋 메시지는 heredoc 멀티라인으로, 형식은 [.github/pull_request_template.md](.github/pull_request_template.md)를 따른다
+4. PR 본문은 커밋 메시지와 같게 쓰고, 마지막 줄에 `Closes #{이슈번호}`를 넣는다 (머지되면 이슈가 닫힌다)
+
+## 기록 규칙
+
+- **리포트**: PR 하나당 짧게 하나. `docs/reports/yymmdd-HHMM-NN-작업키워드.md` (템플릿 `docs/reports/_template.md`)
+- **TODO 추가**: 한 사람이 반나절~하루에 끝낼 크기로 만든다
+  - 템플릿은 `docs/todo/_template.md`
+  - `[TODO-N] 제목` 이슈를 영역 라벨(`3d`/`ai`/`ui`/`presentation`)과 함께 만들고, assignee는 비운다
+  - `00-todo-list.md`의 해당 표에 한 줄을 넣는다 (단계, 이슈 링크, 선행 TODO가 없으면 🟢)
+- **TODO 완료**: 같은 PR에서 TODO 파일을 지우고, 목록에서 빼고, 리포트를 쓴다
+
+## 검증 (PR 전에)
 
 ```sh
-# frontend
-cd frontend
-npm install
-npm run dev      # 개발 서버 (http://localhost:5173)
-npm run build    # 타입 체크 + 빌드
-npm run lint     # oxlint
-
-# backend (가상환경 활성화 후)
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --env-file .env   # http://localhost:8000
-ruff check .
-ruff format .
-python -m tests.test_schema   # ShapeScene 검증 확인 (schema.py 를 고치면 실행)
+cd frontend && npm run build && npm run lint
+cd backend && ruff check . && ruff format --check . && python -m tests.test_schema
 ```
 
-## Git 작업 방식
-
-1. 이슈 정하기
-   - TODO 작업: 해당 `[TODO-N]` 이슈에 자기 자신을 assignee로 지정 (`gh issue edit {이슈번호} --add-assignee @me`)
-   - TODO 밖의 작업: 이슈 먼저 생성. 제목 `[기능] ...` / `[문서] ...` / `[버그] ...` 등, 본문 2~3줄
-2. main 에서 브랜치: `{타입}/{이슈번호}-{짧은-설명}`. **브랜치와 PR은 그 TODO 이슈 번호를 쓴다** (예: TODO-3 → 이슈 #9 → `feature/9-fold-animation-slider`)
-3. 커밋 메시지는 heredoc 멀티라인, 아래 템플릿
-4. PR 본문은 커밋 메시지와 동일하게, 마지막 줄에 `Closes #{이슈번호}` (머지되면 TODO 이슈가 닫힌다)
-
-```
-{타입}: {요약}
-
-## 어떤 기능인가요
-- ...
-
-## TODOS
-- [x] 한 일
-- [ ] 남은 일
-
-## 참고자료
-- ...
-
-## 타입
-- [ ] chore
-- [ ] docs
-- [ ] feature
-- [ ] fix
-- [ ] refactor
-- [ ] remove
-- [ ] test
-- [ ] UI
-```
-
-타입은 해당하는 것만 `[x]`.
-
-## 문서 업데이트 규칙
-- 구조/스펙/기획 변경 시 해당 문서(01/02/03)를 반드시 업데이트
-- 이번 작업이 문서 내용과 다르면 먼저 문서를 갱신한 뒤 코드 수정
-- **리포트는 PR 하나당 짧게 하나.** `docs/reports`에 `yymmdd-HHMM-NN-작업키워드.md` 형식으로 기록
-- 템플릿: `docs/reports/_template.md`
-- 현재 바로 처리하지 못하지만 추후 반드시 진행해야 하는 작업이 생기면 `docs/todo`에 TODO 문서를 추가 (템플릿: `docs/todo/_template.md`)
-- TODO 하나는 한 사람이 반나절~하루에 끝낼 크기로 나누고, 목표·완료 조건·선행 TODO·이슈 칸을 적는다
-- TODO 추가 시 `[TODO-N] 제목` 이슈를 영역 라벨(`3d` / `ai` / `ui` / `presentation`)과 함께 만들고(assignee는 비움), `docs/todo/00-todo-list.md`의 해당 영역 표에 이슈 링크와 함께 한 줄 추가 (선행 TODO가 없으면 🟢)
-- TODO 완료 시 같은 PR에서 해당 TODO 파일을 삭제하고, `docs/reports/`에 작업 기록을 남기고, `docs/todo/00-todo-list.md`에서도 제거
-- TODO와 관련된 요청을 받으면 우선 `docs/todo/00-todo-list.md`를 확인하고, 관련 항목이 있으면 해당 TODO 문서를 읽은 뒤 사용자에게 관련 TODO 존재 여부와 반영 범위를 먼저 알릴 것
-- 관련 TODO가 현재 요청과 이어질 수 있으면, TODO 내용을 짧게 요약한 뒤 이번 작업에 함께 반영할지 사용자에게 먼저 물어보고 답변을 받은 후 진행할 것
-- 사용자가 범위를 분리해 달라고 하면 현재 요청 범위만 처리하고, 관련 TODO는 건드리지 않을 것
+화면이 바뀌면 `npm run dev`로 띄워서 직접 확인한다.
 
 ## 금지 사항
-- `.env` 커밋 금지 (`.env.example` 만 커밋)
-- frontend 에서 LLM API 직접 호출 금지 (키 노출). 반드시 backend 경유
-- assignee 없이 작업 시작 금지. 작업 전 TODO 이슈에 자기 자신을 assignee로 지정하고 시작한다. assignee가 있는 이슈는 건드리지 않는다
-- `CLAUDE.md` 등 에이전트별 설정 파일을 따로 만들지 말고 이 문서를 고친다
 
-## 참고
-- 이 문서는 에이전트용이므로 간결하게 유지
-- 필요 시 여기에 규칙을 추가하되 01/02/03의 내용과 충돌하면 01/02/03을 우선
+- `.env` 커밋 금지 (`.env.example`만 커밋)
+- frontend에서 LLM API 직접 호출 금지 (키 노출). 반드시 backend를 거친다
+- assignee 없이 TODO 작업을 시작하거나, assignee가 있는 이슈를 건드리는 것 금지
+- `CLAUDE.md` 등 에이전트별 설정 파일을 따로 만들지 않는다. 이 문서를 고친다
+- 이 문서는 짧게 유지한다. 긴 설명은 해당 docs 문서에 쓰고 여기에는 경로만 남긴다

@@ -16,8 +16,8 @@
 ## 완료 조건
 - [ ] 사진을 고르면 `/analyze`를 호출하고, 로딩 중과 에러를 화면에 보여준다. 에러면 수동 입력(TODO-12)으로 안내한다
 - [ ] 업로드 전에는 빈 상태 안내를 보여준다
-- [ ] `frontend/src/shared/mock.ts`를 지우고 backend 응답만 쓴다. `docs/02-specs.md` B의 목 데이터 문구를 맞춘다
+- [ ] `frontend/src/shared/mock.ts`를 지우고 backend 응답만 쓴다. `docs/specs/stack.md`의 목 데이터 문구를 맞춘다
 - [ ] backend 주소는 한 곳에서만 정의한다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` D. API
+- 관련 문서: `docs/specs/api.md`

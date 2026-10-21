@@ -19,4 +19,4 @@
 - [ ] 질문 예시 3개 이상의 답변을 `docs/reports/`에 기록했다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` D. API, `docs/03-product-plan.md` C-4
+- 관련 문서: `docs/specs/api.md`, `docs/03-product-plan.md` C-4

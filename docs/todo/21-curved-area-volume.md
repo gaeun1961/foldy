@@ -20,4 +20,4 @@
 - [ ] 원뿔은 TODO-18이 끝난 뒤에 붙인다 (원기둥 먼저)
 
 ## 참고
-- 관련 문서: `docs/03-product-plan.md` D. 범위, `docs/02-specs.md` C. 곡면 전개도
+- 관련 문서: `docs/03-product-plan.md` D. 범위, `docs/specs/shape-scene.md` (곡면 전개도)
