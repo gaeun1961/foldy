@@ -1,26 +1,22 @@
-# TODO - 면 위 선 긋기
+# TODO - ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게
 
-- 등록 일시: 2026-10-21 09:16 (KST)
+- 등록 일시: 2026-10-21 09:38 (KST)
 - 작성자: gaeun1961
 - 에이전트: Claude Code
-- 진행 시점: 뷰어 플랜 A/B 결정 후 (3D 담당)
+- 영역: 3D 뷰어
+- 이슈: [#10](https://github.com/gaeun1961/foldy/issues/10) (작업 전 assignee 지정)
+- 선행 TODO: TODO-2 `02-face-split-render.md` ([#8](https://github.com/gaeun1961/foldy/issues/8))
 
+> 시작 전에 위 이슈에 자기 자신을 assignee로 지정합니다. 브랜치와 PR은 이 이슈 번호를 씁니다 (`Closes #N`).
 > 완료된 TODO는 이 파일을 삭제하고, `docs/reports/`에 작업 기록을 남깁니다.
 
 ## 목표
-- ShapeScene의 `lines`와 `vertexLabels`를 입체와 전개도에 함께 그려, 접고 펼칠 때 선 위치가 이어지게 한다
+- `scene.lines`의 선분을 해당 면 위에 그리고, 면이 움직이면 선분도 함께 움직이게 한다
 
-## 요구사항
-- 끝점은 `{ vertex }` 또는 `{ edge: [i, j], t }` (`docs/02-specs.md`)
-- 접기 애니메이션 중에도 선이 면을 따라 움직인다
-- 꼭짓점 라벨(ㄱ, ㄴ, ...) 표시
-
-## 작업 요약
-- 끝점 → 3D 좌표 변환 함수 작성 후 선분과 라벨 표시
-
-## 선행조건
-- `01-geogebra-line-test.md` 결정
+## 완료 조건
+- [ ] 목 데이터의 선분 2개(앞면 대각선, 윗면 중점 연결)가 올바른 위치에 그려진다
+- [ ] 끝점 두 형식(`{ vertex }`, `{ edge, t }`)을 모두 처리한다
+- [ ] 선분이 면에 붙어 있어서 면이 접히거나 펴질 때 같이 움직인다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` C. ShapeScene
-- todo-list 한 줄 요약: 면 위 선분·꼭짓점 라벨을 입체와 전개도에 함께 표시
+- 관련 문서: `docs/02-specs.md` C. 선분 끝점

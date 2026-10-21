@@ -24,22 +24,18 @@ copy .env.example .env        # macOS/Linux: cp .env.example .env, 그 뒤 값 �
 uvicorn app.main:app --reload --env-file .env
 ```
 
-## 역할 분담
+## 일하는 방식
 
-| 역할 | 담당 폴더 |
-|---|---|
-| AI (사진 인식·챗봇) | `backend/app/ai/` |
-| 3D 뷰어 | `frontend/src/viewer/` |
-| UI·통합 | `frontend/src/ui/`, `backend/app/api/` |
-
-자세한 담당 범위: [docs/01-folder-architecture.md](docs/01-folder-architecture.md)
+폴더별 담당은 없습니다. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md)에서 TODO(반나절~하루 크기)를 하나 골라, 연결된 GitHub 이슈에 자기 자신을 assignee로 지정하고 시작합니다. assignee가 있는 이슈는 건드리지 않습니다.
+브랜치와 PR은 그 이슈 번호를 쓰고, PR 본문에 `Closes #이슈번호`를 넣습니다.
+TODO는 3D 뷰어 / AI / UI·통합 / 발표 영역으로 묶여 있고, 🟢 표시는 선행 TODO 없이 바로 시작할 수 있는 항목입니다.
 
 ## 문서
 
 작업 전에 [AGENTS.md](AGENTS.md)와 아래 문서를 먼저 읽습니다.
 
-- [docs/01-folder-architecture.md](docs/01-folder-architecture.md): 폴더 구조, 폴더별 담당
+- [docs/01-folder-architecture.md](docs/01-folder-architecture.md): 폴더 구조, 폴더별 책임
 - [docs/02-specs.md](docs/02-specs.md): 기술 스택, 구현 규칙, ShapeScene 데이터 계약, API
 - [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 1차 범위
-- [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md): 남은 작업 목록
+- [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md): 남은 작업 목록, TODO 이슈 링크
 - [docs/reports/](docs/reports/): PR별 작업 기록
