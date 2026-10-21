@@ -1,37 +1,84 @@
-import { useEffect, useRef } from 'react'
-import { foldPercent, unfoldOf } from './foldStatus.ts'
+import { useEffect, useRef, useState } from 'react'
+import type { ViewerProps } from '../viewer'
+import { foldPercent, stepTargets, unfoldOf } from './foldStatus.ts'
 
-// 접기 슬라이더 + 펼치기·접기 버튼 (docs/specs/ui.md). 값은 뷰어의 펼침 값 s (0 = 입체, 1 = 전개도).
+// 접기 슬라이더 + 펼치기·접기 버튼 + 단계별/한 번에 + 속도 (docs/specs/ui.md). 값은 뷰어의 펼침 값 s (0 = 입체, 1 = 전개도).
+// 단계별은 면을 하나씩 접고 단계 사이에 잠깐 멈춘다 (ui.md 친절한 설명 원칙)
+export type FoldMode = NonNullable<ViewerProps['foldMode']>
 interface Props {
   unfold: number
   onChange: (unfold: number) => void
+  mode: FoldMode
+  onModeChange: (mode: FoldMode) => void
+  steps: number // 단계 수 (0 이면 단계별 접기 없음)
 }
 
-const FULL_MS = 1500 // 끝에서 끝까지 걸리는 시간
+// 속도별 시간. 보통도 TODO-3 처음 버전(끝까지 1.5초)보다 느리다
+const SPEEDS = {
+  slow: { label: '느리게', allMs: 5000, stepMs: 1800, pauseMs: 700 },
+  normal: { label: '보통', allMs: 3000, stepMs: 1200, pauseMs: 500 },
+  fast: { label: '빠르게', allMs: 1500, stepMs: 700, pauseMs: 300 },
+}
+type Speed = keyof typeof SPEEDS
 
-export function FoldControls({ unfold, onChange }: Props) {
+const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2) // ease-in-out
+
+export function FoldControls({ unfold, onChange, mode, onModeChange, steps }: Props) {
+  const [speed, setSpeed] = useState<Speed>('normal')
   const frame = useRef(0)
   const stop = () => cancelAnimationFrame(frame.current)
   useEffect(() => stop, [])
 
-  // 지금 위치에서 target 까지 부드럽게. 남은 거리에 비례한 시간
-  const animateTo = (target: number) => {
+  // targets 를 차례로 지나간다. 구간마다 이징, 구간 사이에 pauseMs 멈춤. 시간은 거리에 비례 (펼침 값 1 당 msPerUnit)
+  const play = (targets: number[], msPerUnit: number, pauseMs: number) => {
     stop()
-    const from = unfold
-    const ms = Math.abs(target - from) * FULL_MS
-    const t0 = performance.now()
+    if (targets.length === 0) return
+    let from = unfold
+    let i = 0
+    let t0 = performance.now()
     const step = (now: number) => {
-      const t = Math.min(1, (now - t0) / ms)
-      const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2 // ease-in-out
-      onChange(from + (target - from) * eased)
-      if (t < 1) frame.current = requestAnimationFrame(step)
+      const to = targets[i]
+      const ms = Math.abs(to - from) * msPerUnit
+      const t = ms > 0 ? Math.min(1, Math.max(0, (now - t0) / ms)) : 1
+      onChange(t < 1 ? from + (to - from) * ease(t) : to)
+      if (t >= 1) {
+        if (++i >= targets.length) return
+        from = to
+        t0 = now + pauseMs
+      }
+      frame.current = requestAnimationFrame(step)
     }
     frame.current = requestAnimationFrame(step)
+  }
+
+  const stepMode = mode === 'step' && steps > 0
+  const { allMs, stepMs, pauseMs } = SPEEDS[speed]
+  const go = (dir: 'fold' | 'unfold', oneStep = false) => {
+    if (!stepMode) return play([dir === 'fold' ? 0 : 1], allMs, 0)
+    const targets = stepTargets(unfold, steps, dir)
+    play(oneStep ? targets.slice(0, 1) : targets, stepMs * steps, pauseMs)
   }
 
   const percent = foldPercent(unfold)
   return (
     <div className="fold-controls">
+      {steps > 0 && (
+        <div className="toggle-row" role="group" aria-label="접는 방식">
+          {(['step', 'all'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mode === m}
+              onClick={() => {
+                stop()
+                onModeChange(m)
+              }}
+            >
+              {m === 'step' ? '단계별' : '한 번에'}
+            </button>
+          ))}
+        </div>
+      )}
       <label className="slider-row">
         <span>접기</span>
         <output>{percent}%</output>
@@ -49,13 +96,43 @@ export function FoldControls({ unfold, onChange }: Props) {
         />
       </label>
       <div className="fold-buttons">
-        <button type="button" className="secondary" disabled={percent <= 0} onClick={() => animateTo(1)}>
+        <button type="button" className="secondary" disabled={percent <= 0} onClick={() => go('unfold')}>
           ◀ 펼치기
         </button>
-        <button type="button" className="primary" disabled={percent >= 100} onClick={() => animateTo(0)}>
+        <button type="button" className="primary" disabled={percent >= 100} onClick={() => go('fold')}>
           접기 ▶
         </button>
       </div>
+      {stepMode && (
+        <div className="fold-buttons">
+          <button type="button" className="secondary" disabled={percent <= 0} onClick={() => go('unfold', true)}>
+            이전 단계
+          </button>
+          <button type="button" className="secondary" disabled={percent >= 100} onClick={() => go('fold', true)}>
+            다음 단계
+          </button>
+        </div>
+      )}
+      <div className="toggle-row" role="group" aria-label="속도">
+        {(Object.keys(SPEEDS) as Speed[]).map((s) => (
+          <button key={s} type="button" aria-pressed={speed === s} onClick={() => setSpeed(s)}>
+            {SPEEDS[s].label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// 3D 뷰 구석의 단계 표시: 단계 수만큼 점. 다 접힌 단계는 채우고, 접히는 중인 단계는 크게. 글은 없다
+export function StepDots({ unfold, steps }: { unfold: number; steps: number }) {
+  const at = (1 - unfold) * steps
+  const done = Math.floor(at + 1e-6)
+  return (
+    <div className="step-dots" role="img" aria-label={`${steps}단계 중 ${done}단계 접음`}>
+      {[...Array(steps).keys()].map((k) => (
+        <span key={k} className={k < done ? 'done' : k < at ? 'current' : ''} />
+      ))}
     </div>
   )
 }

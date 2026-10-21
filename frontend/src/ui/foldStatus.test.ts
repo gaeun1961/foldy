@@ -1,5 +1,5 @@
 // 상태 배지 문구 검사. 실행: frontend 폴더에서 `npm test`
-import { foldPercent, foldStatus, unfoldOf } from './foldStatus.ts'
+import { foldPercent, foldStatus, stepTargets, unfoldOf } from './foldStatus.ts'
 
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
@@ -20,4 +20,15 @@ eq(foldStatus('cylinder', 0).text, '빈틈없이 원기둥이 됐어요')
 eq(foldStatus('cone', 0).text, '빈틈없이 원뿔이 됐어요')
 // 반올림 경계: 99.6% 는 "접는 중"이 아니라 다 접힘으로 보인다 (슬라이더와 숫자가 같게)
 eq(foldStatus('cube', 0.004).done, true)
-console.log('ok: 접기 % 방향, 상태 배지 문구, 조사')
+
+// 단계 경계: 5단계, 펼침 값 1 → 0.8 → 0.6 → 0.4 → 0.2 → 0
+const near = (a: number[], b: number[]) => check(a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-9), `${a} != ${b}`)
+near(stepTargets(1, 5, 'fold'), [0.8, 0.6, 0.4, 0.2, 0])
+near(stepTargets(1, 5, 'unfold'), [])
+near(stepTargets(0, 5, 'fold'), [])
+near(stepTargets(0, 5, 'unfold'), [0.2, 0.4, 0.6, 0.8, 1])
+near(stepTargets(unfoldOf(40), 5, 'fold'), [0.4, 0.2, 0]) // 경계(접기 40%) 위: 그 경계는 건너뜀
+near(stepTargets(unfoldOf(40), 5, 'unfold'), [0.8, 1])
+near(stepTargets(0.5, 5, 'fold'), [0.4, 0.2, 0]) // 단계 중간(슬라이더로 옮김): 가까운 경계부터
+near(stepTargets(0.5, 5, 'unfold'), [0.6, 0.8, 1])
+console.log('ok: 접기 % 방향, 상태 배지 문구, 조사, 단계 경계')

@@ -19,6 +19,7 @@
 - **TODO-12** [수동 입력: 도형 드롭다운 + 치수 슬라이더](12-manual-input-form.md) · [#18](https://github.com/gaeun1961/foldy/issues/18) — UI: 인식이 틀렸을 때 도형과 치수를 바로 고친다
 - **TODO-13** [챗봇 대화창 UI, /chat 연결](13-chat-ui.md) · [#19](https://github.com/gaeun1961/foldy/issues/19) — UI: 질문을 보내고 답을 대화로 본다
 - **TODO-26** [직육면체 부피 시각화](26-cuboid-volume.md) · [#41](https://github.com/gaeun1961/foldy/issues/41) — 3D: 단위 정육면체를 한 층씩 쌓아 가로×세로×높이를 보여준다 (1차 다른 TODO보다 뒤)
+- **TODO-25** [직육면체 겉넓이 시각화](25-cuboid-surface-area.md) · [#40](https://github.com/gaeun1961/foldy/issues/40) — 3D: 마주 보는 면 쌍을 차례로 칠하고 2×(ab+bc+ca)를 보여준다 (1차 다른 TODO보다 뒤)
 
 ## 진행 중
 
@@ -26,7 +27,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 담당자 |
 |---|---|---|
-| **TODO-24** [단계별 접기와 속도 조절](24-step-fold.md) | [#39](https://github.com/gaeun1961/foldy/issues/39) | gaeun1961 |
+| (없음) | | |
 
 ## 1차 남은 일
 
@@ -39,7 +40,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 | **TODO-10** [챗봇이 화면 조작 명령을 함께 반환 (하이라이트, 슬라이더 값)](10-chatbot-view-commands.md) | [#16](https://github.com/gaeun1961/foldy/issues/16) | TODO-3, TODO-5, TODO-9 |
 | **TODO-14** [전체 화면 디자인 정리](14-screen-design.md) | [#20](https://github.com/gaeun1961/foldy/issues/20) | TODO-11, TODO-12, TODO-13 |
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | TODO-8, TODO-10, TODO-14 |
-| **TODO-25** [직육면체 겉넓이 시각화](25-cuboid-surface-area.md) (1차 다른 TODO보다 뒤) | [#40](https://github.com/gaeun1961/foldy/issues/40) | TODO-24 |
 
 ## 나중에 (2차·3차)
 

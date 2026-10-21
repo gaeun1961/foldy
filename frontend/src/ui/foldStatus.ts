@@ -16,6 +16,16 @@ export const SHAPE_NAME: Record<ShapeKind, string> = {
 export const foldPercent = (unfold: number) => Math.round((1 - unfold) * 100)
 export const unfoldOf = (percent: number) => 1 - percent / 100
 
+// 단계별 접기 버튼이 지나갈 단계 경계(펼침 값)들, 가까운 것부터. 단계 n 개면 경계는 s = 1 − k/n (k = 0..n).
+// 'fold' 는 s 가 줄어드는 쪽(접기 ▶, 다음 단계), 'unfold' 는 늘어나는 쪽. 경계 위에 있으면 그 경계는 건너뛴다
+export function stepTargets(unfold: number, n: number, dir: 'fold' | 'unfold') {
+  const at = (1 - unfold) * n // 지금까지 접힌 단계 수 (소수)
+  const out: number[] = []
+  if (dir === 'fold') for (let k = Math.floor(at + 1e-6) + 1; k <= n; k++) out.push(1 - k / n)
+  else for (let k = Math.ceil(at - 1e-6) - 1; k >= 0; k--) out.push(1 - k / n)
+  return out
+}
+
 // 받침이 있으면 "이", 없으면 "가" (원기둥이 / 직육면체가)
 function subjectParticle(word: string) {
   const code = word.charCodeAt(word.length - 1) - 0xac00

@@ -1,8 +1,8 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, layOnFloor } from './faceTree.ts'
-import { polyhedronOf } from './polyhedra.ts'
+import { applyUnfold, buildFaceTree, layOnFloor, stepUnfold } from './faceTree.ts'
+import { foldOrderOf, foldStepCount, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { ShapeScene } from '../shared/types.ts'
 
 const EPS = 1e-9
@@ -64,10 +64,46 @@ function checkBox(scene: ShapeScene, w: number, d: number, h: number) {
   tree.root.updateMatrixWorld(true)
   const ys = tree.nodes.flatMap((n) => worldPoints(n.mesh).map((p) => p.y))
   check(Math.min(...ys) > -EPS && Math.abs(Math.max(...ys) - d) < EPS, `${scene.shape}: 접은 상자가 바닥 위에 서 있지 않음`)
+
+  checkStepFold(scene, poly, tree)
+}
+
+// 단계별 접기 (viewer.md "단계별 접기")
+function checkStepFold(scene: ShapeScene, poly: Polyhedron, tree: ReturnType<typeof buildFaceTree>) {
+  const order = foldOrderOf(poly)
+  const nonRoot = poly.faces.flatMap((f, i) => (f.parent === undefined ? [] : [i]))
+  check(order.length === nonRoot.length && nonRoot.every((i) => order.includes(i)), `${scene.shape}: foldOrder 가 루트 아닌 면을 한 번씩 담지 않음`)
+  order.forEach((face, k) => {
+    const parent = poly.faces[face].parent!
+    check(poly.faces[parent].parent === undefined || order.indexOf(parent) < k, `${scene.shape} 면 ${face}: 부모보다 먼저 접힘`)
+  })
+
+  const n = order.length
+  const count = poly.faces.length
+  check(stepUnfold(order, count, 1).every((v) => v === 1) && stepUnfold(order, count, 0).every((v) => v === 0), `${scene.shape}: 단계별 끝값`)
+  const mid = stepUnfold(order, count, 1 - 1.5 / n) // 첫 면 다 접힘, 둘째 면 반, 나머지 펼침
+  check(Math.abs(mid[order[0]]) < EPS && Math.abs(mid[order[1]] - 0.5) < EPS && order.slice(2).every((f) => mid[f] === 1), `${scene.shape}: 단계 중간값 ${mid}`)
+
+  // 단계 경계 k 마다: 순서상 앞의 k 개 면은 입체 좌표, 나머지 면은 펼침 값 1
+  for (let k = 0; k <= n; k++) {
+    const values = stepUnfold(order, count, 1 - k / n)
+    check(order.every((f, j) => Math.abs(values[f] - (j < k ? 0 : 1)) < EPS), `${scene.shape}: ${k}단계 값 ${values}`)
+    tree.root.position.set(0, 0, 0)
+    tree.root.quaternion.identity()
+    applyUnfold(tree, values)
+    tree.root.updateMatrixWorld(true)
+    for (const face of order.slice(0, k)) {
+      const node = tree.nodes[face]
+      const expected = node.vertices.map((i) => new THREE.Vector3(...poly.positions[i]))
+      check(worldPoints(node.mesh).every((p) => expected.some((e) => e.distanceTo(p) < EPS)), `${scene.shape} ${k}단계 면 ${face}: 접힌 좌표가 다름`)
+    }
+  }
 }
 
 const base = { vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' as const } }
 checkBox({ ...base, shape: 'cuboid', size: { width: 4, depth: 2, height: 3 } }, 4, 2, 3)
 checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
-check(polyhedronOf({ shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }) === null, '곡면 도형은 면 트리가 없어야 함')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기)')
+const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
+check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
+check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기)')

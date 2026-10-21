@@ -91,6 +91,52 @@ h2 {
 .fold-buttons .secondary { border: 1px solid #d0d5dd; background: #fff; color: #1f2430; }
 .fold-buttons button:disabled { opacity: 0.4; cursor: default; }
 
+/* 단계별/한 번에, 속도: 붙어 있는 버튼 묶음. 고른 것만 파랗게 */
+.toggle-row {
+  display: flex;
+  margin: 12px 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.toggle-row:first-child { margin-top: 0; }
+.toggle-row button {
+  flex: 1;
+  min-height: 48px;
+  border: 0;
+  border-left: 1px solid #d0d5dd;
+  background: #fff;
+  color: #1f2430;
+  font-size: 16px;
+  cursor: pointer;
+}
+.toggle-row button:first-child { border-left: 0; }
+.toggle-row button[aria-pressed='true'] { background: #3d6fd9; color: #fff; font-weight: 700; }
+
+/* 3D 뷰 오른쪽 위 단계 표시 (글 없이 점만) */
+.step-dots {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+.step-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #b9bdc4;
+  box-sizing: border-box;
+  transition: transform 0.2s;
+}
+.step-dots span.done { background: #3d6fd9; border-color: #3d6fd9; }
+.step-dots span.current { background: #ffd982; border-color: #e0a400; transform: scale(1.5); }
+
 @media (max-width: 800px) {
   .layout {
     grid-template: 'head' auto 'upload' auto 'viewer' 80vh 'chat' auto / 1fr;

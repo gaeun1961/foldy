@@ -2,21 +2,24 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
-import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, type FaceTree } from './faceTree.ts'
-import { polyhedronOf } from './polyhedra.ts'
+import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, stepUnfold } from './faceTree.ts'
+import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
+
+const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 
 // three.js 뷰어: 다면체를 면 트리(polyhedra.ts)로 그려 바닥에 눕히고, unfold 값만큼 펼친다. 마우스로 돌려 볼 수 있다.
+// 단계별 접기(foldMode = 'step')는 면을 하나씩 접고 지금 접히는 면을 강조한다 (docs/specs/viewer.md)
 // TODO(3D): 선(TODO-4), 하이라이트(TODO-5), 맞닿는 모서리 색(TODO-22), 곡면 도형(TODO-17)
-export function ThreeViewer({ scene, unfold = 0 }: ViewerProps) {
+export function ThreeViewer({ scene, unfold = 0, foldMode = 'all' }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const treeRef = useRef<FaceTree | null>(null)
-  const unfoldRef = useRef(unfold) // 도형을 새로 만들 때 지금 펼침 값으로 시작하려고
+  const viewRef = useRef({ unfold, foldMode }) // 도형을 새로 만들 때 지금 값으로 시작하려고
+  const applyRef = useRef<(() => void) | null>(null)
 
-  // unfold 만 바뀌면 다시 만들지 않고 회전만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
+  // unfold·foldMode 만 바뀌면 다시 만들지 않고 회전과 강조만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    unfoldRef.current = unfold
-    if (treeRef.current) applyUnfold(treeRef.current, unfold)
-  }, [unfold])
+    viewRef.current = { unfold, foldMode }
+    applyRef.current?.()
+  }, [unfold, foldMode])
 
   useEffect(() => {
     const poly = polyhedronOf(scene)
@@ -33,24 +36,75 @@ export function ThreeViewer({ scene, unfold = 0 }: ViewerProps) {
 
     // 면 바깥은 흰색, 안쪽은 아주 연한 하늘색, 모서리는 진한 회색 (docs/specs/ui.md 색 기준)
     const faceStyle = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } // 모서리 선이 면에 묻혀 깜빡이지 않게
-    const outsideMaterial = new THREE.MeshStandardMaterial({ ...faceStyle, color: '#ffffff', side: THREE.FrontSide })
-    const insideMaterial = new THREE.MeshStandardMaterial({ ...faceStyle, color: '#e3f1fb', side: THREE.BackSide })
-    const edgeMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
-    const tree = buildFaceTree(poly, [outsideMaterial, insideMaterial], edgeMaterial)
+    // 단계별 접기에서는 지금 접히는 면을 연한 노랑, 나머지를 배경에 가까운 색으로 (ui.md 색 기준)
+    const look = (outside: string, inside: string, edge: string) => ({
+      faces: [
+        new THREE.MeshStandardMaterial({ ...faceStyle, color: outside, side: THREE.FrontSide }),
+        new THREE.MeshStandardMaterial({ ...faceStyle, color: inside, side: THREE.BackSide }),
+      ] as [THREE.Material, THREE.Material],
+      edge: new THREE.LineBasicMaterial({ color: edge }),
+    })
+    const looks = {
+      normal: look('#ffffff', '#e3f1fb', '#3c4048'),
+      active: look('#ffe8a8', '#ffd982', '#3c4048'),
+      faded: look('#f1eee8', '#ebe8e2', '#b9bdc4'),
+    }
+    const tree = buildFaceTree(poly, looks.normal.faces, looks.normal.edge)
     layOnFloor(tree, poly) // 전개도를 바닥에 눕힌다. 접으면 면이 위로 일어선다 (docs/specs/viewer.md)
     world.add(tree.root)
+    const order = foldOrderOf(poly)
 
-    // 다 접은 모양과 다 펼친 모양을 모두 담는 범위의 가운데를 보고, 전체가 화면에 들어오는 거리에 둔다.
-    // 그래서 펼치고 접는 동안 카메라를 옮기지 않아도 화면 밖으로 나가지 않는다
+    // 다 접은 모양, 다 펼친 모양, 두 방식의 중간 모양을 모두 담는 범위의 가운데를 보고, 전체가 화면에 들어오는 거리에 둔다.
+    // 그래서 펼치고 접는 동안 카메라를 옮기지 않아도 화면 밖으로 나가지 않는다 (단계별 중간 모양은 더 높이 솟을 수 있다)
     const bounds = new THREE.Box3()
-    for (const s of [0, 1]) {
-      applyUnfold(tree, s)
-      bounds.expandByObject(tree.root)
+    for (let k = 0; k <= 2 * order.length; k++) {
+      const s = 1 - k / (2 * order.length)
+      for (const values of [s, stepUnfold(order, poly.faces.length, s)]) {
+        applyUnfold(tree, values)
+        bounds.expandByObject(tree.root)
+      }
     }
-    applyUnfold(tree, unfoldRef.current)
-    treeRef.current = tree
     const center = bounds.getCenter(new THREE.Vector3())
     const radius = bounds.getBoundingSphere(new THREE.Sphere()).radius
+
+    // 회전축 모서리를 굵게: 붙는 모서리를 따라 가는 원기둥. pivot 에 붙이면 축 위에 있어서 회전해도 그 자리다
+    const barMaterial = new THREE.MeshBasicMaterial({ color: '#3c4048' })
+    const bars = new Map<number, THREE.Mesh>()
+    for (const n of tree.nodes) {
+      if (!n.pivot) continue
+      const [a, b] = poly.faces[n.face].hinge!.map((i) => new THREE.Vector3(...poly.positions[i]))
+      const length = a.distanceTo(b)
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.012, radius * 0.012, length, 12), barMaterial)
+      bar.position.copy(n.axis!).multiplyScalar(length / 2)
+      bar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n.axis!)
+      bar.visible = false
+      n.pivot.add(bar)
+      bars.set(n.face, bar)
+    }
+
+    // 펼침 값 적용 + 강조. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
+    let active: number | null = null
+    const apply = () => {
+      const { unfold, foldMode } = viewRef.current
+      if (foldMode === 'step') {
+        const values = stepUnfold(order, poly.faces.length, unfold)
+        applyUnfold(tree, values)
+        const moving = order.find((f) => values[f] > MOVING && values[f] < 1 - MOVING)
+        if (moving !== undefined) active = moving
+        else if (unfold < MOVING || unfold > 1 - MOVING) active = null
+      } else {
+        applyUnfold(tree, unfold)
+        active = null
+      }
+      for (const n of tree.nodes) {
+        const { faces, edge } = active === null ? looks.normal : n.face === active ? looks.active : looks.faded
+        n.mesh.material = faces
+        ;(n.mesh.children[0] as THREE.LineLoop).material = edge
+      }
+      for (const [face, bar] of bars) bar.visible = face === active
+    }
+    apply()
+    applyRef.current = apply
 
     // 밝고 부드러운 조명: 위아래 은은한 환경광 + 비스듬한 위쪽 빛 하나(그림자)
     world.add(new THREE.HemisphereLight('#ffffff', '#efe9df', 1.8))
@@ -104,12 +158,13 @@ export function ThreeViewer({ scene, unfold = 0 }: ViewerProps) {
     })
 
     return () => {
-      treeRef.current = null
+      applyRef.current = null
       renderer.setAnimationLoop(null)
       observer.disconnect()
       controls.dispose()
       disposeFaceTree(tree)
-      for (const m of [outsideMaterial, insideMaterial, edgeMaterial, shadowFloor.material, grid.material]) m.dispose()
+      const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
+      for (const m of [...lookMaterials, barMaterial, shadowFloor.material, grid.material]) m.dispose()
       shadowFloor.geometry.dispose()
       grid.geometry.dispose()
       light.shadow.map?.dispose()

@@ -15,7 +15,11 @@ export interface FaceDef {
 export interface Polyhedron {
   positions: Vec3[] // 꼭짓점 인덱스 → 접힌 상태의 좌표 (three.js: x 가로, y 높이, z 깊이, 앞면 +z)
   faces: FaceDef[]
+  foldOrder?: number[] // 단계별 접기 순서 (루트가 아닌 면 인덱스, 부모가 먼저). 없으면 면 인덱스 순서
 }
+
+// 단계별 접기 순서 (docs/specs/viewer.md "단계별 접기")
+export const foldOrderOf = (poly: Polyhedron) => poly.foldOrder ?? poly.faces.flatMap((f, i) => (f.parent === undefined ? [] : [i]))
 
 // 직육면체·정육면체 (docs/specs/shape-scene.md 꼭짓점 규칙, viewer.md 면 트리 표)
 function boxPositions(w: number, d: number, h: number): Vec3[] {
@@ -33,12 +37,13 @@ const BOX_FACES: FaceDef[] = [
   { vertices: [0, 3, 2, 1], parent: 0, hinge: [0, 1], dihedral: 90 }, // 4 아랫면
   { vertices: [3, 7, 6, 2], parent: 2, hinge: [2, 6], dihedral: 90 }, // 5 뒷면 (오른쪽에 붙음)
 ]
+const BOX_FOLD_ORDER = [1, 2, 5, 3, 4] // 왼쪽 → 오른쪽 → 뒷면 → 윗면 → 아랫면
 
 type SizeOf<S extends ShapeKind> = S extends 'cuboid' ? BoxSize : S extends 'cylinder' | 'cone' ? RoundSize : EdgeSize
 
 const POLYHEDRA: { [S in ShapeKind]?: (size: SizeOf<S>) => Polyhedron } = {
-  cuboid: ({ width, depth, height }) => ({ positions: boxPositions(width, depth, height), faces: BOX_FACES }),
-  cube: ({ edge }) => ({ positions: boxPositions(edge, edge, edge), faces: BOX_FACES }),
+  cuboid: ({ width, depth, height }) => ({ positions: boxPositions(width, depth, height), faces: BOX_FACES, foldOrder: BOX_FOLD_ORDER }),
+  cube: ({ edge }) => ({ positions: boxPositions(edge, edge, edge), faces: BOX_FACES, foldOrder: BOX_FOLD_ORDER }),
   // TODO-16: 정다면체 4종을 여기에 추가
 }
 
@@ -46,4 +51,10 @@ const POLYHEDRA: { [S in ShapeKind]?: (size: SizeOf<S>) => Polyhedron } = {
 export function polyhedronOf(scene: ShapeScene): Polyhedron | null {
   const make = POLYHEDRA[scene.shape] as ((size: ShapeScene['size']) => Polyhedron) | undefined
   return make ? make(scene.size) : null
+}
+
+// 단계별 접기의 단계 수. 면 트리가 없는 도형은 0
+export function foldStepCount(scene: ShapeScene) {
+  const poly = polyhedronOf(scene)
+  return poly ? foldOrderOf(poly).length : 0
 }
