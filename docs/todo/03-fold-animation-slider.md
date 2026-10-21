@@ -1,6 +1,6 @@
 # TODO - 접기 애니메이션 + 슬라이더
 
-- 등록 일시: 2026-10-21 09:38 (KST), 2026-10-21 11:35 TODO-1 결과(플랜 A)로 내용 변경
+- 등록 일시: 2026-10-21 09:38 (KST), TODO-1 결과(최종 플랜 B)로 내용 변경
 - 작성자: gaeun1961
 - 에이전트: Claude Code
 - 영역: 3D 뷰어
@@ -14,10 +14,11 @@
 - 슬라이더로 직육면체(접힘)와 십자형 전개도(펼침) 사이를 오가며 접히는 과정을 보여준다
 
 ## 완료 조건
-- [ ] GeoGebra `Net(box, s)`의 `s`를 화면의 슬라이더와 연결한다. **0 = 직육면체(접힘), 1 = 십자형 전개도(펼침)** (GeoGebra 기준)
-- [ ] "펼치기/접기" 버튼으로 0↔1 애니메이션 (`requestAnimationFrame` + `api.setValue('s', …)`, lab 참고)
-- [ ] 펼침 정도를 `ViewerProps`로 밖에서 넣을 수 있다 (챗봇 화면 조작 TODO-10에서 사용). props 변경은 `docs/02-specs.md`에 먼저 적는다
+- [ ] 펼침 값 `s`(0 = 직육면체, 1 = 전개도)에 따라 각 면 pivot이 회전축을 중심으로 `s × 90°` 회전한다
+- [ ] 화면에 슬라이더가 있고, 움직이면 면이 연속으로 접히고 펴진다
+- [ ] "펼치기/접기" 버튼으로 0↔1 애니메이션이 된다 (`requestAnimationFrame`)
+- [ ] 펼침 정도를 `ViewerProps`로 밖에서 넣을 수 있다 (챗봇 화면 조작 TODO-10에서 사용). 값은 숫자 하나로 두고, props 변경은 `docs/02-specs.md`에 먼저 적는다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B(GeoGebra 규칙), C. 전개도 `cross`
-- lab에서 확인: `api.setValue('s', v)`로 JS에서 바꿀 수 있고, `registerObjectUpdateListener('s', …)`로 변화를 받을 수 있다
+- 관련 문서: `docs/02-specs.md` B(three.js 뷰어 규칙), C. 전개도 `cross`
+- 동작 참고: `frontend/lab/geogebra.html`의 슬라이더와 애니메이션 버튼

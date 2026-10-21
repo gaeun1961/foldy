@@ -1,6 +1,6 @@
-# TODO - GeoGebra 뷰어 기본 구현 (ShapeScene → 직육면체·전개도)
+# TODO - three.js 면 6개 계층 구조 렌더링
 
-- 등록 일시: 2026-10-21 09:38 (KST), 2026-10-21 11:35 TODO-1 결과(플랜 A)로 내용 변경
+- 등록 일시: 2026-10-21 09:38 (KST), TODO-1 결과(최종 플랜 B)로 내용 변경
 - 작성자: gaeun1961
 - 에이전트: Claude Code
 - 영역: 3D 뷰어
@@ -11,17 +11,15 @@
 > 완료된 TODO는 이 파일을 삭제하고, `docs/reports/`에 작업 기록을 남깁니다.
 
 ## 목표
-- `frontend/lab/geogebra.ts`의 실험 코드를 서비스용 `GeoGebraViewer`로 옮겨, ShapeScene을 GeoGebra 직육면체 + 전개도(면 6개)로 그린다
+- `ThreeViewer`의 직육면체를 하나의 상자 대신 면 6개로 만들고, cross 배치 기준의 부모-자식 계층과 회전축(pivot)을 잡아 TODO-3~6이 그 위에 올라가게 한다
 
 ## 완료 조건
-- [ ] `frontend/src/viewer/GeoGebraViewer.tsx`가 `ViewerProps`를 구현하고, `scene`이 바뀌면 다시 그린다
-- [ ] `docs/02-specs.md` B의 GeoGebra 규칙대로 그린다: 앞면을 밑면으로 `Prism` → `Net(box, s)`, 원래 직육면체는 숨김
-- [ ] 전개도 점 → 원래 꼭짓점 인덱스, 전개도 면 → 원래 면 대응 표를 만든다 (TODO-3~6이 이 표를 쓴다)
-- [ ] `vertexLabels`를 같은 꼭짓점의 전개도 복사본 모두에 라벨로 표시한다
-- [ ] GeoGebra 로딩 중 표시와 로드 실패 메시지가 있다. GeoGebra 버전(codebase)을 고정한다
-- [ ] "Made with GeoGebra®" 표기와 geogebra.org 링크가 화면에 있다
-- [ ] `viewer/index.ts`의 export를 `GeoGebraViewer`로 바꾸고, `ThreeViewer.tsx`와 `three` 의존성을 지운다
+- [ ] 면 6개가 `docs/02-specs.md` B "three.js 뷰어 규칙"의 표대로 부모-자식 계층을 이룬다 (앞면 고정, 뒷면은 오른쪽의 자식)
+- [ ] 각 면은 접히는 모서리 위치에 pivot `Group`을 두고, 그 안에 면 메시를 배치한다. 회전각이 0이면 지금과 같은 직육면체로 보인다
+- [ ] 각 면이 자기 꼭짓점 인덱스 4개를 알고 있다 (`(면, 꼭짓점)` 복사본 매핑의 기초. TODO-4~6에서 사용)
+- [ ] 회전각을 임시로 90°로 바꿔 보면 C의 `cross` 모양으로 펼쳐지는 것을 확인했다 (슬라이더는 TODO-3)
+- [ ] 마우스 회전(`OrbitControls`)은 그대로 동작한다. `ViewerProps`는 바꾸지 않는다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` A, B(GeoGebra 규칙), `frontend/lab/geogebra.ts`의 `build()`
-- React StrictMode에서 effect가 두 번 돌면 applet이 두 번 inject될 수 있으니 정리(cleanup) 처리 확인
+- 관련 문서: `docs/02-specs.md` B(three.js 뷰어 규칙), C. 꼭짓점 인덱스 규칙, 전개도 `cross`
+- 펼친 모양 참고: `frontend/lab/geogebra.html`에서 s = 1

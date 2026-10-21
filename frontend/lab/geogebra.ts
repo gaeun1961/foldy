@@ -1,5 +1,6 @@
 // TODO-1 실험: ShapeScene → GeoGebra 명령 변환, 전개도(Net) + 슬라이더에 선분이 따라오는지 확인.
-// 서비스 코드가 아니다. 결과는 docs/reports/ 의 TODO-1 리포트 참고.
+// 서비스 코드가 아니다. 실험 기록으로만 남긴다 (최종 결정은 three.js, 플랜 B).
+// 결과는 docs/reports/ 의 TODO-1 리포트 참고.
 import { mockScene } from '../src/shared/mock'
 import type { LinePoint, ShapeScene, VertexIndex } from '../src/shared/types'
 
