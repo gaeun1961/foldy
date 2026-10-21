@@ -41,6 +41,8 @@
 2. main에서 브랜치: `{타입}/{이슈번호}-{짧은-설명}` (예: TODO-3 → 이슈 #9 → `feature/9-fold-animation-slider`)
 3. 커밋 메시지는 heredoc 멀티라인으로, 형식은 [.github/pull_request_template.md](.github/pull_request_template.md)를 따른다
 4. PR 본문은 커밋 메시지와 같게 쓰고, 마지막 줄에 `Closes #{이슈번호}`를 넣는다 (머지되면 이슈가 닫힌다)
+5. TODO 하나에 PR 하나. 수정사항은 같은 PR에 커밋을 추가한다. 작은 문서 수정은 별도 PR 없이 다음 TODO PR에 포함한다
+6. 이전 PR이 머지된 뒤 다음 브랜치를 만든다
 
 ## 기록 규칙
 

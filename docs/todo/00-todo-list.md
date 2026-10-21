@@ -12,6 +12,7 @@
 - **TODO-4** [ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게](04-face-lines.md) · [#10](https://github.com/gaeun1961/foldy/issues/10) — 3D: 선분을 면 메시의 자식으로 붙여 접힘을 따라가게 한다
 - **TODO-5** [같은 꼭짓점을 같은 색으로 하이라이트](05-vertex-highlight.md) · [#11](https://github.com/gaeun1961/foldy/issues/11) — 3D: 접었을 때 만나는 꼭짓점들을 같은 색으로 표시한다
 - **TODO-22** [맞닿는 모서리 같은 색으로 칠하기](22-matching-edge-colors.md) · [#32](https://github.com/gaeun1961/foldy/issues/32) — 3D: 접었을 때 맞닿는 모서리 한 쌍을 같은 색으로 칠한다
+- **TODO-23** [보이지 않는 모서리 점선 표시 + 보기 옵션 토글](23-hidden-edges-view-options.md) · [#38](https://github.com/gaeun1961/foldy/issues/38) — 3D: 가려진 모서리를 점선으로 보여주고 보기 옵션 체크박스로 끄고 켠다
 - **TODO-7** [학습지 사진 10장 수집 + 비전 LLM 프롬프트로 ShapeScene 추출 테스트](07-vision-prompt-test.md) · [#13](https://github.com/gaeun1961/foldy/issues/13) — AI: 실제 사진으로 인식 정확도를 재고 프롬프트를 만든다
 - **TODO-9** [챗봇 기본 응답: 힌트형 시스템 프롬프트, 현재 ShapeScene을 맥락으로 /chat 연결](09-chatbot-basic.md) · [#15](https://github.com/gaeun1961/foldy/issues/15) — AI: 정답 대신 힌트를 주는 챗봇 답변
 - **TODO-11** [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) · [#17](https://github.com/gaeun1961/foldy/issues/17) — UI: 사진을 올리면 backend 결과로 뷰어를 그린다
