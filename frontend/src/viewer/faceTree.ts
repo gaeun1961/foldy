@@ -26,7 +26,7 @@ function normalOf(points: THREE.Vector3[]) {
 
 export function buildFaceTree(
   poly: Polyhedron,
-  faceMaterial: THREE.Material,
+  faceMaterials: [outside: THREE.Material, inside: THREE.Material], // 바깥 면(FrontSide), 안쪽 면(BackSide)
   edgeMaterial: THREE.LineBasicMaterial,
 ): FaceTree {
   const root = new THREE.Group()
@@ -42,7 +42,11 @@ export function buildFaceTree(
       points.slice(1, -1).flatMap((p, k) => [points[0], p, points[k + 2]]), // 볼록 다각형 → 부채꼴 삼각형
     )
     geometry.computeVertexNormals()
-    const mesh = new THREE.Mesh(geometry, faceMaterial)
+    // 같은 삼각형을 두 번 그린다: 바깥에서 보면 재질 0, 안쪽에서 보면 재질 1
+    geometry.addGroup(0, Infinity, 0)
+    geometry.addGroup(0, Infinity, 1)
+    const mesh = new THREE.Mesh(geometry, faceMaterials)
+    mesh.castShadow = true
     mesh.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), edgeMaterial))
     mesh.userData = { face: f, vertices: def.vertices }
     const node: FaceNode = { face: f, vertices: def.vertices, mesh }
@@ -76,9 +80,16 @@ export function buildFaceTree(
 }
 
 // 펼침 값 s (0 = 입체, 1 = 전개도). 각 pivot 을 s × (180° − 이면각) 회전한다.
-// TODO-3: 슬라이더·애니메이션·ViewerProps 연결은 여기서 하지 않는다
 export function applyUnfold(tree: FaceTree, s: number) {
   for (const n of tree.nodes) n.pivot?.quaternion.setFromAxisAngle(n.axis!, s * n.unfoldAngle!)
+}
+
+// 화면에 놓기: 트리 전체를 돌려 루트 면의 바깥 법선이 아래(−y)를 향하고 루트 면이 바닥(y = 0)에 닿게 한다.
+// 면 트리 좌표와 applyUnfold 는 그대로라서, 펼치면 전개도가 바닥에 눕고 접으면 면이 위로 일어선다
+export function layOnFloor(tree: FaceTree, poly: Polyhedron) {
+  const points = poly.faces.find((f) => f.parent === undefined)!.vertices.map((i) => v3(poly.positions[i]))
+  tree.root.quaternion.setFromUnitVectors(normalOf(points), new THREE.Vector3(0, -1, 0))
+  tree.root.position.set(0, -points[0].applyQuaternion(tree.root.quaternion).y, 0)
 }
 
 export function disposeFaceTree(tree: FaceTree) {

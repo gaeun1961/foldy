@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node src/viewer/faceTree.test.ts",
+    "test": "node src/viewer/faceTree.test.ts && node src/ui/foldStatus.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
