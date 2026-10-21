@@ -26,9 +26,9 @@ uvicorn app.main:app --reload --env-file .env
 
 ## 일하는 방식
 
-폴더별 담당은 없습니다. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md)에서 TODO(반나절~하루 크기)를 하나 골라, 연결된 GitHub 이슈에 자기 자신을 assignee로 지정하고 시작합니다. assignee가 있는 이슈는 건드리지 않습니다.
-브랜치와 PR은 그 이슈 번호를 쓰고, PR 본문에 `Closes #이슈번호`를 넣습니다.
-TODO는 3D 뷰어 / AI / UI·통합 / 발표 영역으로 묶여 있고, 🟢 표시는 선행 TODO 없이 바로 시작할 수 있는 항목입니다.
+1. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md) 맨 위 "지금 시작 가능"에서 하나 고른다
+2. 그 이슈에 자기 자신을 assignee로 걸고 시작한다
+3. 끝나면 PR 본문에 `Closes #이슈번호`를 넣는다
 
 ## 문서
 
@@ -39,4 +39,4 @@ TODO는 3D 뷰어 / AI / UI·통합 / 발표 영역으로 묶여 있고, 🟢 �
 - [docs/02-specs.md](docs/02-specs.md): 스펙 목차. 주제별 스펙은 [docs/specs/](docs/specs/) (데이터 계약, 뷰어, API, 기술 스택, UI)
 - [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 단계별 범위(1차 직육면체 → 2차 정다면체 → 3차 원기둥·원뿔)
 - [docs/design/](docs/design/): 팀 시안 스크린샷 (UI 방향 참고용)
-- [docs/reports/](docs/reports/): PR별 작업 기록
+- [docs/reports/](docs/reports/): TODO별 작업 기록
