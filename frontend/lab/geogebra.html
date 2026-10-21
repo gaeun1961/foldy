@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>foldy lab - GeoGebra</title>
+    <script src="https://www.geogebra.org/apps/deployggb.js"></script>
+    <style>
+      body { margin: 0; font-family: system-ui, 'Malgun Gothic', sans-serif; display: flex; height: 100vh; }
+      #ggb { flex: 1; min-width: 0; }
+      aside { width: 320px; padding: 12px; overflow: auto; border-left: 1px solid #ddd; font-size: 14px; }
+      button { margin: 2px 0; }
+      pre { white-space: pre-wrap; font-size: 12px; background: #f5f5f5; padding: 6px; }
+    </style>
+  </head>
+  <body>
+    <div id="ggb"></div>
+    <aside>
+      <h3>GeoGebra 실험 (TODO-1)</h3>
+      <p>실험 기록용 페이지. 서비스 뷰어는 three.js로 결정(플랜 B).</p>
+      <label>펼침 s: <input id="s" type="range" min="0" max="1" step="0.01" value="0" /> <span id="sv">0</span></label>
+      <p>
+        <button id="hl">꼭짓점 ㄱ 하이라이트 (JS → setColor)</button><br />
+        <button id="anim">JS로 s 0→1 애니메이션 (setValue)</button>
+      </p>
+      <p>클릭 이벤트 로그</p>
+      <pre id="log"></pre>
+      <p>Made with GeoGebra® — <a href="https://www.geogebra.org">geogebra.org</a></p>
+    </aside>
+    <script type="module" src="./geogebra.ts"></script>
+  </body>
+</html>
