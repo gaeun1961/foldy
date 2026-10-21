@@ -31,12 +31,69 @@ h2 {
 }
 
 .upload { grid-area: upload; border-right: 1px solid #e5e7eb; }
-.viewer { grid-area: viewer; min-height: 0; }
+.viewer { grid-area: viewer; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .chat { grid-area: chat; border-left: 1px solid #e5e7eb; }
+
+/* 3D 뷰 + 상태 배지 + 접기 조작 (docs/specs/ui.md) */
+.viewer-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden; /* 캔버스 픽셀 크기가 칸을 밀어 넓히지 않게 */
+}
+.viewer-canvas canvas { display: block; }
+
+.status-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+  font-size: 16px;
+}
+.status-badge.done { color: #2e7d4f; font-weight: 700; }
+
+.fold-controls {
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.slider-row input {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 28px;
+  accent-color: #3d6fd9;
+}
+
+.fold-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+.fold-buttons button {
+  min-height: 52px;
+  border-radius: 12px;
+  font-size: 18px;
+  cursor: pointer;
+}
+.fold-buttons .primary { border: 0; background: #3d6fd9; color: #fff; }
+.fold-buttons .secondary { border: 1px solid #d0d5dd; background: #fff; color: #1f2430; }
+.fold-buttons button:disabled { opacity: 0.4; cursor: default; }
 
 @media (max-width: 800px) {
   .layout {
-    grid-template: 'head' auto 'upload' auto 'viewer' 60vh 'chat' auto / 1fr;
+    grid-template: 'head' auto 'upload' auto 'viewer' 80vh 'chat' auto / 1fr;
     height: auto;
   }
   .upload, .chat { border: 0; }
