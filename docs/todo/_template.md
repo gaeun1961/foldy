@@ -11,10 +11,10 @@
 - 작성자: (사람 이름)
 - 에이전트: (예: Claude Code / Codex / Copilot 등, 없으면 `없음`)
 - 영역: (3D 뷰어 / AI / UI·통합 / 발표)
-- 담당자: (비워 두고, 가져갈 때 이름을 적음)
-- 선행 TODO: (예: #2 `02-face-split-render.md`, 없으면 `없음`)
+- 이슈: (`[TODO-N] 제목` 이슈 링크, 영역 라벨 부착, assignee는 비움)
+- 선행 TODO: (예: TODO-2 `02-face-split-render.md` (#8), 없으면 `없음`)
 
-> 시작 전에 `docs/todo/00-todo-list.md`와 이 파일의 담당자 칸에 이름을 적습니다.
+> 시작 전에 위 이슈에 자기 자신을 assignee로 지정합니다. 브랜치와 PR은 이 이슈 번호를 씁니다 (`Closes #N`).
 > 완료된 TODO는 이 파일을 삭제하고, `docs/reports/`에 작업 기록을 남깁니다.
 
 ## 목표
