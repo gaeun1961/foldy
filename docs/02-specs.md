@@ -10,7 +10,8 @@
 - **프레임워크**: React 19
 - **언어**: TypeScript 6 (strict)
 - **빌드 툴**: Vite 8
-- **3D**: three.js (0.186, `OrbitControls`로 회전). 추후 GeoGebra 임베드로 교체 가능
+- **3D**: GeoGebra Apps API 임베드 (`https://www.geogebra.org/apps/deployggb.js`, `appName: '3d'`). TODO-1에서 플랜 A로 결정 ([리포트](reports/261021-1135-01-geogebra-line-check.md))
+  - 지금 `frontend/src/viewer/ThreeViewer.tsx`(three.js 0.186)는 GeoGebra 뷰어(TODO-2)가 붙을 때까지 임시로 쓴다
 - **린트**: oxlint (`npm run lint`)
 - **스타일링**: 일반 CSS (`src/index.css`), UI 라이브러리 없음
 - **패키지 매니저**: npm
@@ -32,6 +33,19 @@
 - **뷰어는 인터페이스 뒤에 숨긴다**. UI는 `frontend/src/viewer/index.ts`의 `Viewer`와 `ViewerProps`만 사용하고, 구현을 바꿀 때는 이 파일의 export 한 줄만 교체한다
 - AI 기능이 붙기 전에는 목 데이터를 쓴다. frontend는 `frontend/src/shared/mock.ts`, backend는 `backend/app/ai/vision.py`의 `MOCK_SCENE`이며, 둘은 같은 내용을 유지한다
 - CORS는 Vite 개발 서버(`http://localhost:5173`, `http://127.0.0.1:5173`)만 허용한다
+
+### GeoGebra 뷰어 규칙
+
+실험 코드: `frontend/lab/geogebra.ts` (TODO-1에서 아래 규칙을 모두 확인함)
+
+- **좌표**: GeoGebra는 z가 위다. 꼭짓점 i의 좌표는 x = 가로, y = 깊이(앞면이 y = 0, 뒤로 +), z = 높이 (C의 꼭짓점 규칙과 같은 위치)
+- **직육면체와 전개도**: 앞면을 밑면으로, 오른쪽 면과 맞닿은 모서리 1-5부터 시작해서 `box = Prism(V_1, V_5, V_4, V_0, V_2)` → `net = Net(box, s)`로 만든다. 이렇게 해야 펼친 모양이 C의 `cross` 배치와 같다. 원래 `box`는 숨긴다
+- **펼침 값 `s`**: 0 = 직육면체(접힘), 1 = 전개도(펼침). JS에서 `api.setValue('s', v)`로 바꾼다
+- **전개도 점 대응**: `Net`은 전개도 점과 면을 자동 이름(D, E, …, faceDEIH 등)으로 만든다. 이름에 의존하지 말고, `s = 0`일 때 좌표를 비교해서 "전개도 점 → 원래 꼭짓점 인덱스" 표를 만든다. 한 꼭짓점은 전개도에서 최대 3개로 복사되므로, 라벨·색은 복사본 모두에 적용한다
+- **선분**: 원래 직육면체의 점으로 그린 선분은 펼침을 따라오지 않는다. 선분의 끝점은 **그 선분이 놓인 면의 전개도 점**으로 정의한다 (`{ vertex }` → 그 점, `{ edge: [i, j], t }` → `A + t (B - A)`)
+- **두 면에 걸친 선**: ShapeScene에서 면별 선분으로 나눠서 표현한다 (계약 그대로). 펼치면 잘린 모서리에서 끊어진다
+- **명령 문자열 파싱**: `api.getCommandString(name, false)`(영어, `Polygon[D, E, I, H, net]` 형식)을 쓴다. 기본값은 한국어로 나온다
+- **라이선스**: 비상업 용도로만 쓴다. 화면과 발표 자료에 "Made with GeoGebra®"와 geogebra.org 링크를 넣는다. GeoGebra 파일은 저장소에 커밋하지 않고 CDN에서 불러온다
 
 ---
 

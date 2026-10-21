@@ -11,8 +11,7 @@
 
 | # | 바로 시작 | TODO | 선행 | 이슈 |
 |---|---|---|---|---|
-| 1 | 🟢 | [GeoGebra 선 연동 테스트 → 플랜 A/B 결정](01-geogebra-line-test.md) | - | [#7](https://github.com/gaeun1961/foldy/issues/7) |
-| 2 |  | [직육면체를 면 6개로 분리해서 렌더링](02-face-split-render.md) | TODO-1 | [#8](https://github.com/gaeun1961/foldy/issues/8) |
+| 2 | 🟢 | [GeoGebra 뷰어 기본 구현 (ShapeScene → 직육면체·전개도)](02-face-split-render.md) | - (TODO-1 완료: 플랜 A) | [#8](https://github.com/gaeun1961/foldy/issues/8) |
 | 3 |  | [접기 애니메이션 + 슬라이더](03-fold-animation-slider.md) | TODO-2 | [#9](https://github.com/gaeun1961/foldy/issues/9) |
 | 4 |  | [ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게](04-face-lines.md) | TODO-2 | [#10](https://github.com/gaeun1961/foldy/issues/10) |
 | 5 |  | [같은 꼭짓점을 같은 색으로 하이라이트](05-vertex-highlight.md) | TODO-3 | [#11](https://github.com/gaeun1961/foldy/issues/11) |
