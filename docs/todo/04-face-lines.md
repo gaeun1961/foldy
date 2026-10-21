@@ -21,5 +21,5 @@
 - [ ] 면과 선이 겹쳐 깜빡이지 않게 한다 (면 위로 살짝 띄우거나 `polygonOffset`)
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B(three.js 뷰어 규칙), C. 선분 끝점
+- 관련 문서: `docs/specs/viewer.md`, `docs/specs/shape-scene.md` (선분 끝점)
 - 두 면에 걸친 선은 ShapeScene에서 면별 선분으로 나눠 들어온다. 펼치면 잘린 모서리에서 끊어지는 게 맞다 (lab의 앞면 → 오른쪽 면 선 참고)

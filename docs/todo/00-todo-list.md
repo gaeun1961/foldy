@@ -13,7 +13,7 @@
 
 | 단계 | 목표 | TODO |
 |---|---|---|
-| **1차** | 직육면체 완성 (+ 사진 인식, 챗봇, 화면, 발표) | 2~15 |
+| **1차** | 직육면체 완성 (+ 사진 인식, 챗봇, 화면, 발표) | 2~15, 22 |
 | **2차** | 정다면체 4종 | 16 |
 | **3차** | 원기둥·원뿔과 곡면 선 | 17~21 |
 
@@ -26,6 +26,7 @@
 | 4 | 1차 |  | [ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게](04-face-lines.md) | TODO-2 | [#10](https://github.com/gaeun1961/foldy/issues/10) |
 | 5 | 1차 |  | [같은 꼭짓점을 같은 색으로 하이라이트](05-vertex-highlight.md) | TODO-3 | [#11](https://github.com/gaeun1961/foldy/issues/11) |
 | 6 | 1차 |  | [꼭짓점·모서리 중점 클릭으로 선 긋기](06-click-draw-line.md) | TODO-4 | [#12](https://github.com/gaeun1961/foldy/issues/12) |
+| 22 | 1차 |  | [맞닿는 모서리 같은 색으로 칠하기](22-matching-edge-colors.md) | TODO-3 | [#32](https://github.com/gaeun1961/foldy/issues/32) |
 | 16 | 2차 |  | [정다면체 4종 면 트리 데이터 추가](16-regular-polyhedra-data.md) | TODO-3 | [#24](https://github.com/gaeun1961/foldy/issues/24) |
 | 17 | 3차 |  | [원기둥 말기 애니메이션](17-cylinder-roll.md) | TODO-2 | [#25](https://github.com/gaeun1961/foldy/issues/25) |
 | 18 | 3차 |  | [원뿔 말기 애니메이션](18-cone-roll.md) | TODO-17 | [#26](https://github.com/gaeun1961/foldy/issues/26) |
@@ -47,7 +48,7 @@
 | # | 단계 | 바로 시작 | TODO | 선행 | 이슈 |
 |---|---|---|---|---|---|
 | 11 | 1차 | 🟢 | [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) | - | [#17](https://github.com/gaeun1961/foldy/issues/17) |
-| 12 | 1차 | 🟢 | [수동 입력 폼 (도형 종류, 가로·세로·높이)](12-manual-input-form.md) | - | [#18](https://github.com/gaeun1961/foldy/issues/18) |
+| 12 | 1차 | 🟢 | [수동 입력: 도형 드롭다운 + 치수 슬라이더](12-manual-input-form.md) | - | [#18](https://github.com/gaeun1961/foldy/issues/18) |
 | 13 | 1차 | 🟢 | [챗봇 대화창 UI, /chat 연결](13-chat-ui.md) | - | [#19](https://github.com/gaeun1961/foldy/issues/19) |
 | 14 | 1차 |  | [전체 화면 디자인 정리](14-screen-design.md) | TODO-11, TODO-12, TODO-13 | [#20](https://github.com/gaeun1961/foldy/issues/20) |
 

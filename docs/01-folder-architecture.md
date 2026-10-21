@@ -11,6 +11,8 @@
 foldy
 ├─ AGENTS.md                         # 에이전트·팀원 공통 작업 합의서
 ├─ README.md                         # 프로젝트 소개, 실행 방법
+├─ .github
+│  └─ pull_request_template.md       # 커밋·PR 본문 형식
 ├─ frontend                          # Vite + React + TypeScript
 │  ├─ index.html
 │  ├─ package.json
@@ -31,9 +33,16 @@ foldy
 │  └─ tests                          # 검사 스크립트 (python -m tests.test_schema)
 └─ docs                              # 기준 문서
    ├─ 01-folder-architecture.md
-   ├─ 02-specs.md                    # 기술 스펙, ShapeScene 계약, API
+   ├─ 02-specs.md                    # specs 목차 ("이런 작업이면 이 파일")
    ├─ 03-product-plan.md
-   ├─ reports                        # 작업 기록 (PR 하나당 하나)
+   ├─ specs                          # 주제별 스펙 (필요한 것만 읽음)
+   │  ├─ stack.md                    # 기술 스택, 공통 구현 규칙
+   │  ├─ shape-scene.md              # ShapeScene 데이터 계약
+   │  ├─ viewer.md                   # three.js 뷰어 규칙
+   │  ├─ api.md                      # backend API
+   │  └─ ui.md                       # UI 기준 (팀 시안 기준)
+   ├─ design                         # 디자인 참고 이미지 (기본으로 읽지 않음)
+   ├─ reports                        # 작업 기록 (PR 하나당 하나, 기본으로 읽지 않음)
    │  └─ _template.md
    └─ todo                           # 후속 작업
       ├─ _template.md
@@ -42,6 +51,8 @@ foldy
 
 > `docs/reports`는 완료된 작업 기록을 남기는 곳입니다.
 > `docs/todo`는 선행 작업이나 결정이 필요해 지금 당장 처리하지 못하는 후속 작업을 남기는 곳입니다.
+> `docs/specs`는 주제별 스펙이고, 무엇을 읽을지는 `AGENTS.md`의 읽기 안내와 `docs/02-specs.md` 목차를 따릅니다.
+> `docs/design`은 팀 시안 스크린샷입니다 (`net-folding-ref.png` 등). 서비스 코드에 쓰지 않고 `specs/ui.md`에서 참고로 링크합니다.
 
 ---
 
@@ -56,7 +67,8 @@ foldy
 | `backend/app/ai/` | LLM 관련 코드. `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `chat.py`(챗봇 답변), 프롬프트 |
 | `backend/app/api/` | 라우터. `routes.py`(`/health`, `/analyze`, `/chat`). `ai/` 함수를 부르기만 한다 |
 | `backend/tests/` | 의존성 없이 돌리는 검사 스크립트. `test_schema.py`(ShapeScene 도형별 검증) |
-| `docs/` | 기준 문서, 작업 기록, TODO |
+| `docs/` | 기준 문서(01·02·03, `specs/`), 디자인 참고(`design/`), 작업 기록(`reports/`), TODO(`todo/`) |
+| `.github/` | GitHub 설정. `pull_request_template.md`(커밋·PR 본문 형식) |
 
 ---
 

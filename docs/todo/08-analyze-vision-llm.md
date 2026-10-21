@@ -15,8 +15,8 @@
 
 ## 완료 조건
 - [ ] `backend/app/ai/vision.py`의 `analyze_image`에서 LLM을 부르고(키는 `LLM_API_KEY`), 결과를 `ShapeScene.model_validate`로 검증한다
-- [ ] 인식·검증 실패, 키 없음일 때 정해진 형식의 에러 응답을 돌려준다. 에러 형식은 `docs/02-specs.md` D에 먼저 적는다
-- [ ] `MOCK_SCENE`은 테스트용으로만 남기거나 지우고, 02-specs의 목 데이터 문구를 맞춘다
+- [ ] 인식·검증 실패, 키 없음일 때 정해진 형식의 에러 응답을 돌려준다. 에러 형식은 `docs/specs/api.md`에 먼저 적는다
+- [ ] `MOCK_SCENE`은 테스트용으로만 남기거나 지우고, `docs/specs/stack.md`의 목 데이터 문구를 맞춘다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B, D
+- 관련 문서: `docs/specs/stack.md`, `docs/specs/api.md`

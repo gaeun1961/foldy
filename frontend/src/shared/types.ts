@@ -1,6 +1,6 @@
 // ShapeScene: AI(사진 인식)가 만들고 뷰어·UI가 그리는 공용 데이터 계약.
-// backend/app/ai/schema.py 와 항상 같은 구조를 유지한다. 바꾸려면 이슈로 먼저 합의하고 docs/02-specs.md 부터 고친다.
-// 자세한 설명과 예시(꼭짓점 인덱스 규칙, 곡면 전개도 좌표): docs/02-specs.md C
+// backend/app/ai/schema.py 와 항상 같은 구조를 유지한다. 바꾸려면 이슈로 먼저 합의하고 docs/specs/shape-scene.md 부터 고친다.
+// 자세한 설명과 예시(꼭짓점 인덱스 규칙, 곡면 전개도 좌표): docs/specs/shape-scene.md
 
 export type RegularPolyhedronShape =
   | 'regular-tetrahedron'
@@ -34,7 +34,7 @@ export interface RoundSize {
   height: number
 }
 
-// 꼭짓점 인덱스: 0 ~ 꼭짓점 수 - 1 (도형별 규칙은 docs/02-specs.md C)
+// 꼭짓점 인덱스: 0 ~ 꼭짓점 수 - 1 (도형별 규칙은 docs/specs/shape-scene.md)
 export type VertexIndex = number
 
 // 다면체 선분 끝점: 꼭짓점 그 자체, 또는 모서리 위의 한 점.

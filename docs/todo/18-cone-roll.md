@@ -20,4 +20,4 @@
 - [ ] 원기둥(TODO-17)과 같은 `curved.ts` 구조를 쓰고, 꼭짓점 라벨(`vertexLabels[0]`)을 꼭짓점에 표시한다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B(곡면 도형), C. 곡면 전개도
+- 관련 문서: `docs/specs/viewer.md` (곡면 도형), `docs/specs/shape-scene.md` (곡면 전개도)

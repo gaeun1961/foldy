@@ -21,4 +21,4 @@
 - [ ] 슬라이더(TODO-3)로 0 ↔ 1이 연속으로 움직인다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B(곡면 도형), C. 곡면 전개도
+- 관련 문서: `docs/specs/viewer.md` (곡면 도형), `docs/specs/shape-scene.md` (곡면 전개도)

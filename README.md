@@ -32,10 +32,11 @@ TODO는 3D 뷰어 / AI / UI·통합 / 발표 영역으로 묶여 있고, 🟢 �
 
 ## 문서
 
-작업 전에 [AGENTS.md](AGENTS.md)와 아래 문서를 먼저 읽습니다.
+작업 전에 [AGENTS.md](AGENTS.md)를 읽습니다. 어떤 문서를 언제 읽는지는 AGENTS.md의 "읽기 안내"에 있습니다.
 
 - [docs/01-folder-architecture.md](docs/01-folder-architecture.md): 폴더 구조, 폴더별 책임
-- [docs/02-specs.md](docs/02-specs.md): 기술 스택, 구현 규칙, ShapeScene 데이터 계약, API
+- [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md): 남은 작업 목록, 우선순위, TODO 이슈 링크
+- [docs/02-specs.md](docs/02-specs.md): 스펙 목차. 주제별 스펙은 [docs/specs/](docs/specs/) (데이터 계약, 뷰어, API, 기술 스택, UI)
 - [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 단계별 범위(1차 직육면체 → 2차 정다면체 → 3차 원기둥·원뿔)
-- [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md): 남은 작업 목록, TODO 이슈 링크
+- [docs/design/](docs/design/): 팀 시안 스크린샷 (UI 방향 참고용)
 - [docs/reports/](docs/reports/): PR별 작업 기록

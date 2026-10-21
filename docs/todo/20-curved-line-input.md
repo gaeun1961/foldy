@@ -20,4 +20,4 @@
 - [ ] 추가한 선을 접어 보면(TODO-19) 곡면을 따라 감긴다
 
 ## 참고
-- 관련 문서: `docs/02-specs.md` B(곡면 선 입력), C. 곡면 전개도
+- 관련 문서: `docs/specs/viewer.md` (곡면 선 입력), `docs/specs/shape-scene.md` (곡면 전개도)
