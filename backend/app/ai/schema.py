@@ -1,7 +1,7 @@
 """ShapeScene: 공용 데이터 계약 (Pydantic).
 
-frontend/src/shared/types.ts 와 항상 같은 구조를 유지한다. 바꾸려면 이슈로 먼저 합의.
-자세한 설명과 예시: docs/data-contract.md
+frontend/src/shared/types.ts 와 항상 같은 구조를 유지한다. 바꾸려면 이슈로 먼저 합의하고 docs/02-specs.md 부터 고친다.
+자세한 설명과 예시: docs/02-specs.md
 
 꼭짓점 인덱스 규칙 (도형 중심이 원점, 앞쪽 = 보는 사람 쪽)
 

@@ -1,6 +1,6 @@
 // ShapeScene: AI(사진 인식)가 만들고 뷰어·UI가 그리는 공용 데이터 계약.
-// backend/app/ai/schema.py 와 항상 같은 구조를 유지한다. 바꾸려면 이슈로 먼저 합의.
-// 자세한 설명과 예시: docs/data-contract.md
+// backend/app/ai/schema.py 와 항상 같은 구조를 유지한다. 바꾸려면 이슈로 먼저 합의하고 docs/02-specs.md 부터 고친다.
+// 자세한 설명과 예시: docs/02-specs.md
 
 export type ShapeKind = 'cuboid' | 'cube'
 
@@ -32,7 +32,7 @@ export interface FaceLine {
   to: LinePoint
 }
 
-// 전개도 배치. 1차는 십자형 기본 전개도 하나만 (모양은 docs/data-contract.md 참고)
+// 전개도 배치. 1차는 십자형 기본 전개도 하나만 (모양은 docs/02-specs.md 참고)
 export interface Net {
   layout: 'cross'
 }

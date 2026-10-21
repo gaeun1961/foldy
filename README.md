@@ -32,4 +32,14 @@ uvicorn app.main:app --reload --env-file .env
 | 3D 뷰어 | `frontend/src/viewer/` |
 | UI·통합 | `frontend/src/ui/`, `backend/app/api/` |
 
-공용 데이터 형식: [docs/data-contract.md](docs/data-contract.md)
+자세한 담당 범위: [docs/01-folder-architecture.md](docs/01-folder-architecture.md)
+
+## 문서
+
+작업 전에 [AGENTS.md](AGENTS.md)와 아래 문서를 먼저 읽습니다.
+
+- [docs/01-folder-architecture.md](docs/01-folder-architecture.md): 폴더 구조, 폴더별 담당
+- [docs/02-specs.md](docs/02-specs.md): 기술 스택, 구현 규칙, ShapeScene 데이터 계약, API
+- [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 1차 범위
+- [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md): 남은 작업 목록
+- [docs/reports/](docs/reports/): PR별 작업 기록
