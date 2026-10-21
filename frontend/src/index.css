@@ -1,0 +1,43 @@
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif;
+  color: #1f2430;
+  background: #fff;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+/* 왼쪽: 업로드 / 가운데: 뷰어 / 오른쪽: 챗봇 */
+.layout {
+  display: grid;
+  grid-template: 'head head head' auto 'upload viewer chat' 1fr / 260px 1fr 320px;
+  height: 100vh;
+}
+
+.layout > header {
+  grid-area: head;
+  padding: 12px 16px;
+  font-weight: 700;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.upload,
+.chat {
+  padding: 16px;
+  color: #6b7280;
+}
+
+.upload { grid-area: upload; border-right: 1px solid #e5e7eb; }
+.viewer { grid-area: viewer; min-height: 0; }
+.chat { grid-area: chat; border-left: 1px solid #e5e7eb; }
+
+@media (max-width: 800px) {
+  .layout {
+    grid-template: 'head' auto 'upload' auto 'viewer' 60vh 'chat' auto / 1fr;
+    height: auto;
+  }
+  .upload, .chat { border: 0; }
+}
