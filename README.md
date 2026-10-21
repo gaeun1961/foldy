@@ -7,10 +7,13 @@
 
 frontend (http://localhost:5173)
 
+필요한 Node 버전은 **22.18.0 이상(22.x)이거나 23.6.0 이상**입니다 (`node --version`으로 확인). `npm test`가 Node의 TypeScript 바로 실행 기능을 쓰는데, 그보다 낮은 버전에서는 `Unknown file extension ".ts"` 오류가 납니다.
+
 ```sh
 cd frontend
 npm install
 npm run dev
+npm test      # 면 트리 검사
 ```
 
 backend (http://localhost:8000, API 문서 http://localhost:8000/docs)
