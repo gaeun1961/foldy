@@ -8,7 +8,7 @@ frontend·backend 기술 스택과, 어느 영역에서든 지켜야 하는 공�
 - **프레임워크**: React 19
 - **언어**: TypeScript 6 (strict)
 - **빌드 툴**: Vite 8
-- **3D**: three.js (0.186, `OrbitControls`로 회전). TODO-1에서 GeoGebra와 비교한 뒤 플랜 B(three.js 직접 구현)로 결정 ([리포트](../reports/261021-1135-T01-geogebra-line-check.md))
+- **3D**: three.js (0.186, `OrbitControls`로 회전). TODO-1에서 GeoGebra와 비교한 뒤 플랜 B(three.js 직접 구현)로 결정 ([리포트](../reports/T01-geogebra-line-check.md))
 - **린트**: oxlint (`npm run lint`)
 - **검사**: `npm test` (면 트리 검사 `src/viewer/faceTree.test.ts`, Node가 TS를 바로 실행. 테스트 프레임워크 없음)
 - **스타일링**: 일반 CSS (`src/index.css`), UI 라이브러리 없음
