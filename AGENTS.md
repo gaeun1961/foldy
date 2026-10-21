@@ -15,7 +15,7 @@ frontend는 Vite + React + TypeScript + three.js, backend는 FastAPI.
 ## 작업 시작 체크리스트
 - 위 필수 문서를 읽었는가
 - `docs/todo/00-todo-list.md`를 확인했는가
-- 작업이 1차 범위(직육면체·정육면체, 십자형 전개도)를 벗어나지 않는가
+- 우선순위를 지키는가: 1차(직육면체 완성) → 2차(정다면체) → 3차(원기둥·원뿔과 곡면 선). 1차 TODO가 남아 있는데 2·3차를 먼저 가져가지 않는다 (`docs/todo/00-todo-list.md` 단계 칸)
 - 할 TODO의 GitHub 이슈(`docs/todo/00-todo-list.md`의 이슈 칸)에 자기 자신을 assignee로 지정했는가. 이미 assignee가 있는 이슈는 아닌가
 - 선행 TODO가 모두 끝났는가
 - 폴더 책임과 의존 규칙(`docs/01-folder-architecture.md` B, C)을 지키는가
@@ -46,6 +46,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --env-file .env   # http://localhost:8000
 ruff check .
 ruff format .
+python -m tests.test_schema   # ShapeScene 검증 확인 (schema.py 를 고치면 실행)
 ```
 
 ## Git 작업 방식

@@ -9,8 +9,11 @@ export function ThreeViewer({ scene }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // TODO(3D): 지금은 직육면체·정육면체만. 다른 도형은 면 트리(TODO-2)·곡면 모듈에서
+    if (scene.shape !== 'cuboid' && scene.shape !== 'cube') return
     const container = containerRef.current!
-    const { width, depth, height } = scene.size
+    const { width, depth, height } =
+      scene.shape === 'cube' ? { width: scene.size.edge, depth: scene.size.edge, height: scene.size.edge } : scene.size
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(window.devicePixelRatio)

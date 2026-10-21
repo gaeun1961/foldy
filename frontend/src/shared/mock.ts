@@ -1,7 +1,7 @@
-import type { ShapeScene } from './types'
+import type { CuboidScene } from './types'
 
 // AI 기능이 붙기 전까지 쓰는 예시. backend/app/ai/vision.py 의 MOCK_SCENE 과 같은 내용.
-export const mockScene: ShapeScene = {
+export const mockScene: CuboidScene = {
   shape: 'cuboid',
   size: { width: 4, depth: 2, height: 3 },
   vertexLabels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ'],
