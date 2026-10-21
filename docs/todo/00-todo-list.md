@@ -9,7 +9,8 @@
 
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
-- **TODO-2** [면 트리 기반 다면체 렌더링 (직육면체부터)](02-face-split-render.md) · [#8](https://github.com/gaeun1961/foldy/issues/8) — 3D: 직육면체를 면 6개짜리 면 트리 데이터로 그린다
+- **TODO-3** [접기 애니메이션 + 슬라이더](03-fold-animation-slider.md) · [#9](https://github.com/gaeun1961/foldy/issues/9) — 3D: 슬라이더로 입체 ↔ 전개도를 오가게 한다 (`applyUnfold`는 TODO-2에서 만들어 둠)
+- **TODO-4** [ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게](04-face-lines.md) · [#10](https://github.com/gaeun1961/foldy/issues/10) — 3D: 선분을 면 메시의 자식으로 붙여 접힘을 따라가게 한다
 - **TODO-7** [학습지 사진 10장 수집 + 비전 LLM 프롬프트로 ShapeScene 추출 테스트](07-vision-prompt-test.md) · [#13](https://github.com/gaeun1961/foldy/issues/13) — AI: 실제 사진으로 인식 정확도를 재고 프롬프트를 만든다
 - **TODO-9** [챗봇 기본 응답: 힌트형 시스템 프롬프트, 현재 ShapeScene을 맥락으로 /chat 연결](09-chatbot-basic.md) · [#15](https://github.com/gaeun1961/foldy/issues/15) — AI: 정답 대신 힌트를 주는 챗봇 답변
 - **TODO-11** [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) · [#17](https://github.com/gaeun1961/foldy/issues/17) — UI: 사진을 올리면 backend 결과로 뷰어를 그린다
@@ -30,8 +31,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 선행 |
 |---|---|---|
-| **TODO-3** [접기 애니메이션 + 슬라이더](03-fold-animation-slider.md) | [#9](https://github.com/gaeun1961/foldy/issues/9) | TODO-2 |
-| **TODO-4** [ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게](04-face-lines.md) | [#10](https://github.com/gaeun1961/foldy/issues/10) | TODO-2 |
 | **TODO-5** [같은 꼭짓점을 같은 색으로 하이라이트](05-vertex-highlight.md) | [#11](https://github.com/gaeun1961/foldy/issues/11) | TODO-3 |
 | **TODO-22** [맞닿는 모서리 같은 색으로 칠하기](22-matching-edge-colors.md) | [#32](https://github.com/gaeun1961/foldy/issues/32) | TODO-3 |
 | **TODO-6** [꼭짓점·모서리 중점 클릭으로 선 긋기](06-click-draw-line.md) | [#12](https://github.com/gaeun1961/foldy/issues/12) | TODO-4 |

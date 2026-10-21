@@ -59,7 +59,7 @@
 ## 검증 (PR 전에)
 
 ```sh
-cd frontend && npm run build && npm run lint
+cd frontend && npm run build && npm run lint && npm test
 cd backend && ruff check . && ruff format --check . && python -m tests.test_schema
 ```
 

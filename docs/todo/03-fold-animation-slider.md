@@ -5,7 +5,7 @@
 - 에이전트: Claude Code
 - 영역: 3D 뷰어
 - 이슈: [#9](https://github.com/gaeun1961/foldy/issues/9) (작업 전 assignee 지정)
-- 선행 TODO: TODO-2 `02-face-split-render.md` ([#8](https://github.com/gaeun1961/foldy/issues/8))
+- 선행 TODO: TODO-2 (완료, [리포트](../reports/261021-1301-T02-face-tree.md))
 
 > 시작 전에 위 이슈에 자기 자신을 assignee로 지정합니다. 브랜치와 PR은 이 이슈 번호를 씁니다 (`Closes #N`).
 > 완료된 TODO는 이 파일을 삭제하고, `docs/reports/`에 작업 기록을 남깁니다.
@@ -22,3 +22,4 @@
 ## 참고
 - 관련 문서: `docs/specs/viewer.md`, `docs/specs/shape-scene.md` (전개도 `cross`)
 - 동작 참고: `frontend/lab/geogebra.html`의 슬라이더와 애니메이션 버튼
+- TODO-2에서 만든 것: `faceTree.ts`의 `applyUnfold(tree, s)`가 이미 `s × (180° − 이면각)` 회전을 한다. 이 TODO는 슬라이더·애니메이션·`ViewerProps` 연결을 한다. `ThreeViewer.tsx`의 임시 `?s=` 주소 파라미터는 이때 지운다
