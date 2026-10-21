@@ -117,10 +117,16 @@ new GGBApplet(
     showMenuBar: false,
     appletOnLoad: (api: any) => {
       api.setPerspective('T') // 3D 그래픽 화면만 (대수창 숨김)
+      // 대수창을 숨긴 뒤와 창 크기가 바뀔 때 크기를 다시 맞춘다 (안 하면 그래픽이 일부만 그려짐)
+      const fit = () => api.setSize(document.getElementById('ggb')!.clientWidth, window.innerHeight)
+      fit()
+      window.addEventListener('resize', fit)
       api.evalCommand('s = Slider(0, 1, 0.01)')
       api.setAxesVisible(3, false, false, false)
       api.setGridVisible(3, false)
       const { orig, netFaces } = build(api)
+      // 접힌 상태와 펼친 상태가 모두 화면에 들어오게
+      api.evalCommand('ZoomIn(-3, -1, -3, 11, 3, 6)')
 
       // JS → 슬라이더
       const range = document.getElementById('s') as HTMLInputElement
