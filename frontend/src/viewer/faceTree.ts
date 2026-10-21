@@ -80,8 +80,18 @@ export function buildFaceTree(
 }
 
 // 펼침 값 s (0 = 입체, 1 = 전개도). 각 pivot 을 s × (180° − 이면각) 회전한다.
-export function applyUnfold(tree: FaceTree, s: number) {
-  for (const n of tree.nodes) n.pivot?.quaternion.setFromAxisAngle(n.axis!, s * n.unfoldAngle!)
+// s 가 배열이면 면 인덱스마다 다른 값 (단계별 접기, stepUnfold)
+export function applyUnfold(tree: FaceTree, s: number | number[]) {
+  for (const n of tree.nodes) n.pivot?.quaternion.setFromAxisAngle(n.axis!, (typeof s === 'number' ? s : s[n.face]) * n.unfoldAngle!)
+}
+
+// 단계별 접기: 전체 펼침 값 s 를 면마다의 값으로 나눈다. 접힘 f = 1 − s 를 n 칸으로 나눠
+// 순서(order)의 k 번째 면이 k 번째 칸에서 접힌다. 순서에 없는 면(루트)은 s 그대로
+export function stepUnfold(order: number[], faceCount: number, s: number) {
+  const out = Array<number>(faceCount).fill(s)
+  const f = (1 - s) * order.length
+  order.forEach((face, k) => (out[face] = 1 - THREE.MathUtils.clamp(f - k, 0, 1)))
+  return out
 }
 
 // 화면에 놓기: 트리 전체를 돌려 루트 면의 바깥 법선이 아래(−y)를 향하고 루트 면이 바닥(y = 0)에 닿게 한다.

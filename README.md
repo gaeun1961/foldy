@@ -27,6 +27,15 @@ copy .env.example .env        # macOS/Linux: cp .env.example .env, 그 뒤 값 �
 uvicorn app.main:app --reload --env-file .env
 ```
 
+backend 검사 (PR 전에, 가상환경을 켠 상태에서). 검사 도구 `ruff`는 `requirements.txt`에 들어 있어서 위 `pip install -r requirements.txt`로 같이 설치됩니다. 가상환경 없이 쓰려면 `pip install ruff`.
+
+```sh
+cd backend
+ruff check .
+ruff format --check .
+python -m tests.test_schema
+```
+
 ## 일하는 방식
 
 1. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md) 맨 위 "지금 시작 가능"에서 하나 고른다
@@ -40,6 +49,6 @@ uvicorn app.main:app --reload --env-file .env
 - [docs/01-folder-architecture.md](docs/01-folder-architecture.md): 폴더 구조, 폴더별 책임
 - [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md): 남은 작업 목록, 우선순위, TODO 이슈 링크
 - [docs/02-specs.md](docs/02-specs.md): 스펙 목차. 주제별 스펙은 [docs/specs/](docs/specs/) (데이터 계약, 뷰어, API, 기술 스택, UI)
-- [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 단계별 범위(1차 직육면체 → 2차 정다면체 → 3차 원기둥·원뿔)
+- [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 단계별 범위(1차 직육면체 → 2차 정다면체·각기둥·각뿔 → 3차 원기둥·원뿔·구)
 - [docs/design/](docs/design/): 팀 시안 스크린샷 (UI 방향 참고용)
 - [docs/reports/](docs/reports/): TODO별 작업 기록
