@@ -5,7 +5,7 @@
 > **기준 시안**: 아래 스크린샷은 팀원이 빠르게 만들어 본 시안이며 **방향만 참고**합니다. 시안 코드를 서비스 코드로 그대로 쓰지 않고, 이 문서의 "가져갈 것 / 바꿀 것"을 기준으로 다시 만듭니다.
 >
 > - [design/net-folding-ref.png](../design/net-folding-ref.png): 직육면체를 접는 중(43%)
-> - [design/net-folding-ref-pyramid.png](../design/net-folding-ref-pyramid.png): 사각뿔을 다 접은 상태(100%), 보기 옵션 체크박스. 사각뿔은 우리 범위 밖이라 화면 구성만 참고
+> - [design/net-folding-ref-pyramid.png](../design/net-folding-ref-pyramid.png): 사각뿔을 다 접은 상태(100%), 보기 옵션 체크박스. 사각뿔(각뿔)은 2차 범위(TODO-31)이고, 지금은 화면 구성만 참고
 
 ## 친절한 설명 원칙
 
