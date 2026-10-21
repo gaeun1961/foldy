@@ -36,6 +36,6 @@ TODO는 3D 뷰어 / AI / UI·통합 / 발표 영역으로 묶여 있고, 🟢 �
 
 - [docs/01-folder-architecture.md](docs/01-folder-architecture.md): 폴더 구조, 폴더별 책임
 - [docs/02-specs.md](docs/02-specs.md): 기술 스택, 구현 규칙, ShapeScene 데이터 계약, API
-- [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 1차 범위
+- [docs/03-product-plan.md](docs/03-product-plan.md): 대상 사용자, 핵심 기능, 단계별 범위(1차 직육면체 → 2차 정다면체 → 3차 원기둥·원뿔)
 - [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md): 남은 작업 목록, TODO 이슈 링크
 - [docs/reports/](docs/reports/): PR별 작업 기록

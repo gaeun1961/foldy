@@ -2,12 +2,12 @@
 // 서비스 코드가 아니다. 실험 기록으로만 남긴다 (최종 결정은 three.js, 플랜 B).
 // 결과는 docs/reports/ 의 TODO-1 리포트 참고.
 import { mockScene } from '../src/shared/mock'
-import type { LinePoint, ShapeScene, VertexIndex } from '../src/shared/types'
+import type { CuboidScene, PolyhedronPoint as LinePoint, VertexIndex } from '../src/shared/types'
 
 declare const GGBApplet: any
 
 // 꼭짓점 인덱스 → 좌표 (docs/02-specs.md 규칙. GeoGebra 는 z 가 위, 앞면은 y = 0)
-function vertexCoord(i: number, { width, depth, height }: ShapeScene['size']) {
+function vertexCoord(i: number, { width, depth, height }: CuboidScene['size']) {
   return [[1, 2, 5, 6].includes(i) ? width : 0, [2, 3, 6, 7].includes(i) ? depth : 0, i >= 4 ? height : 0]
 }
 
@@ -18,7 +18,7 @@ const FACES: VertexIndex[][] = [
 const COLORS = ['#e53935', '#fb8c00', '#fdd835', '#43a047', '#00acc1', '#1e88e5', '#8e24aa', '#6d4c41']
 
 // 실험용 장면: 목 데이터 + 모서리를 넘어가는 선(앞면 → 오른쪽 면, 모서리 1-5 에서 꺾임)을 두 조각으로
-const scene: ShapeScene = {
+const scene: CuboidScene = {
   ...mockScene,
   lines: [
     ...mockScene.lines,
