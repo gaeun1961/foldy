@@ -42,7 +42,7 @@ foldy
    │  ├─ api.md                      # backend API
    │  └─ ui.md                       # UI 기준 (팀 시안 기준)
    ├─ design                         # 디자인 참고 이미지 (기본으로 읽지 않음)
-   ├─ reports                        # 작업 기록 (PR 하나당 하나, 기본으로 읽지 않음)
+   ├─ reports                        # 작업 기록 (TODO 하나당 하나, 기본으로 읽지 않음)
    │  └─ _template.md
    └─ todo                           # 후속 작업
       ├─ _template.md

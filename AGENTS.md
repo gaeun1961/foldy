@@ -44,11 +44,16 @@
 
 ## 기록 규칙
 
-- **리포트**: PR 하나당 짧게 하나. `docs/reports/yymmdd-HHMM-NN-작업키워드.md` (템플릿 `docs/reports/_template.md`)
+- **리포트**: TODO 하나당 하나 (`docs/reports/{YYMMDD}-{HHMM}-T{TODO번호 두 자리}-{짧은설명}.md`, 템플릿 `docs/reports/_template.md`)
+  - 같은 TODO에 PR이 여러 개면 기존 리포트에 이어서 쓴다
+  - TODO가 아닌 작은 작업(문서 정리, 설정 변경)은 쓰지 않고 PR 본문으로 대신한다
+  - 결정이 바뀌었거나 기술 문제를 해결했으면 TODO가 아니어도 `T00` 리포트를 쓴다
+- **TODO 목록 갱신**: TODO를 가져가거나 끝낼 때 `00-todo-list.md`의 섹션(지금 시작 가능 / 진행 중 / 1차 남은 일)을 같이 갱신한다
+- **2·3차 이슈**: 1차 마일스톤이 끝나면 다시 연다 (그전까지 "not planned"로 닫혀 있다)
 - **TODO 추가**: 한 사람이 반나절~하루에 끝낼 크기로 만든다
   - 템플릿은 `docs/todo/_template.md`
-  - `[TODO-N] 제목` 이슈를 영역 라벨(`3d`/`ai`/`ui`/`presentation`)과 함께 만들고, assignee는 비운다
-  - `00-todo-list.md`의 해당 표에 한 줄을 넣는다 (단계, 이슈 링크, 선행 TODO가 없으면 🟢)
+  - `[TODO-N] 제목` 이슈를 영역 라벨(`3d`/`ai`/`ui`/`presentation`)과 해당 마일스톤으로 만들고, assignee는 비운다
+  - `00-todo-list.md`의 맞는 섹션에 이슈 링크와 함께 한 줄을 넣는다
 - **TODO 완료**: 같은 PR에서 TODO 파일을 지우고, 목록에서 빼고, 리포트를 쓴다
 
 ## 검증 (PR 전에)
