@@ -1,11 +1,41 @@
 # TODO List
 
-> `docs/todo`에 있는 후속 작업을 한 줄씩 요약합니다.  
-> 에이전트는 작업 시작 전 이 파일을 먼저 확인하고, 관련 항목이 있으면 해당 TODO 문서를 함께 읽어야 합니다.  
+> `docs/todo`에 있는 후속 작업을 한 줄씩 요약합니다. TODO 하나는 한 사람이 반나절~하루에 끝낼 크기입니다.  
+> 일을 가져갈 때는 이 목록과 해당 TODO 파일의 **담당자** 칸에 이름을 적고 시작합니다. 담당자가 있는 TODO는 건드리지 않습니다.  
+> 🟢 = 선행 TODO가 없어 바로 시작할 수 있음. 선행 TODO가 끝나면(목록에서 사라지면) 시작할 수 있습니다.  
 > 완료된 TODO는 해당 파일을 삭제하고, `docs/reports/`에 작업 기록을 남긴 뒤, 이 목록에서도 제거합니다.
 
-- [TODO] `01-geogebra-line-test.md` | 시점: 접기·선 긋기 구현 전 (3D) | 목표: GeoGebra 임베드로 선 연동 가능 여부를 확인하고 뷰어 플랜 A(GeoGebra)/B(three.js) 결정
-- [TODO] `02-vision-llm.md` | 시점: LLM API 키 준비 후 (AI) | 목표: `/analyze`에 비전 LLM 연결, 실패 시 수동 입력 경로로
-- [TODO] `03-fold-animation.md` | 시점: 플랜 A/B 결정 후 (3D) | 목표: 십자형 전개도가 직육면체로 접히는 애니메이션
-- [TODO] `04-face-lines.md` | 시점: 플랜 A/B 결정 후 (3D) | 목표: 면 위 선분·꼭짓점 라벨을 입체와 전개도에 함께 표시
-- [TODO] `05-chatbot.md` | 시점: LLM API 키 준비 후 (AI + UI) | 목표: `/chat`에 LLM 연결, 힌트와 화면 조작
+## 3D 뷰어
+
+| # | 바로 시작 | TODO | 선행 | 담당자 |
+|---|---|---|---|---|
+| 1 | 🟢 | [GeoGebra 선 연동 테스트 → 플랜 A/B 결정](01-geogebra-line-test.md) | - | |
+| 2 |  | [직육면체를 면 6개로 분리해서 렌더링](02-face-split-render.md) | #1 | |
+| 3 |  | [접기 애니메이션 + 슬라이더](03-fold-animation-slider.md) | #2 | |
+| 4 |  | [ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게](04-face-lines.md) | #2 | |
+| 5 |  | [같은 꼭짓점을 같은 색으로 하이라이트](05-vertex-highlight.md) | #3 | |
+| 6 |  | [꼭짓점·모서리 중점 클릭으로 선 긋기](06-click-draw-line.md) | #4 | |
+
+## AI
+
+| # | 바로 시작 | TODO | 선행 | 담당자 |
+|---|---|---|---|---|
+| 7 | 🟢 | [학습지 사진 10장 수집 + 비전 LLM 프롬프트로 ShapeScene 추출 테스트](07-vision-prompt-test.md) | - | |
+| 8 |  | [/analyze에 비전 LLM 연결, 실패 시 에러 응답](08-analyze-vision-llm.md) | #7 | |
+| 9 | 🟢 | [챗봇 기본 응답: 힌트형 시스템 프롬프트, 현재 ShapeScene을 맥락으로 /chat 연결](09-chatbot-basic.md) | - | |
+| 10 |  | [챗봇이 화면 조작 명령을 함께 반환 (하이라이트, 슬라이더 값)](10-chatbot-view-commands.md) | #3, #5, #9 | |
+
+## UI·통합
+
+| # | 바로 시작 | TODO | 선행 | 담당자 |
+|---|---|---|---|---|
+| 11 | 🟢 | [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) | - | |
+| 12 | 🟢 | [수동 입력 폼 (도형 종류, 가로·세로·높이)](12-manual-input-form.md) | - | |
+| 13 | 🟢 | [챗봇 대화창 UI, /chat 연결](13-chat-ui.md) | - | |
+| 14 |  | [전체 화면 디자인 정리](14-screen-design.md) | #11, #12, #13 | |
+
+## 발표
+
+| # | 바로 시작 | TODO | 선행 | 담당자 |
+|---|---|---|---|---|
+| 15 |  | [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | #8, #10, #14 | |

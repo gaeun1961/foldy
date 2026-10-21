@@ -1,7 +1,7 @@
 # 1) 폴더 아키텍처
 
-이 문서는 foldy 저장소의 폴더 구조와 폴더별 담당을 정의합니다.
-목표는 세 명(AI / 3D 뷰어 / UI·통합)이 **같은 파일을 건드리지 않고 병렬로** 작업하는 것입니다.
+이 문서는 foldy 저장소의 폴더 구조와 폴더별 책임(무슨 코드가 어디에 있는지)을 정의합니다.
+폴더별 담당자는 없습니다. 누가 무엇을 하는지는 `docs/todo/00-todo-list.md`의 TODO 담당자 칸으로 정합니다.
 
 ---
 
@@ -43,16 +43,16 @@ foldy
 
 ---
 
-## B. 폴더별 담당
+## B. 폴더별 책임
 
-| 폴더 | 담당 | 내용 |
-|---|---|---|
-| `frontend/src/viewer/` | 3D 뷰어 | `index.ts`(`ViewerProps`, `Viewer` export), `ThreeViewer.tsx`(three.js 구현). 꼭짓점 라벨, 면 위 선분, 전개도 접기 |
-| `frontend/src/ui/` | UI·통합 | `App.tsx`(업로드 / 뷰어 / 챗봇 배치). 업로드·챗봇 UI, backend API 연결, 수동 입력 화면 |
-| `frontend/src/shared/` | 공동 | `types.ts`(ShapeScene 타입), `mock.ts`(목 데이터). 변경은 이슈로 합의 |
-| `backend/app/ai/` | AI | `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `chat.py`(챗봇 답변) |
-| `backend/app/api/` | UI·통합 | `routes.py`(`/health`, `/analyze`, `/chat`). `ai/` 함수를 부르기만 한다 |
-| `docs/` | 공동 | 기준 문서, 작업 기록, TODO |
+| 폴더 | 들어가는 코드 |
+|---|---|
+| `frontend/src/viewer/` | 3D 뷰어. `index.ts`(`ViewerProps`, `Viewer` export), `ThreeViewer.tsx`(three.js 구현). 면 렌더링, 전개도 접기, 면 위 선분, 꼭짓점 하이라이트·클릭 |
+| `frontend/src/ui/` | 화면 구성과 backend 연결. `App.tsx`(업로드 / 뷰어 / 챗봇 배치). 사진 업로드, 수동 입력 폼, 챗봇 대화창, API 호출 |
+| `frontend/src/shared/` | 공용 코드. `types.ts`(ShapeScene 타입), `mock.ts`(목 데이터). ShapeScene 변경은 이슈로 합의 |
+| `backend/app/ai/` | LLM 관련 코드. `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `chat.py`(챗봇 답변), 프롬프트 |
+| `backend/app/api/` | 라우터. `routes.py`(`/health`, `/analyze`, `/chat`). `ai/` 함수를 부르기만 한다 |
+| `docs/` | 기준 문서, 작업 기록, TODO |
 
 ---
 
@@ -61,4 +61,3 @@ foldy
 - `ui` → `viewer`는 `viewer/index.ts`를 통해서만 import한다 (`ThreeViewer.tsx` 직접 import 금지)
 - `viewer`, `ui`는 모두 `shared`를 import할 수 있다. `shared`는 다른 폴더를 import하지 않는다
 - `api` → `ai`는 가능, `ai` → `api`는 금지
-- 담당 외 폴더를 크게 고쳐야 하면 담당자와 이슈로 먼저 이야기한다

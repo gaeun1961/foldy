@@ -16,7 +16,9 @@ frontend는 Vite + React + TypeScript + three.js, backend는 FastAPI.
 - 위 필수 문서를 읽었는가
 - `docs/todo/00-todo-list.md`를 확인했는가
 - 작업이 1차 범위(직육면체·정육면체, 십자형 전개도)를 벗어나지 않는가
-- 담당 폴더(`docs/01-folder-architecture.md` B)와 의존 규칙을 지키는가
+- 할 TODO의 담당자 칸(`docs/todo/00-todo-list.md`와 해당 TODO 파일)에 이름을 적었는가. 이미 담당자가 있는 TODO는 아닌가
+- 선행 TODO가 모두 끝났는가
+- 폴더 책임과 의존 규칙(`docs/01-folder-architecture.md` B, C)을 지키는가
 - LLM 호출은 backend(`backend/app/ai/`)에서만 하는가
 - UI/스타일링은 일반 CSS(`frontend/src/index.css`) 방식인가
 - 현재 작업과 관련된 TODO가 있으면 해당 `docs/todo/*.md`를 읽고, 내용을 사용자에게 먼저 알린 뒤 이번 요청 범위에 함께 반영할지 확인했는가
@@ -85,7 +87,8 @@ ruff format .
 - **리포트는 PR 하나당 짧게 하나.** `docs/reports`에 `yymmdd-HHMM-NN-작업키워드.md` 형식으로 기록
 - 템플릿: `docs/reports/_template.md`
 - 현재 바로 처리하지 못하지만 추후 반드시 진행해야 하는 작업이 생기면 `docs/todo`에 TODO 문서를 추가 (템플릿: `docs/todo/_template.md`)
-- TODO 추가 시 `docs/todo/00-todo-list.md`에 한 줄 요약도 반드시 함께 갱신
+- TODO 하나는 한 사람이 반나절~하루에 끝낼 크기로 나누고, 목표·완료 조건·선행 TODO·담당자 칸을 적는다
+- TODO 추가 시 `docs/todo/00-todo-list.md`의 해당 영역 표에 한 줄도 반드시 함께 갱신 (선행 TODO가 없으면 🟢)
 - TODO 완료 시 해당 TODO 파일을 삭제하고, `docs/reports/`에 작업 기록을 남긴 뒤, `docs/todo/00-todo-list.md`에서도 제거
 - TODO와 관련된 요청을 받으면 우선 `docs/todo/00-todo-list.md`를 확인하고, 관련 항목이 있으면 해당 TODO 문서를 읽은 뒤 사용자에게 관련 TODO 존재 여부와 반영 범위를 먼저 알릴 것
 - 관련 TODO가 현재 요청과 이어질 수 있으면, TODO 내용을 짧게 요약한 뒤 이번 작업에 함께 반영할지 사용자에게 먼저 물어보고 답변을 받은 후 진행할 것
@@ -94,7 +97,7 @@ ruff format .
 ## 금지 사항
 - `.env` 커밋 금지 (`.env.example` 만 커밋)
 - frontend 에서 LLM API 직접 호출 금지 (키 노출). 반드시 backend 경유
-- 담당 외 폴더 대규모 수정 금지. 필요하면 담당자와 이슈로 먼저 이야기
+- 담당자 없이 작업 시작 금지. 작업 전 `docs/todo/00-todo-list.md`에서 해당 TODO에 담당자를 적고 시작한다. 담당자가 있는 TODO는 건드리지 않는다
 - `CLAUDE.md` 등 에이전트별 설정 파일을 따로 만들지 말고 이 문서를 고친다
 
 ## 참고
