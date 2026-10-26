@@ -11,7 +11,7 @@ export default function App() {
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
   const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
-  const [view, setView] = useState<ViewOptionValues>({ showHiddenEdges: true }) // 보기 옵션 체크박스, 기본값은 ui.md
+  const [view, setView] = useState<ViewOptionValues>({ showHiddenEdges: true, showMatchingEdges: true }) // 보기 옵션 체크박스, 기본값은 ui.md
   const steps = foldStepCount(scene)
   const status = foldStatus(scene.shape, unfold, playing)
 
@@ -30,6 +30,8 @@ export default function App() {
             {status.text}
           </div>
           {foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
+          {/* 안내 문구: 애니메이션 중에는 숨긴다 (ui.md 친절한 설명 원칙) */}
+          {view.showMatchingEdges && steps > 0 && !playing && <p className="viewer-hint">같은 색 모서리끼리 만나요</p>}
         </div>
         <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} />
         <ViewOptions values={view} onChange={setView} />
