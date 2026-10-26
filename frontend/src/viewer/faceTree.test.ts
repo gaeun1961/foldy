@@ -2,7 +2,7 @@
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
 import { applyUnfold, buildFaceTree, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
-import { foldOrderOf, foldStepCount, polyhedronOf, type Polyhedron } from './polyhedra.ts'
+import { foldOrderOf, foldStepCount, matchingEdges, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { ShapeScene } from '../shared/types.ts'
 
 const EPS = 1e-9
@@ -66,6 +66,17 @@ function checkBox(scene: ShapeScene, w: number, d: number, h: number) {
   check(Math.min(...ys) > -EPS && Math.abs(Math.max(...ys) - d) < EPS, `${scene.shape}: 접은 상자가 바닥 위에 서 있지 않음`)
 
   checkStepFold(scene, poly, tree)
+  checkMatchingEdges(scene, poly)
+}
+
+// 맞닿는 모서리 (viewer.md "맞닿는 모서리"): 7쌍, 쌍마다 다른 면의 같은 두 꼭짓점, 붙는 모서리 5개와 합쳐 모서리 12개
+function checkMatchingEdges(scene: ShapeScene, poly: Polyhedron) {
+  const pairs = matchingEdges(poly)
+  const key = ([a, b]: number[]) => [a, b].sort().join('-')
+  check(pairs.length === 7, `${scene.shape}: 맞닿는 모서리 쌍이 ${pairs.length}개`)
+  check(pairs.every(([x, y]) => x[0] !== y[0] && key(x[1]) === key(y[1])), `${scene.shape}: 쌍이 다른 면의 같은 모서리가 아님`)
+  const edges = new Set([...pairs.map(([x]) => key(x[1])), ...poly.faces.flatMap((f) => (f.hinge ? [key(f.hinge)] : []))])
+  check(edges.size === 12, `${scene.shape}: 붙는 모서리 + 맞닿는 모서리가 12개가 아님`)
 }
 
 // 단계별 접기 (viewer.md "단계별 접기")
@@ -123,4 +134,4 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 면 위 선분)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분)')

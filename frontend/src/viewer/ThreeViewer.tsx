@@ -4,9 +4,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
-import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
+import { foldOrderOf, matchingEdges, polyhedronOf } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
+// 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다
+const PAIR_COLORS = ['#e5484d', '#f76b15', '#e2a400', '#30a46c', '#12a594', '#3e63dd', '#8e4ec6']
 
 // 선을 화면 위치는 그대로 두고 깊이만 카메라 쪽으로 pull.value 만큼 당긴다 (시선 방향으로 당기면 화면 위치가 안 바뀐다).
 // 보이는 모서리가 면과 깊이를 다투면 그래픽 카드마다 점선·실선이 깜빡여서, polygonOffset 대신 거리로 여유를 준다
@@ -25,19 +27,19 @@ function pullTowardCamera<M extends THREE.Material>(material: M, pull: { value: 
 
 // three.js 뷰어: 다면체를 면 트리(polyhedra.ts)로 그려 바닥에 눕히고, unfold 값만큼 펼친다. 마우스로 돌려 볼 수 있다.
 // 단계별 접기(foldMode = 'step')는 면을 하나씩 접고 지금 접히는 면을 강조한다 (docs/specs/viewer.md)
-// 가려진 모서리는 점선 (showHiddenEdges)
+// 가려진 모서리는 점선 (showHiddenEdges), 맞닿는 모서리 쌍은 같은 색이고 누르면 쌍이 함께 굵어진다 (showMatchingEdges)
 // 면 위 선분(scene.lines)은 면 메시의 자식이라 접힘을 따라간다
-// TODO(3D): 하이라이트(TODO-5), 맞닿는 모서리 색(TODO-22), 곡면 도형(TODO-17)
-export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdges = true }: ViewerProps) {
+// TODO(3D): 하이라이트(TODO-5), 곡면 도형(TODO-17)
+export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdges = true, showMatchingEdges = true }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef({ unfold, foldMode, showHiddenEdges }) // 도형을 새로 만들 때 지금 값으로 시작하려고
+  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges }) // 도형을 새로 만들 때 지금 값으로 시작하려고
   const applyRef = useRef<(() => void) | null>(null)
 
   // unfold·foldMode·보기 옵션만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    viewRef.current = { unfold, foldMode, showHiddenEdges }
+    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges }
     applyRef.current?.()
-  }, [unfold, foldMode, showHiddenEdges])
+  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges])
 
   useEffect(() => {
     const poly = polyhedronOf(scene)
@@ -143,11 +145,43 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
       return dashed
     })
 
+    // 맞닿는 모서리: 쌍마다 한 색의 가는 원기둥을 두 면 메시에 하나씩 붙인다. 접힐 때 따라오고, 다 접으면 한 자리에 겹친다.
+    // 실선·점선(renderOrder 1)보다 나중에 그려서(renderOrder 2) 그 자리의 실선을 덮는다. 실선은 깊이를 안 써서 덮인다.
+    // 면 뒤로 가려지면 원기둥은 안 보이고 점선만 남는다
+    // 누르기 쉽게 보이지 않는 굵은 원기둥(hit)을 자식으로 둔다 (Raycaster 는 visible 과 상관없이 맞힌다)
+    const pairMaterials = PAIR_COLORS.map((color) => new THREE.MeshBasicMaterial({ color }))
+    const edgeGeometry = new THREE.CylinderGeometry(radius * 0.008, radius * 0.008, 1, 8) // 길이 1, 모서리마다 scale.y 로 늘린다
+    const hitGeometry = new THREE.CylinderGeometry(radius * 0.04, radius * 0.04, 1, 6)
+    const pairEdges = matchingEdges(poly).map((pair, k) =>
+      pair.map(([face, edge]) => {
+        const [a, b] = edge.map((i) => new THREE.Vector3(...poly.positions[i]))
+        const mesh = new THREE.Mesh(edgeGeometry, pairMaterials[k % pairMaterials.length])
+        mesh.position.addVectors(a, b).multiplyScalar(0.5)
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize())
+        mesh.scale.y = a.distanceTo(b)
+        mesh.renderOrder = 2
+        const hit = new THREE.Mesh(hitGeometry)
+        hit.visible = false
+        hit.userData.pair = k
+        mesh.add(hit)
+        tree.nodes[face].mesh.add(mesh)
+        return mesh
+      }),
+    )
+    let picked: number | null = null // 누른 쌍. 뷰어 안 상태 (viewer.md "맞닿는 모서리")
+
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
     let active: number | null = null
     const apply = () => {
-      const { unfold, foldMode, showHiddenEdges } = viewRef.current
+      const { unfold, foldMode, showHiddenEdges, showMatchingEdges } = viewRef.current
       for (const line of hiddenEdges) line.visible = showHiddenEdges
+      if (!showMatchingEdges) picked = null
+      pairEdges.forEach((pair, k) =>
+        pair.forEach((mesh) => {
+          mesh.visible = showMatchingEdges
+          mesh.scale.x = mesh.scale.z = k === picked ? 2.5 : 1 // 고른 쌍은 함께 굵게 (색만으로 구분하지 않기)
+        }),
+      )
       if (foldMode === 'step') {
         const values = stepUnfold(order, poly.faces.length, unfold)
         applyUnfold(tree, values)
@@ -214,6 +248,24 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     observer.observe(container)
     resize()
 
+    // 모서리 누르기: 끌어서 돌린 것은 클릭이 아니다. 같은 쌍을 다시 누르거나 빈 곳을 누르면 풀린다.
+    // 면도 같이 맞혀서, 면에 가려진 뒤쪽 모서리는 고르지 않는다
+    const targets = [...tree.nodes.map((n) => n.mesh), ...pairEdges.flat().map((m) => m.children[0])]
+    const raycaster = new THREE.Raycaster()
+    let down: { x: number; y: number } | null = null
+    const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
+    const onUp = (e: PointerEvent) => {
+      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || !viewRef.current.showMatchingEdges) return
+      const rect = renderer.domElement.getBoundingClientRect()
+      raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
+      const hits = raycaster.intersectObjects(targets, false)
+      const k: number | null = hits[0]?.object.userData.pair ?? null
+      picked = k === picked ? null : k
+      apply()
+    }
+    renderer.domElement.addEventListener('pointerdown', onDown)
+    renderer.domElement.addEventListener('pointerup', onUp)
+
     renderer.setAnimationLoop(() => {
       controls.update()
       renderer.render(world, camera)
@@ -223,10 +275,14 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
       applyRef.current = null
       renderer.setAnimationLoop(null)
       observer.disconnect()
+      renderer.domElement.removeEventListener('pointerdown', onDown)
+      renderer.domElement.removeEventListener('pointerup', onUp)
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, barMaterial, hiddenMaterial, lineMaterial, shadowFloor.material, grid.material]) m.dispose()
+      for (const m of [...lookMaterials, ...pairMaterials, barMaterial, hiddenMaterial, lineMaterial, shadowFloor.material, grid.material]) m.dispose()
+      edgeGeometry.dispose()
+      hitGeometry.dispose()
       shadowFloor.geometry.dispose()
       grid.geometry.dispose()
       light.shadow.map?.dispose()

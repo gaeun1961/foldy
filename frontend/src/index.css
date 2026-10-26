@@ -53,6 +53,21 @@ h2 {
 }
 .status-badge.done { color: #2e7d4f; font-weight: 700; }
 
+/* 3D 뷰 아래쪽 안내 한 줄 (ui.md 바꿀 것 "안내 문구") */
+.viewer-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 85%);
+  font-size: 16px;
+  white-space: nowrap;
+  pointer-events: none; /* 아래 모서리를 누를 수 있게 */
+}
+
 /* 접기 패널: 세 줄(방식·속도 / 슬라이더 / 버튼)로 작고 촘촘하게. 버튼 높이 40px, 터치 화면 44px (ui.md 눈높이) */
 .fold-controls {
   display: grid;

@@ -21,6 +21,22 @@ export interface Polyhedron {
 // 단계별 접기 순서 (docs/specs/viewer.md "단계별 접기")
 export const foldOrderOf = (poly: Polyhedron) => poly.foldOrder ?? poly.faces.flatMap((f, i) => (f.parent === undefined ? [] : [i]))
 
+// 접으면 맞닿는 모서리 쌍 (docs/specs/viewer.md "맞닿는 모서리"). 부모와 붙는 모서리(hinge)가 아닌 모서리는
+// 전개도에서 잘린 모서리이고, 같은 두 꼭짓점을 가진 잘린 모서리 두 개가 한 쌍이다
+export type FaceEdge = [face: number, edge: [number, number]]
+export function matchingEdges(poly: Polyhedron): [FaceEdge, FaceEdge][] {
+  const key = ([a, b]: number[]) => (a < b ? `${a}-${b}` : `${b}-${a}`)
+  const hinges = new Set(poly.faces.flatMap((f) => (f.hinge ? [key(f.hinge)] : [])))
+  const cut = new Map<string, FaceEdge[]>()
+  poly.faces.forEach((f, face) =>
+    f.vertices.forEach((a, k) => {
+      const edge: [number, number] = [a, f.vertices[(k + 1) % f.vertices.length]]
+      if (!hinges.has(key(edge))) cut.set(key(edge), [...(cut.get(key(edge)) ?? []), [face, edge]])
+    }),
+  )
+  return [...cut.values()].map(([x, y]) => [x, y])
+}
+
 // 직육면체·정육면체 (docs/specs/shape-scene.md 꼭짓점 규칙, viewer.md 면 트리 표)
 function boxPositions(w: number, d: number, h: number): Vec3[] {
   return [...Array(8).keys()].map((i) => [
