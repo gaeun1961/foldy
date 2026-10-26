@@ -413,7 +413,7 @@ export function ThreeViewer({
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
-      if (viewRef.current.drawLines) return pickLinePoint(raycaster.intersectObjects(faceTargets, false)[0])
+      if (viewRef.current.drawLines) return pickLinePoint(e.clientX - rect.left, e.clientY - rect.top, rect)
       const targets = [...faceTargets, ...vertexTargets, ...(viewRef.current.showMatchingEdges ? pairTargets : [])]
       const { vertex = null, pair = null } = raycaster.intersectObjects(targets, false)[0]?.object.userData ?? {}
       pickedVertex = vertex === null || vertex === pickedVertex ? null : vertex
@@ -422,19 +422,34 @@ export function ThreeViewer({
     }
     // 선 긋기: 누른 면에서 가장 가까운 고를 수 있는 점 (도형 크기의 6% 안). 두 점이 같은 면 위면 선분 하나,
     // 다른 면이면 겉면 최단 경로를 면별 선분으로 나눠 더한다 (viewer.md "선 긋기")
-    const pickLinePoint = (hit: THREE.Intersection | undefined) => {
+    // 점 고르기는 화면 픽셀 기준: 누른 곳에서 PICK_PX 안의 가장 가까운 "보이는" 점 (확대해도 같은 크기, 면 바깥을 살짝 눌러도 된다).
+    // 다 접으면 꼭짓점 복사본이 한 자리에 겹치므로, 거리가 같으면 누른 곳에 맞은 면의 복사본을 고른다
+    const PICK_PX = 28
+    const sight = new THREE.Raycaster()
+    const isVisible = (world: THREE.Vector3) => {
+      const toPoint = world.clone().sub(camera.position)
+      sight.set(camera.position, toPoint.clone().normalize())
+      const front = sight.intersectObjects(faceTargets, false)[0]
+      return !front || front.distance >= toPoint.length() - radius * 0.02 // 점보다 앞에 다른 면이 없음
+    }
+    const pickLinePoint = (sx: number, sy: number, rect: DOMRect) => {
       const { onSceneChange, onDrawState } = callbacksRef.current
-      if (!hit) {
+      const hitFace: number | undefined = raycaster.intersectObjects(faceTargets, false)[0]?.object.userData.face
+      const candidates = tree.nodes.flatMap((node) =>
+        facePoints(poly, node.face, viewRef.current.edgeDivisions).flatMap((c) => {
+          const world = new THREE.Vector3(...c.at).applyMatrix4(node.mesh.matrixWorld)
+          const s = world.clone().project(camera)
+          const d = Math.hypot(((s.x + 1) / 2) * rect.width - sx, ((1 - s.y) / 2) * rect.height - sy)
+          return d <= PICK_PX && isVisible(world) ? [{ face: node.face, point: c.point, at: c.at, d: Math.round(d) }] : []
+        }),
+      )
+      const near = candidates.sort((a, b) => a.d - b.d || Number(b.face === hitFace) - Number(a.face === hitFace))[0]
+      if (!near) {
+        if (hitFace !== undefined) return // 면 가운데처럼 점에서 먼 곳은 무시
         setFirstPick(null)
         return onDrawState?.('idle') // 도형 밖을 누르면 풀린다
       }
-      const face: number = hit.object.userData.face
-      const local = hit.object.worldToLocal(hit.point.clone())
-      const near = facePoints(poly, face, viewRef.current.edgeDivisions)
-        .map((c) => ({ ...c, d: local.distanceTo(new THREE.Vector3(...c.at)) }))
-        .sort((a, b) => a.d - b.d)[0]
-      if (near.d > radius * 0.06) return // 면 가운데처럼 점에서 먼 곳은 무시
-      const pick = { face, point: near.point, at: near.at }
+      const pick = { face: near.face, point: near.point, at: near.at }
       if (!firstPick) {
         setFirstPick(pick)
         return onDrawState?.('picked')
