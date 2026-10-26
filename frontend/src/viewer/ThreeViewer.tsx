@@ -6,38 +6,65 @@ import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, stepUnfold } f
 import { foldOrderOf, matchingEdges, polyhedronOf } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
-// 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다
+// 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
+// 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다
 const PAIR_COLORS = ['#e5484d', '#f76b15', '#e2a400', '#30a46c', '#12a594', '#3e63dd', '#8e4ec6']
 
-// 선을 화면 위치는 그대로 두고 깊이만 카메라 쪽으로 pull.value 만큼 당긴다 (시선 방향으로 당기면 화면 위치가 안 바뀐다).
-// 보이는 모서리가 면과 깊이를 다투면 그래픽 카드마다 점선·실선이 깜빡여서, polygonOffset 대신 거리로 여유를 준다
+// 선·라벨을 화면 위치는 그대로 두고 깊이만 카메라 쪽으로 pull.value 만큼 당긴다 (시선 방향으로 당기면 화면 위치가 안 바뀐다).
+// 보이는 모서리가 면과 깊이를 다투면 그래픽 카드마다 점선·실선이 깜빡여서, polygonOffset 대신 거리로 여유를 준다.
+// Sprite 셰이더에는 project_vertex 가 없어서 자리를 잡은 직후(rotatedPosition)에 당긴다
 function pullTowardCamera<M extends THREE.Material>(material: M, pull: { value: number }) {
+  const PULL = 'mvPosition.xyz *= max(0.0, 1.0 - uPull / length(mvPosition.xyz));'
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uPull = pull
     shader.vertexShader =
       'uniform float uPull;\n' +
-      shader.vertexShader.replace(
-        '#include <project_vertex>',
-        '#include <project_vertex>\nmvPosition.xyz *= max(0.0, 1.0 - uPull / length(mvPosition.xyz));\ngl_Position = projectionMatrix * mvPosition;',
-      )
+      shader.vertexShader
+        .replace('#include <project_vertex>', `#include <project_vertex>\n${PULL}\ngl_Position = projectionMatrix * mvPosition;`)
+        .replace('mvPosition.xy += rotatedPosition;', `mvPosition.xy += rotatedPosition;\n${PULL}`)
   }
   return material
+}
+
+// 꼭짓점 라벨 글자 텍스처. 흰 글자로 그려서 SpriteMaterial.color 로 색을 입힌다
+function labelTexture(text: string) {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  ctx.font = 'bold 96px system-ui, sans-serif'
+  ctx.fillStyle = '#fff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, 64, 70)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
 }
 
 // three.js 뷰어: 다면체를 면 트리(polyhedra.ts)로 그려 바닥에 눕히고, unfold 값만큼 펼친다. 마우스로 돌려 볼 수 있다.
 // 단계별 접기(foldMode = 'step')는 면을 하나씩 접고 지금 접히는 면을 강조한다 (docs/specs/viewer.md)
 // 가려진 모서리는 점선 (showHiddenEdges), 맞닿는 모서리 쌍은 같은 색이고 누르면 쌍이 함께 굵어진다 (showMatchingEdges)
-// TODO(3D): 선(TODO-4), 하이라이트(TODO-5), 곡면 도형(TODO-17)
-export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdges = true, showMatchingEdges = true }: ViewerProps) {
+// 꼭짓점은 면마다 표시점·라벨 복사본을 두고, 누르거나 highlightVertices 로 강조하면 복사본이 모두 같은 색이 된다 (showVertexLabels)
+// TODO(3D): 선(TODO-4), 곡면 도형(TODO-17)
+export function ThreeViewer({
+  scene,
+  unfold = 0,
+  foldMode = 'all',
+  showHiddenEdges = true,
+  showMatchingEdges = true,
+  showVertexLabels = true,
+  highlightVertices = [],
+}: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges }) // 도형을 새로 만들 때 지금 값으로 시작하려고
+  // 도형을 새로 만들 때 지금 값으로 시작하려고
+  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices })
   const applyRef = useRef<(() => void) | null>(null)
 
-  // unfold·foldMode·보기 옵션만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
+  // unfold·foldMode·보기 옵션·강조만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges }
+    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices }
     applyRef.current?.()
-  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges])
+  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices])
 
   useEffect(() => {
     const poly = polyhedronOf(scene)
@@ -153,10 +180,47 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     )
     let picked: number | null = null // 누른 쌍. 뷰어 안 상태 (viewer.md "맞닿는 모서리")
 
+    // 꼭짓점 복사본: 면마다 자기 꼭짓점의 표시점(구)과 라벨(Sprite)을 꼭짓점 위치에 붙인다. 다 접으면 복사본이 한 자리에 겹친다.
+    // 색·흐림은 꼭짓점 인덱스마다 재질 하나라서 복사본 모두에 함께 적용된다 (viewer.md "꼭짓점 복사본").
+    // 라벨은 자기 면에 잘리지 않게 라벨 크기만큼 카메라 쪽으로 당긴다. 누르기 쉽게 보이지 않는 큰 구(hit)를 둔다
+    const labelPull = { value: radius * 0.1 }
+    const vertexCount = poly.positions.length
+    const markerMaterials = [...Array(vertexCount)].map(() => new THREE.MeshBasicMaterial({ transparent: true }))
+    const labelMaterials = [...Array(vertexCount)].map((_, i) => {
+      const text = scene.vertexLabels[i]
+      // 한글 기호(ㄱ, ㄴ…)와 기호 없음은 라벨을 그리지 않는다 (ui.md "라벨"). 표시점은 누르기·강조에 쓰므로 남긴다
+      return text && !/[\u3131-\u318e\uac00-\ud7a3]/.test(text) ? pullTowardCamera(new THREE.SpriteMaterial({ map: labelTexture(text), depthWrite: false }), labelPull) : null
+    })
+    const markerGeometry = new THREE.SphereGeometry(radius * 0.018, 16, 12)
+    const vertexHitGeometry = new THREE.SphereGeometry(radius * 0.05, 8, 6)
+    const markers: { vertex: number; mesh: THREE.Mesh; label: THREE.Sprite | null }[] = []
+    for (const n of tree.nodes) {
+      for (const i of n.vertices) {
+        const position = new THREE.Vector3(...poly.positions[i])
+        const mesh = new THREE.Mesh(markerGeometry, markerMaterials[i])
+        mesh.position.copy(position)
+        const hit = new THREE.Mesh(vertexHitGeometry)
+        hit.visible = false
+        hit.userData.vertex = i
+        mesh.add(hit)
+        n.mesh.add(mesh)
+        let label: THREE.Sprite | null = null
+        if (labelMaterials[i]) {
+          label = new THREE.Sprite(labelMaterials[i]!)
+          label.position.copy(position)
+          label.center.set(-0.1, -0.1) // 꼭짓점의 오른쪽 위에 글자
+          label.renderOrder = 3
+          n.mesh.add(label)
+        }
+        markers.push({ vertex: i, mesh, label })
+      }
+    }
+    let pickedVertex: number | null = null // 누른 꼭짓점. 뷰어 안 상태
+
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
     let active: number | null = null
     const apply = () => {
-      const { unfold, foldMode, showHiddenEdges, showMatchingEdges } = viewRef.current
+      const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices } = viewRef.current
       for (const line of hiddenEdges) line.visible = showHiddenEdges
       if (!showMatchingEdges) picked = null
       pairEdges.forEach((pair, k) =>
@@ -165,6 +229,23 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
           mesh.scale.x = mesh.scale.z = k === picked ? 2.5 : 1 // 고른 쌍은 함께 굵게 (색만으로 구분하지 않기)
         }),
       )
+      // 강조: props 가 먼저, 없으면 누른 꼭짓점. 강조한 꼭짓점은 목록 순서대로 색, 나머지는 흐리게. 평소에는 모두 진한 회색
+      const highlight = highlightVertices.length ? highlightVertices : pickedVertex === null ? [] : [pickedVertex]
+      for (let i = 0; i < vertexCount; i++) {
+        const j = highlight.indexOf(i)
+        const color = j < 0 ? '#3c4048' : PAIR_COLORS[j % PAIR_COLORS.length]
+        const opacity = highlight.length && j < 0 ? 0.25 : 1
+        for (const m of [markerMaterials[i], labelMaterials[i]]) m?.color.set(color)
+        for (const m of [markerMaterials[i], labelMaterials[i]]) if (m) m.opacity = opacity
+      }
+      for (const { vertex, mesh, label } of markers) {
+        const big = highlight.includes(vertex) // 색만으로 구분하지 않게 크게
+        mesh.scale.setScalar(big ? 1.8 : 1)
+        if (label) {
+          label.visible = showVertexLabels
+          label.scale.setScalar(radius * (big ? 0.15 : 0.12))
+        }
+      }
       if (foldMode === 'step') {
         const values = stepUnfold(order, poly.faces.length, unfold)
         applyUnfold(tree, values)
@@ -231,19 +312,22 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     observer.observe(container)
     resize()
 
-    // 모서리 누르기: 끌어서 돌린 것은 클릭이 아니다. 같은 쌍을 다시 누르거나 빈 곳을 누르면 풀린다.
-    // 면도 같이 맞혀서, 면에 가려진 뒤쪽 모서리는 고르지 않는다
-    const targets = [...tree.nodes.map((n) => n.mesh), ...pairEdges.flat().map((m) => m.children[0])]
+    // 꼭짓점·모서리 누르기: 끌어서 돌린 것은 클릭이 아니다. 같은 것을 다시 누르거나 빈 곳을 누르면 풀린다.
+    // 꼭짓점과 모서리 쌍은 하나만 고른다. 면도 같이 맞혀서, 면에 가려진 뒤쪽 꼭짓점·모서리는 고르지 않는다
+    const faceTargets = tree.nodes.map((n) => n.mesh)
+    const vertexTargets = markers.map((m) => m.mesh.children[0])
+    const pairTargets = pairEdges.flat().map((m) => m.children[0])
     const raycaster = new THREE.Raycaster()
     let down: { x: number; y: number } | null = null
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
     const onUp = (e: PointerEvent) => {
-      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || !viewRef.current.showMatchingEdges) return
+      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
-      const hits = raycaster.intersectObjects(targets, false)
-      const k: number | null = hits[0]?.object.userData.pair ?? null
-      picked = k === picked ? null : k
+      const targets = [...faceTargets, ...vertexTargets, ...(viewRef.current.showMatchingEdges ? pairTargets : [])]
+      const { vertex = null, pair = null } = raycaster.intersectObjects(targets, false)[0]?.object.userData ?? {}
+      pickedVertex = vertex === null || vertex === pickedVertex ? null : vertex
+      picked = pair === null || pair === picked ? null : pair
       apply()
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
@@ -263,9 +347,12 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, ...pairMaterials, barMaterial, hiddenMaterial, shadowFloor.material, grid.material]) m.dispose()
-      edgeGeometry.dispose()
-      hitGeometry.dispose()
+      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, shadowFloor.material, grid.material]) m.dispose()
+      for (const m of labelMaterials) {
+        m?.map?.dispose()
+        m?.dispose()
+      }
+      for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry]) g.dispose()
       shadowFloor.geometry.dispose()
       grid.geometry.dispose()
       light.shadow.map?.dispose()
