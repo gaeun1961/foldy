@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
-import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, lineOnNet, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, matchingEdges, polyhedronOf, type Vec3 } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
@@ -193,12 +193,12 @@ export function ThreeViewer({
         }
     const pickMarker = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.03, 16, 12), lineMaterial)
     pickMarker.visible = false
-    let firstPick: { point: PolyhedronPoint; at: Vec3 } | null = null
-    const setFirstPick = (pick: typeof firstPick, face = 0) => {
+    let firstPick: { face: number; point: PolyhedronPoint; at: Vec3 } | null = null
+    const setFirstPick = (pick: typeof firstPick) => {
       firstPick = pick
       pickMarker.visible = !!pick
       if (pick) {
-        tree.nodes[face].mesh.add(pickMarker)
+        tree.nodes[pick.face].mesh.add(pickMarker)
         pickMarker.position.set(...pick.at)
       }
     }
@@ -408,7 +408,8 @@ export function ThreeViewer({
       picked = pair === null || pair === picked ? null : pair
       apply()
     }
-    // 선 긋기: 누른 면에서 가장 가까운 고를 수 있는 점 (도형 크기의 6% 안). 두 점이 같은 면 위면 선분을 더한다
+    // 선 긋기: 누른 면에서 가장 가까운 고를 수 있는 점 (도형 크기의 6% 안). 두 점이 같은 면 위면 선분 하나,
+    // 다른 면이면 전개도 위 직선을 면별 선분으로 나눠 더한다 (viewer.md "선 긋기")
     const pickLinePoint = (hit: THREE.Intersection | undefined) => {
       const { onSceneChange, onDrawState } = callbacksRef.current
       if (!hit) {
@@ -421,18 +422,21 @@ export function ThreeViewer({
         .map((c) => ({ ...c, d: local.distanceTo(new THREE.Vector3(...c.at)) }))
         .sort((a, b) => a.d - b.d)[0]
       if (near.d > radius * 0.06) return // 면 가운데처럼 점에서 먼 곳은 무시
-      const pick = { point: near.point, at: near.at }
+      const pick = { face, point: near.point, at: near.at }
       if (!firstPick) {
-        setFirstPick(pick, face)
+        setFirstPick(pick)
         return onDrawState?.('picked')
       }
-      const from = firstPick.point
-      const same = new THREE.Vector3(...firstPick.at).distanceTo(new THREE.Vector3(...pick.at)) < 1e-9
+      const first = firstPick
+      const same = new THREE.Vector3(...first.at).distanceTo(new THREE.Vector3(...pick.at)) < 1e-9
       setFirstPick(null)
       if (same) return onDrawState?.('idle') // 같은 점을 다시 누르면 풀린다
-      if (!placeLines(poly, [{ from, to: pick.point }])[0]) return onDrawState?.('not-same-face')
+      const added = placeLines(poly, [{ from: first.point, to: pick.point }])[0]
+        ? [{ from: first.point, to: pick.point }]
+        : lineOnNet(poly, first, pick)
+      if (!added) return onDrawState?.('off-net')
       const current = sceneRef.current
-      onSceneChange?.({ ...current, lines: [...current.lines, { from, to: pick.point }] } as ShapeScene)
+      onSceneChange?.({ ...current, lines: [...current.lines, ...added] } as ShapeScene)
       onDrawState?.('idle')
     }
     renderer.domElement.addEventListener('pointerdown', onDown)

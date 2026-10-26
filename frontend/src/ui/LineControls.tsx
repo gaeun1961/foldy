@@ -7,7 +7,7 @@ interface Props {
   divisions: Divisions
   onDivisionsChange: (divisions: Divisions) => void
   lineCount: number
-  onEraseLast: () => void // 마지막 선부터 하나씩 지운다
+  onEraseLast: () => void // 마지막에 그은 선부터 하나씩 지운다 (면에 걸친 선은 통째로)
 }
 
 export function LineControls({ drawing, onDrawingChange, divisions, onDivisionsChange, lineCount, onEraseLast }: Props) {

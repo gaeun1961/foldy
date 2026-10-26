@@ -1,7 +1,7 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, facePoints, layOnFloor, lineOnNet, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { ShapeScene } from '../shared/types.ts'
 
@@ -138,9 +138,25 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   check(facePoints(poly, 0, 2).filter((p) => 'edge' in p.point).length === 4, '2등분은 모서리마다 중점 하나')
   // 고른 두 점으로 만든 선분은 그 면에 놓인다 (3등분점 → 맞은편 꼭짓점)
   check(placeLines(poly, [{ from: third.point, to: { vertex: 5 } }])[0]?.face === 0, '등분점 선분이 앞면에 놓임')
+
+  // 다른 면의 두 점: 전개도 위 직선 (viewer.md "선 긋기"). 4×2×3 십자형 전개도에서
+  // 앞면 꼭짓점 0 → 오른쪽 면 꼭짓점 6: 앞면·오른쪽 면 경계(1-5)의 2/3 높이에서 꺾인다
+  const twoFaces = lineOnNet(poly, { face: 0, point: { vertex: 0 } }, { face: 2, point: { vertex: 6 } })!
+  check(twoFaces?.length === 2, `앞면 → 오른쪽 면은 선분 2개 ${JSON.stringify(twoFaces)}`)
+  const [first, second] = twoFaces.map((l) => placeLines(poly, [l])[0]!)
+  check(first.face === 0 && second.face === 2, `선분이 앞면, 오른쪽 면에 놓임 ${first.face} ${second.face}`)
+  check(near(first.to, [2, 0.5, 1]) && near(second.from, [2, 0.5, 1]), `꺾이는 점 ${first.to} ${second.from}`)
+  // 앞면 꼭짓점 0 → 뒷면 꼭짓점 7: 오른쪽 면을 지나 선분 3개, 이어진 한 줄
+  const threeFaces = lineOnNet(poly, { face: 0, point: { vertex: 0 } }, { face: 5, point: { vertex: 7 } })!
+  check(threeFaces?.length === 3, `앞면 → 뒷면은 선분 3개 ${JSON.stringify(threeFaces)}`)
+  const placed = placeLines(poly, threeFaces).map((l) => l!)
+  check(placed.map((l) => l.face).join() === '0,2,5', `면 순서 ${placed.map((l) => l.face)}`)
+  check(near(placed[0].to, placed[1].from) && near(placed[1].to, placed[2].from), '선분끼리 이어짐')
+  // 왼쪽 면 꼭짓점 3 → 윗면 꼭짓점 7: 십자형에서는 직선이 전개도 밖(빈 곳)을 지난다
+  check(lineOnNet(poly, { face: 1, point: { vertex: 3 } }, { face: 3, point: { vertex: 7 } }) === null, '전개도 밖을 지나면 null')
 }
 
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 전개도 위 직선)')
