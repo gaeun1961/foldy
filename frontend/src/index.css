@@ -68,6 +68,33 @@ h2 {
   pointer-events: none; /* 아래 모서리를 누를 수 있게 */
 }
 
+/* 선 긋기 한 줄: 선 긋기 토글 · 모서리 나누기 · 선 지우기 (ui.md 화면 배치 5번) */
+.line-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 12px;
+  background: #fff;
+  --button-height: 40px;
+}
+@media (pointer: coarse) {
+  .line-controls { --button-height: 44px; }
+}
+.line-controls > button {
+  min-height: var(--button-height);
+  padding: 0 14px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2430;
+  font-size: 16px;
+  cursor: pointer;
+}
+.line-controls > button[aria-pressed='true'] { border-color: #e64980; background: #e64980; color: #fff; font-weight: 700; }
+.line-controls > button:disabled { opacity: 0.4; cursor: default; }
+.line-controls > button.secondary { margin-left: auto; }
+
 /* 접기 패널: 세 줄(방식·속도 / 슬라이더 / 버튼)로 작고 촘촘하게. 버튼 높이 40px, 터치 화면 44px (ui.md 눈높이) */
 .fold-controls {
   display: grid;

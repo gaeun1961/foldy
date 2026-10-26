@@ -1,9 +1,9 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, facePoints, layOnFloor, lineOnSurface, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, polyhedronOf, type Polyhedron } from './polyhedra.ts'
-import type { ShapeScene } from '../shared/types.ts'
+import type { PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 
 const EPS = 1e-9
 const check = (ok: boolean, msg: string) => {
@@ -129,9 +129,38 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   check(mid?.face === 3 && near(mid.from, [0, 1.5, 1]) && near(mid.to, [0, 1.5, -1]), `윗면 중점 연결 ${JSON.stringify(mid)}`)
   check(offFace === null && notEdge === null, '같은 면에 없는 선분은 null')
   check(onEdge?.face === 0, '여러 면에 맞으면 가장 작은 면 인덱스')
+
+  // 선 긋기 점 (viewer.md "선 긋기"): 앞면(0-1-5-4)을 3등분하면 꼭짓점 4 + 모서리 4개 × 2점
+  const points = facePoints(poly, 0, 3)
+  check(points.length === 4 + 4 * 2, `3등분 점 수 ${points.length}`)
+  const third = points.find((p) => 'edge' in p.point && p.point.edge[0] === 0 && p.point.t === 1 / 3)!
+  check(near(third.at, [-2 + 4 / 3, -1.5, 1]), `0→1 모서리 1/3 지점 ${third.at}`)
+  check(facePoints(poly, 0, 2).filter((p) => 'edge' in p.point).length === 4, '2등분은 모서리마다 중점 하나')
+  // 고른 두 점으로 만든 선분은 그 면에 놓인다 (3등분점 → 맞은편 꼭짓점)
+  check(placeLines(poly, [{ from: third.point, to: { vertex: 5 } }])[0]?.face === 0, '등분점 선분이 앞면에 놓임')
+
+  // 다른 면의 두 점: 겉면 최단 경로 (viewer.md "선 긋기"). 선분마다 면 위에 놓이고, 이어진 한 줄이며, 길이가 최단이어야 한다
+  const surfacePath = (from: PolyhedronPoint, to: PolyhedronPoint) => {
+    const lines = lineOnSurface(poly, from, to)!
+    check(!!lines, `이을 수 없음 ${JSON.stringify([from, to])}`)
+    const placed = placeLines(poly, lines).map((l) => l!)
+    check(placed.every(Boolean), `면 위에 없는 선분 ${JSON.stringify(lines)}`)
+    placed.slice(1).forEach((l, i) => check(near(placed[i].to, l.from), `선분 ${i}, ${i + 1} 이 끊김`))
+    const length = placed.reduce((sum, l) => sum + Math.hypot(...l.to.map((v, k) => v - l.from[k])), 0)
+    return { faces: placed.map((l) => l.face), length }
+  }
+  // 앞면 꼭짓점 0 → 반대쪽 꼭짓점 6 (4×2×3): 펼치는 방법 셋 √45, √53, √41 중 가장 짧은 √41
+  const corner = surfacePath({ vertex: 0 }, { vertex: 6 })
+  check(Math.abs(corner.length - Math.sqrt(41)) < 1e-6, `모서리 끝 → 반대 끝 최단 거리 ${corner.length}`)
+  // 왼쪽 면 → 윗면 (십자형 전개도에서는 떨어져 있는 두 면): 둘이 붙은 모서리를 곧장 넘으면 3 + 4 = 7 이지만,
+  // 앞면(또는 뒷면)을 비스듬히 지나면 √(5² + 4²) = √41 로 더 짧다 (거미와 파리 문제처럼 세 면을 지나는 길)
+  const leftTop = surfacePath({ edge: [3, 0], t: 0.5 }, { edge: [5, 6], t: 0.5 })
+  check(leftTop.faces.length === 3 && Math.abs(leftTop.length - Math.sqrt(41)) < 1e-6, `왼쪽 면 → 윗면 ${JSON.stringify(leftTop)}`)
+  // 앞면 아래 모서리 가운데 → 윗면 뒤 모서리 가운데: 3 + 2 = 5
+  check(Math.abs(surfacePath({ edge: [0, 1], t: 0.5 }, { edge: [6, 7], t: 0.5 }).length - 5) < 1e-6, '앞면 → 윗면 뒤 모서리 5')
 }
 
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로)')

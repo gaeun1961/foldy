@@ -10,7 +10,14 @@ export interface ViewerProps {
   showMatchingEdges?: boolean // 접으면 맞닿는 모서리 쌍을 같은 색으로 (기본 true, 보기 옵션)
   showVertexLabels?: boolean // 꼭짓점 라벨 (기본 true, 보기 옵션)
   highlightVertices?: number[] // 강조할 꼭짓점 인덱스. 복사본 모두 색으로, 나머지는 흐리게 (챗봇 화면 조작 TODO-10)
+  drawLines?: boolean // 선 긋기 모드: 클릭으로 선분의 두 끝점을 고른다 (기본 false)
+  edgeDivisions?: 2 | 3 | 4 // 선 긋기에서 모서리 등분 (기본 2 = 중점)
+  onSceneChange?: (scene: ShapeScene) => void // 선분이 더해진 새 scene. UI가 다시 scene 으로 넘긴다
+  onDrawState?: (state: DrawState) => void // 선 긋기 진행 상태 (안내 문구용)
 }
+
+// idle: 첫 점을 기다림 / picked: 첫 점을 고름 / no-path: 겉면으로 이을 길을 찾지 못해 긋지 않음 (드묾)
+export type DrawState = 'idle' | 'picked' | 'no-path'
 
 export { ThreeViewer as Viewer } from './ThreeViewer'
 export { foldStepCount } from './polyhedra'
