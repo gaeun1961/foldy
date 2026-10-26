@@ -8,7 +8,7 @@ export interface ViewOptionValues {
 }
 
 const ITEMS: { key: keyof ViewOptionValues; label: string }[] = [
-  { key: 'showHiddenEdges', label: '보이지 않는 모서리 점선' },
+  { key: 'showHiddenEdges', label: '보이지 않는 모서리·선 점선' },
   { key: 'showVertexLabels', label: '꼭짓점 라벨' },
   { key: 'showMatchingEdges', label: '맞닿는 모서리 색' },
 ]

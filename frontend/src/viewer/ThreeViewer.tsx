@@ -152,15 +152,23 @@ export function ThreeViewer({
     }
 
     // 면 위 선분: 면 메시의 자식으로 붙여 접고 펼 때 따라오게 한다. 1px 선은 잘 안 보여서 가는 원기둥으로 (viewer.md "선분")
+    // 면에 가려진 부분은 같은 자리의 옅은 분홍 1px 점선으로 비쳐 보인다 (가려진 모서리와 같은 방식, showHiddenEdges 를 따름).
+    // 점선은 원기둥 굵기(1%)보다 더 당겨져서(2%) 보이는 선분에는 끼지 않는다
     // lines 가 바뀌면 이 함수로 선분만 다시 그린다
     const lineMaterial = new THREE.MeshBasicMaterial({ color: '#e64980' })
-    let tubes: THREE.Mesh[] = []
+    const hiddenLineMaterial = pullTowardCamera(
+      new THREE.LineDashedMaterial({ color: '#f08fb0', dashSize: radius * 0.03, gapSize: radius * 0.03, depthFunc: THREE.GreaterDepth, depthWrite: false }),
+      pull,
+    )
+    let tubes: THREE.Object3D[] = []
+    let hiddenLines: THREE.LineSegments[] = []
     const drawSceneLines = (lines: ShapeScene['lines']) => {
       for (const t of tubes) {
         t.removeFromParent()
-        t.geometry.dispose()
+        ;(t as THREE.Mesh).geometry.dispose()
       }
       tubes = []
+      hiddenLines = []
       placeLines(poly, lines as Line<PolyhedronPoint>[]).forEach((placed, k) => {
         if (!placed) return console.warn(`foldy: lines[${k}] 의 두 끝점이 같은 면 위에 없어서 그리지 않습니다`, lines[k])
         const [from, to] = [new THREE.Vector3(...placed.from), new THREE.Vector3(...placed.to)]
@@ -169,8 +177,12 @@ export function ThreeViewer({
         const tube = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.01, radius * 0.01, length, 12), lineMaterial)
         tube.position.copy(from).add(to).multiplyScalar(0.5)
         tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize())
-        tree.nodes[placed.face].mesh.add(tube)
-        tubes.push(tube)
+        const dashed = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([from, to]), hiddenLineMaterial).computeLineDistances()
+        dashed.renderOrder = 1 // 면을 다 그린 뒤에 (가려진 모서리와 같음)
+        dashed.visible = viewRef.current.showHiddenEdges
+        tree.nodes[placed.face].mesh.add(tube, dashed)
+        tubes.push(tube, dashed)
+        hiddenLines.push(dashed)
       })
     }
     drawSceneLines(scene.lines)
@@ -298,7 +310,7 @@ export function ThreeViewer({
       for (const { n, mesh } of divisionMarkers) mesh.visible = drawLines && n === edgeDivisions
       if (!drawLines) setFirstPick(null)
       if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍 고르기를 하지 않는다
-      for (const line of hiddenEdges) line.visible = showHiddenEdges
+      for (const line of [...hiddenEdges, ...hiddenLines]) line.visible = showHiddenEdges
       if (!showMatchingEdges) picked = null
       pairEdges.forEach((pair, k) =>
         pair.forEach((mesh) => {
@@ -457,7 +469,7 @@ export function ThreeViewer({
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, divisionMaterial, shadowFloor.material, grid.material]) m.dispose()
+      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial, shadowFloor.material, grid.material]) m.dispose()
       for (const m of labelMaterials) {
         m?.map?.dispose()
         m?.dispose()
