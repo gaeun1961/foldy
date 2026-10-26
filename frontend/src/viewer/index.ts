@@ -8,6 +8,8 @@ export interface ViewerProps {
   foldMode?: 'all' | 'step' // 한 번에 접기 / 면을 하나씩 접기 (기본 'all')
   showHiddenEdges?: boolean // 가려진 모서리를 점선으로 (기본 true, 보기 옵션)
   showMatchingEdges?: boolean // 접으면 맞닿는 모서리 쌍을 같은 색으로 (기본 true, 보기 옵션)
+  showVertexLabels?: boolean // 꼭짓점 라벨 (기본 true, 보기 옵션)
+  highlightVertices?: number[] // 강조할 꼭짓점 인덱스. 복사본 모두 색으로, 나머지는 흐리게 (챗봇 화면 조작 TODO-10)
 }
 
 export { ThreeViewer as Viewer } from './ThreeViewer'

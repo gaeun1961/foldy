@@ -10,7 +10,6 @@
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
 - **TODO-6** [꼭짓점·모서리 등분점 클릭으로 선 긋기](06-click-draw-line.md) · [#12](https://github.com/gaeun1961/foldy/issues/12) — 3D: 꼭짓점이나 모서리 등분점(2·3·4등분)을 눌러 면 위에 선을 긋는다
-- **TODO-5** [같은 꼭짓점을 같은 색으로 하이라이트](05-vertex-highlight.md) · [#11](https://github.com/gaeun1961/foldy/issues/11) — 3D: 접었을 때 만나는 꼭짓점들을 같은 색으로 표시한다
 - **TODO-7** [학습지 사진 10장 수집 + 비전 LLM 프롬프트로 ShapeScene 추출 테스트](07-vision-prompt-test.md) · [#13](https://github.com/gaeun1961/foldy/issues/13) — AI: 실제 사진으로 인식 정확도를 재고 프롬프트를 만든다
 - **TODO-9** [챗봇 기본 응답: 힌트형 시스템 프롬프트, 현재 ShapeScene을 맥락으로 /chat 연결](09-chatbot-basic.md) · [#15](https://github.com/gaeun1961/foldy/issues/15) — AI: 정답 대신 힌트를 주는 챗봇 답변
 - **TODO-11** [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) · [#17](https://github.com/gaeun1961/foldy/issues/17) — UI: 사진을 올리면 backend 결과로 뷰어를 그린다
