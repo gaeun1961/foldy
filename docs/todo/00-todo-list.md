@@ -27,7 +27,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 담당자 |
 |---|---|---|
-| **TODO-23** [보이지 않는 모서리 점선 표시 + 보기 옵션 토글](23-hidden-edges-view-options.md) | [#38](https://github.com/gaeun1961/foldy/issues/38) | gaeun1961 |
+| (없음) | | |
 
 ## 1차 남은 일
 

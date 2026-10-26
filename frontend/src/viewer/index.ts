@@ -6,6 +6,7 @@ export interface ViewerProps {
   scene: ShapeScene
   unfold?: number // 펼침 값 s: 0 = 입체, 1 = 전개도 (기본 0)
   foldMode?: 'all' | 'step' // 한 번에 접기 / 면을 하나씩 접기 (기본 'all')
+  showHiddenEdges?: boolean // 가려진 모서리를 점선으로 (기본 true, 보기 옵션)
 }
 
 export { ThreeViewer as Viewer } from './ThreeViewer'

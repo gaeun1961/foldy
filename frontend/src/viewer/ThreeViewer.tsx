@@ -9,17 +9,18 @@ const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 
 
 // three.js 뷰어: 다면체를 면 트리(polyhedra.ts)로 그려 바닥에 눕히고, unfold 값만큼 펼친다. 마우스로 돌려 볼 수 있다.
 // 단계별 접기(foldMode = 'step')는 면을 하나씩 접고 지금 접히는 면을 강조한다 (docs/specs/viewer.md)
+// 가려진 모서리는 점선 (showHiddenEdges)
 // TODO(3D): 선(TODO-4), 하이라이트(TODO-5), 맞닿는 모서리 색(TODO-22), 곡면 도형(TODO-17)
-export function ThreeViewer({ scene, unfold = 0, foldMode = 'all' }: ViewerProps) {
+export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdges = true }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef({ unfold, foldMode }) // 도형을 새로 만들 때 지금 값으로 시작하려고
+  const viewRef = useRef({ unfold, foldMode, showHiddenEdges }) // 도형을 새로 만들 때 지금 값으로 시작하려고
   const applyRef = useRef<(() => void) | null>(null)
 
-  // unfold·foldMode 만 바뀌면 다시 만들지 않고 회전과 강조만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
+  // unfold·foldMode·보기 옵션만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    viewRef.current = { unfold, foldMode }
+    viewRef.current = { unfold, foldMode, showHiddenEdges }
     applyRef.current?.()
-  }, [unfold, foldMode])
+  }, [unfold, foldMode, showHiddenEdges])
 
   useEffect(() => {
     const poly = polyhedronOf(scene)
@@ -84,10 +85,30 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all' }: ViewerProps
       bars.set(n.face, bar)
     }
 
-    // 펼침 값 적용 + 강조. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
+    // 가려진 모서리 점선: 같은 모서리 선을 한 번 더, 면 뒤에 있는 부분(GreaterDepth)만 그린다.
+    // 면을 다 그린 뒤에 그려야 깊이가 차 있으므로 renderOrder 를 1 로 (docs/specs/viewer.md "가려진 모서리")
+    const hiddenMaterial = new THREE.LineDashedMaterial({
+      color: '#8a8f98',
+      dashSize: radius * 0.02,
+      gapSize: radius * 0.015,
+      depthFunc: THREE.GreaterDepth,
+      depthWrite: false,
+    })
+    // LineLoop 은 닫는 모서리의 점선 간격이 달라져서, 모서리마다 따로 재는 LineSegments 로 그린다
+    const hiddenEdges = tree.nodes.map((n) => {
+      const points = poly.faces[n.face].vertices.map((i) => new THREE.Vector3(...poly.positions[i]))
+      const pairs = points.flatMap((p, k) => [p, points[(k + 1) % points.length]])
+      const dashed = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pairs), hiddenMaterial).computeLineDistances()
+      dashed.renderOrder = 1
+      n.mesh.add(dashed)
+      return dashed
+    })
+
+    // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
     let active: number | null = null
     const apply = () => {
-      const { unfold, foldMode } = viewRef.current
+      const { unfold, foldMode, showHiddenEdges } = viewRef.current
+      for (const line of hiddenEdges) line.visible = showHiddenEdges
       if (foldMode === 'step') {
         const values = stepUnfold(order, poly.faces.length, unfold)
         applyUnfold(tree, values)
@@ -166,7 +187,7 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all' }: ViewerProps
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, barMaterial, shadowFloor.material, grid.material]) m.dispose()
+      for (const m of [...lookMaterials, barMaterial, hiddenMaterial, shadowFloor.material, grid.material]) m.dispose()
       shadowFloor.geometry.dispose()
       grid.geometry.dispose()
       light.shadow.map?.dispose()
