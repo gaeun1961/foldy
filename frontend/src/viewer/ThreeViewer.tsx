@@ -188,7 +188,8 @@ export function ThreeViewer({
     const markerMaterials = [...Array(vertexCount)].map(() => new THREE.MeshBasicMaterial({ transparent: true }))
     const labelMaterials = [...Array(vertexCount)].map((_, i) => {
       const text = scene.vertexLabels[i]
-      return text ? pullTowardCamera(new THREE.SpriteMaterial({ map: labelTexture(text), depthWrite: false }), labelPull) : null
+      // 한글 기호(ㄱ, ㄴ…)와 기호 없음은 라벨을 그리지 않는다 (ui.md "라벨"). 표시점은 누르기·강조에 쓰므로 남긴다
+      return text && !/[\u3131-\u318e\uac00-\ud7a3]/.test(text) ? pullTowardCamera(new THREE.SpriteMaterial({ map: labelTexture(text), depthWrite: false }), labelPull) : null
     })
     const markerGeometry = new THREE.SphereGeometry(radius * 0.018, 16, 12)
     const vertexHitGeometry = new THREE.SphereGeometry(radius * 0.05, 8, 6)
