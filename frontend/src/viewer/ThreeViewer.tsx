@@ -36,14 +36,16 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     world.background = new THREE.Color('#f5f3ef')
 
     // 면 바깥은 흰색, 안쪽은 아주 연한 하늘색, 모서리는 진한 회색 (docs/specs/ui.md 색 기준)
-    const faceStyle = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } // 모서리 선이 면에 묻혀 깜빡이지 않게
+    // 면을 깊이에서 조금 뒤로 민다: 모서리 선이 면에 묻혀 깜빡이지 않고, 보이는 모서리가 점선(GreaterDepth)으로 잘못 잡히지 않게
+    const faceStyle = { polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 4 }
     // 단계별 접기에서는 지금 접히는 면을 연한 노랑, 나머지를 배경에 가까운 색으로 (ui.md 색 기준)
     const look = (outside: string, inside: string, edge: string) => ({
       faces: [
         new THREE.MeshStandardMaterial({ ...faceStyle, color: outside, side: THREE.FrontSide }),
         new THREE.MeshStandardMaterial({ ...faceStyle, color: inside, side: THREE.BackSide }),
       ] as [THREE.Material, THREE.Material],
-      edge: new THREE.LineBasicMaterial({ color: edge }),
+      // 실선은 깊이를 쓰지 않는다. 쓰면 같은 자리의 점선이 실선 깊이와 미세하게 달라 보이는 모서리에서도 깜빡인다
+      edge: new THREE.LineBasicMaterial({ color: edge, depthWrite: false }),
     })
     const looks = {
       normal: look('#ffffff', '#e3f1fb', '#3c4048'),
