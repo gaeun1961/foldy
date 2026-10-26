@@ -16,7 +16,8 @@ const DRAW_HINT: Record<DrawState, string> = {
 
 // 화면 배치 자리만 잡아 둔 상태. TODO(UI): 업로드 → /analyze, 오른쪽 아래 동그란 챗봇 아이콘 → /chat (TODO-13), 전체 디자인(TODO-14)
 export default function App() {
-  const [scene, setScene] = useState<ShapeScene>(mockScene) // 선 긋기로 lines 가 늘어난다
+  // 선 없이 시작해서 학생이 직접 긋는다 (목 데이터의 선은 backend MOCK_SCENE·검사와 맞추려고 그대로 둔다). 선 긋기로 lines 가 늘어난다
+  const [scene, setScene] = useState<ShapeScene>({ ...mockScene, lines: [] })
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
   const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
