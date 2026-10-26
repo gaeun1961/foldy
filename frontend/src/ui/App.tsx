@@ -11,7 +11,7 @@ import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 const DRAW_HINT: Record<DrawState, string> = {
   idle: '점 두 개를 눌러 선을 그어 보세요',
   picked: '이을 점을 하나 더 눌러 보세요',
-  'off-net': '전개도에서 곧게 이어지지 않는 두 점이에요',
+  'no-path': '이 두 점은 이을 수 없어요',
 }
 
 // 화면 배치 자리만 잡아 둔 상태. TODO(UI): 업로드 → /analyze, 오른쪽 아래 동그란 챗봇 아이콘 → /chat (TODO-13), 전체 디자인(TODO-14)

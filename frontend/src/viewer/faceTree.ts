@@ -104,93 +104,121 @@ export interface PlacedLine {
   to: Vec3
 }
 
+// 점 p 가 면 face 위에 있는가: { vertex } 는 그 꼭짓점을 가진 면, { edge: [i, j] } 는 i-j 가 그 면의 모서리인 면
+function onFaceOf(poly: Polyhedron, p: PolyhedronPoint, face: number) {
+  const vs = poly.faces[face].vertices
+  if ('vertex' in p) return vs.includes(p.vertex)
+  const [a, b] = p.edge.map((i) => vs.indexOf(i))
+  return a >= 0 && b >= 0 && (Math.abs(a - b) === 1 || Math.abs(a - b) === vs.length - 1) // 다각형에서 이웃한 두 꼭짓점
+}
+
 export function placeLines(poly: Polyhedron, lines: Line<PolyhedronPoint>[]): (PlacedLine | null)[] {
-  const onFace = (p: PolyhedronPoint, vs: number[]) => {
-    if ('vertex' in p) return vs.includes(p.vertex)
-    const [a, b] = p.edge.map((i) => vs.indexOf(i))
-    return a >= 0 && b >= 0 && (Math.abs(a - b) === 1 || Math.abs(a - b) === vs.length - 1) // 다각형에서 이웃한 두 꼭짓점
-  }
   const point = (p: PolyhedronPoint): Vec3 => {
     if ('vertex' in p) return poly.positions[p.vertex]
     const [a, b] = p.edge.map((i) => poly.positions[i])
     return [0, 1, 2].map((k) => a[k] + (b[k] - a[k]) * p.t) as Vec3
   }
   return lines.map(({ from, to }) => {
-    const face = poly.faces.findIndex((f) => onFace(from, f.vertices) && onFace(to, f.vertices))
+    const face = poly.faces.findIndex((_, f) => onFaceOf(poly, from, f) && onFaceOf(poly, to, f))
     return face < 0 ? null : { face, from: point(from), to: point(to) }
   })
 }
 
-// 다른 면의 두 점을 전개도 위 직선으로 잇기 (viewer.md "선 긋기"): 다 펼친 전개도에서 두 점을 직선으로 잇고,
-// 지나는 면마다 잘라 면별 선분으로 돌려준다. 접으면 겉면을 따라 꺾인 선이 된다. 직선이 전개도 밖을 지나면 null.
+// 다른 면의 두 점을 겉면 최단 경로로 잇기 (viewer.md "선 긋기"): 두 점 사이에 지나갈 면들(이웃한 면 사슬)을 하나의 평면으로
+// 펼쳐 두 점을 직선으로 잇고, 직선이 사슬 안에만 있는 것 중 가장 짧은 것을 고른다 (상자 위 거미와 파리 문제).
+// 결과는 지나는 면마다 자른 면별 선분이다. 접으면 겉면을 따라 꺾인 선이 된다. 이을 수 없으면 null.
 // 두 점은 고를 수 있는 점(꼭짓점·모서리 위 점)이라 면의 경계 위에 있고, 잘린 끝점도 모두 면의 경계(모서리) 위다
-export function lineOnNet(
-  poly: Polyhedron,
-  from: { face: number; point: PolyhedronPoint },
-  to: { face: number; point: PolyhedronPoint },
-): Line<PolyhedronPoint>[] | null {
+export function lineOnSurface(poly: Polyhedron, from: PolyhedronPoint, to: PolyhedronPoint): Line<PolyhedronPoint>[] | null {
   const EPS = 1e-6
-  // 다 펼친 전개도 위 꼭짓점 위치 (면마다). 면 트리를 펼쳐서 읽는다
-  const tree = buildFaceTree(poly, [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()], new THREE.LineBasicMaterial())
-  applyUnfold(tree, 1)
-  tree.root.updateMatrixWorld(true)
-  const onNet = (face: number, at: Vec3) => v3(at).applyMatrix4(tree.nodes[face].mesh.matrixWorld)
-  const corners = poly.faces.map((f, face) => f.vertices.map((v) => onNet(face, poly.positions[v])))
-  disposeFaceTree(tree)
-  const normal = normalOf(corners[0]) // 펼치면 모든 면의 바깥 법선이 같다
-
-  const at = (p: PolyhedronPoint) => placeLines(poly, [{ from: p, to: p }])[0]!.from
-  const p = onNet(from.face, at(from.point))
-  const q = onNet(to.face, at(to.point))
-  const dir = q.clone().sub(p)
-
-  // 면마다 직선 p + s·dir (0 ≤ s ≤ 1) 이 볼록 다각형 안에 있는 구간 (Cyrus–Beck)
-  const pieces: { face: number; s0: number; s1: number }[] = []
-  corners.forEach((pts, face) => {
-    let [s0, s1] = [0, 1]
-    for (let k = 0; k < pts.length; k++) {
-      const a = pts[k]
-      const inward = normal.clone().cross(pts[(k + 1) % pts.length].clone().sub(a)) // 반시계 다각형의 안쪽
-      const num = inward.dot(p.clone().sub(a))
-      const den = inward.dot(dir)
-      if (Math.abs(den) < EPS) {
-        if (num < -EPS) return // 모서리와 나란하고 바깥
-      } else if (den > 0) s0 = Math.max(s0, -num / den)
-      else s1 = Math.min(s1, -num / den)
-    }
-    if (s1 - s0 > EPS) pieces.push({ face, s0, s1 })
-  })
-
-  // 구간을 이어 붙여 0 ~ 1 을 빈틈없이 덮는지 본다. 모서리를 따라가는 선은 두 면에 겹치므로 하나만 남긴다
-  pieces.sort((x, y) => x.s0 - y.s0)
-  const used: typeof pieces = []
-  let covered = 0
-  for (const piece of pieces) {
-    if (piece.s0 > covered + EPS) return null // 전개도 밖(빈 곳)을 지난다
-    if (piece.s1 <= covered + EPS) continue
-    used.push(piece)
-    covered = piece.s1
-  }
-  if (covered < 1 - EPS) return null
-
-  // 잘린 끝점을 그 면의 경계 위 점으로: 꼭짓점이면 { vertex }, 아니면 { edge: [a, b], t }
-  const toPoint = (face: number, s: number): PolyhedronPoint => {
-    if (s < EPS && face === from.face) return from.point
-    if (s > 1 - EPS && face === to.face) return to.point
-    const x = p.clone().addScaledVector(dir, s)
-    const vs = poly.faces[face].vertices
-    const pts = corners[face]
+  const MAX_FACES = 6 // 사슬 길이 한도 (정다면체에서 경우의 수가 너무 많아지지 않게)
+  const corners = poly.faces.map((f) => f.vertices.map((v) => v3(poly.positions[v])))
+  const normals = corners.map(normalOf)
+  const at = (p: PolyhedronPoint) => v3(placeLines(poly, [{ from: p, to: p }])[0]!.from)
+  const facesOf = (p: PolyhedronPoint) => poly.faces.flatMap((_, f) => (onFaceOf(poly, p, f) ? [f] : []))
+  const shared = (f: number, g: number) => {
+    const vs = poly.faces[f].vertices
     for (let k = 0; k < vs.length; k++) {
-      const [a, b] = [pts[k], pts[(k + 1) % vs.length]]
-      const t = x.clone().sub(a).dot(b.clone().sub(a)) / a.distanceToSquared(b)
-      if (t < -EPS || t > 1 + EPS || a.clone().lerp(b, t).distanceTo(x) > 1e-4) continue
-      if (t < EPS) return { vertex: vs[k] }
-      if (t > 1 - EPS) return { vertex: vs[(k + 1) % vs.length] }
-      return { edge: [vs[k], vs[(k + 1) % vs.length]], t }
+      const [a, b] = [vs[k], vs[(k + 1) % vs.length]]
+      if (onFaceOf(poly, { edge: [a, b], t: 0.5 }, g)) return [a, b]
     }
-    throw new Error(`lineOnNet: 면 ${face} 의 경계 위 점이 아님`)
+    return null
   }
-  return used.map(({ face, s0, s1 }) => ({ from: toPoint(face, s0), to: toPoint(face, s1) }))
+
+  let best: { length: number; lines: Line<PolyhedronPoint>[] } | null = null
+  // 사슬 [c0, c1, …] 을 c0 평면으로 펼친다: c_i 는 c_{i-1} 과 붙는 모서리를 축으로 돌려 법선을 맞춘다
+  const tryChain = (chain: number[], maps: THREE.Matrix4[]) => {
+    const p = at(from)
+    const q = at(to).applyMatrix4(maps[maps.length - 1])
+    const dir = q.clone().sub(p)
+    const length = dir.length()
+    if (best && length >= best.length - EPS) return
+    const normal = normals[chain[0]]
+    // 면마다 직선 p + s·dir 이 펼친 볼록 다각형 안에 있는 구간 (Cyrus–Beck). 사슬 순서대로 0 ~ 1 을 이어 덮어야 한다
+    let covered = 0
+    const pieces: { face: number; s0: number; s1: number; map: THREE.Matrix4 }[] = []
+    for (let i = 0; i < chain.length; i++) {
+      const pts = corners[chain[i]].map((c) => c.clone().applyMatrix4(maps[i]))
+      let [s0, s1] = [0, 1]
+      for (let k = 0; k < pts.length && s0 <= s1; k++) {
+        const a = pts[k]
+        const inward = normal.clone().cross(pts[(k + 1) % pts.length].clone().sub(a)) // 반시계 다각형의 안쪽
+        const num = inward.dot(p.clone().sub(a))
+        const den = inward.dot(dir)
+        if (Math.abs(den) < EPS) {
+          if (num < -EPS) s1 = -1 // 모서리와 나란하고 바깥
+        } else if (den > 0) s0 = Math.max(s0, -num / den)
+        else s1 = Math.min(s1, -num / den)
+      }
+      if (s1 - s0 <= EPS || Math.abs(s0 - covered) > 1e-4) return // 이 면을 지나지 않거나 앞 면과 이어지지 않음
+      pieces.push({ face: chain[i], s0, s1, map: maps[i] })
+      covered = s1
+    }
+    if (covered < 1 - 1e-4) return
+
+    // 잘린 끝점을 원래(접힌) 좌표로 돌려 그 면의 경계 위 점으로: 꼭짓점이면 { vertex }, 아니면 { edge: [a, b], t }
+    const toPoint = (face: number, map: THREE.Matrix4, s: number): PolyhedronPoint => {
+      const x = p.clone().addScaledVector(dir, s).applyMatrix4(map.clone().invert())
+      const vs = poly.faces[face].vertices
+      for (let k = 0; k < vs.length; k++) {
+        const [a, b] = [corners[face][k], corners[face][(k + 1) % vs.length]]
+        const t = x.clone().sub(a).dot(b.clone().sub(a)) / a.distanceToSquared(b)
+        if (t < -EPS || t > 1 + EPS || a.clone().lerp(b, t).distanceTo(x) > 1e-4) continue
+        if (t < EPS) return { vertex: vs[k] }
+        if (t > 1 - EPS) return { vertex: vs[(k + 1) % vs.length] }
+        return { edge: [vs[k], vs[(k + 1) % vs.length]], t }
+      }
+      throw new Error(`lineOnSurface: 면 ${face} 의 경계 위 점이 아님`)
+    }
+    const lines = pieces.map(({ face, s0, s1, map }, i) => ({
+      from: i === 0 ? from : toPoint(face, map, s0),
+      to: i === pieces.length - 1 ? to : toPoint(face, map, s1),
+    }))
+    best = { length, lines }
+  }
+
+  // 시작 점을 가진 면에서 끝 점을 가진 면까지 이웃한 면을 따라가는 사슬을 모두 해 본다 (같은 면은 두 번 지나지 않음)
+  const ends = new Set(facesOf(to))
+  const walk = (chain: number[], maps: THREE.Matrix4[]) => {
+    const last = chain[chain.length - 1]
+    if (chain.length > 1 && ends.has(last)) tryChain(chain, maps)
+    if (chain.length >= MAX_FACES) return
+    poly.faces.forEach((_, next) => {
+      if (chain.includes(next)) return
+      const edge = shared(last, next)
+      if (!edge) return
+      // next 를 붙는 모서리 축으로 돌려 last 와 같은 평면(법선이 같은 쪽)으로 펼친 뒤, last 의 펼침을 이어 적용
+      const [a, b] = edge.map((v) => v3(poly.positions[v]))
+      const axis = b.clone().sub(a).normalize()
+      const angle = Math.atan2(normals[next].clone().cross(normals[last]).dot(axis), normals[next].dot(normals[last]))
+      const turn = new THREE.Matrix4()
+        .makeTranslation(a.x, a.y, a.z)
+        .multiply(new THREE.Matrix4().makeRotationAxis(axis, angle))
+        .multiply(new THREE.Matrix4().makeTranslation(-a.x, -a.y, -a.z))
+      walk([...chain, next], [...maps, maps[maps.length - 1].clone().multiply(turn)])
+    })
+  }
+  for (const start of facesOf(from)) walk([start], [new THREE.Matrix4()])
+  return (best as { lines: Line<PolyhedronPoint>[] } | null)?.lines ?? null
 }
 
 // 선 긋기에서 한 면 위에 고를 수 있는 점 (viewer.md "선 긋기"): 꼭짓점 + 모서리 a→b 의 k/n 등분점 (양 끝 제외).

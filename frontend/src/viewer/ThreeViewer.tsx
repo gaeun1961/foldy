@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
-import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, lineOnNet, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, lineOnSurface, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, matchingEdges, polyhedronOf, type Vec3 } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
@@ -409,7 +409,7 @@ export function ThreeViewer({
       apply()
     }
     // 선 긋기: 누른 면에서 가장 가까운 고를 수 있는 점 (도형 크기의 6% 안). 두 점이 같은 면 위면 선분 하나,
-    // 다른 면이면 전개도 위 직선을 면별 선분으로 나눠 더한다 (viewer.md "선 긋기")
+    // 다른 면이면 겉면 최단 경로를 면별 선분으로 나눠 더한다 (viewer.md "선 긋기")
     const pickLinePoint = (hit: THREE.Intersection | undefined) => {
       const { onSceneChange, onDrawState } = callbacksRef.current
       if (!hit) {
@@ -433,8 +433,8 @@ export function ThreeViewer({
       if (same) return onDrawState?.('idle') // 같은 점을 다시 누르면 풀린다
       const added = placeLines(poly, [{ from: first.point, to: pick.point }])[0]
         ? [{ from: first.point, to: pick.point }]
-        : lineOnNet(poly, first, pick)
-      if (!added) return onDrawState?.('off-net')
+        : lineOnSurface(poly, first.point, pick.point)
+      if (!added) return onDrawState?.('no-path')
       const current = sceneRef.current
       onSceneChange?.({ ...current, lines: [...current.lines, ...added] } as ShapeScene)
       onDrawState?.('idle')

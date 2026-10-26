@@ -16,8 +16,8 @@ export interface ViewerProps {
   onDrawState?: (state: DrawState) => void // 선 긋기 진행 상태 (안내 문구용)
 }
 
-// idle: 첫 점을 기다림 / picked: 첫 점을 고름 / off-net: 전개도 위 직선이 전개도 밖을 지나서 긋지 않음
-export type DrawState = 'idle' | 'picked' | 'off-net'
+// idle: 첫 점을 기다림 / picked: 첫 점을 고름 / no-path: 겉면으로 이을 길을 찾지 못해 긋지 않음 (드묾)
+export type DrawState = 'idle' | 'picked' | 'no-path'
 
 export { ThreeViewer as Viewer } from './ThreeViewer'
 export { foldStepCount } from './polyhedra'

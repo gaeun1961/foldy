@@ -1,9 +1,9 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, facePoints, layOnFloor, lineOnNet, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, facePoints, layOnFloor, lineOnSurface, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, polyhedronOf, type Polyhedron } from './polyhedra.ts'
-import type { ShapeScene } from '../shared/types.ts'
+import type { PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 
 const EPS = 1e-9
 const check = (ok: boolean, msg: string) => {
@@ -139,24 +139,28 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   // 고른 두 점으로 만든 선분은 그 면에 놓인다 (3등분점 → 맞은편 꼭짓점)
   check(placeLines(poly, [{ from: third.point, to: { vertex: 5 } }])[0]?.face === 0, '등분점 선분이 앞면에 놓임')
 
-  // 다른 면의 두 점: 전개도 위 직선 (viewer.md "선 긋기"). 4×2×3 십자형 전개도에서
-  // 앞면 꼭짓점 0 → 오른쪽 면 꼭짓점 6: 앞면·오른쪽 면 경계(1-5)의 2/3 높이에서 꺾인다
-  const twoFaces = lineOnNet(poly, { face: 0, point: { vertex: 0 } }, { face: 2, point: { vertex: 6 } })!
-  check(twoFaces?.length === 2, `앞면 → 오른쪽 면은 선분 2개 ${JSON.stringify(twoFaces)}`)
-  const [first, second] = twoFaces.map((l) => placeLines(poly, [l])[0]!)
-  check(first.face === 0 && second.face === 2, `선분이 앞면, 오른쪽 면에 놓임 ${first.face} ${second.face}`)
-  check(near(first.to, [2, 0.5, 1]) && near(second.from, [2, 0.5, 1]), `꺾이는 점 ${first.to} ${second.from}`)
-  // 앞면 꼭짓점 0 → 뒷면 꼭짓점 7: 오른쪽 면을 지나 선분 3개, 이어진 한 줄
-  const threeFaces = lineOnNet(poly, { face: 0, point: { vertex: 0 } }, { face: 5, point: { vertex: 7 } })!
-  check(threeFaces?.length === 3, `앞면 → 뒷면은 선분 3개 ${JSON.stringify(threeFaces)}`)
-  const placed = placeLines(poly, threeFaces).map((l) => l!)
-  check(placed.map((l) => l.face).join() === '0,2,5', `면 순서 ${placed.map((l) => l.face)}`)
-  check(near(placed[0].to, placed[1].from) && near(placed[1].to, placed[2].from), '선분끼리 이어짐')
-  // 왼쪽 면 꼭짓점 3 → 윗면 꼭짓점 7: 십자형에서는 직선이 전개도 밖(빈 곳)을 지난다
-  check(lineOnNet(poly, { face: 1, point: { vertex: 3 } }, { face: 3, point: { vertex: 7 } }) === null, '전개도 밖을 지나면 null')
+  // 다른 면의 두 점: 겉면 최단 경로 (viewer.md "선 긋기"). 선분마다 면 위에 놓이고, 이어진 한 줄이며, 길이가 최단이어야 한다
+  const surfacePath = (from: PolyhedronPoint, to: PolyhedronPoint) => {
+    const lines = lineOnSurface(poly, from, to)!
+    check(!!lines, `이을 수 없음 ${JSON.stringify([from, to])}`)
+    const placed = placeLines(poly, lines).map((l) => l!)
+    check(placed.every(Boolean), `면 위에 없는 선분 ${JSON.stringify(lines)}`)
+    placed.slice(1).forEach((l, i) => check(near(placed[i].to, l.from), `선분 ${i}, ${i + 1} 이 끊김`))
+    const length = placed.reduce((sum, l) => sum + Math.hypot(...l.to.map((v, k) => v - l.from[k])), 0)
+    return { faces: placed.map((l) => l.face), length }
+  }
+  // 앞면 꼭짓점 0 → 반대쪽 꼭짓점 6 (4×2×3): 펼치는 방법 셋 √45, √53, √41 중 가장 짧은 √41
+  const corner = surfacePath({ vertex: 0 }, { vertex: 6 })
+  check(Math.abs(corner.length - Math.sqrt(41)) < 1e-6, `모서리 끝 → 반대 끝 최단 거리 ${corner.length}`)
+  // 왼쪽 면 → 윗면 (십자형 전개도에서는 떨어져 있는 두 면): 둘이 붙은 모서리를 곧장 넘으면 3 + 4 = 7 이지만,
+  // 앞면(또는 뒷면)을 비스듬히 지나면 √(5² + 4²) = √41 로 더 짧다 (거미와 파리 문제처럼 세 면을 지나는 길)
+  const leftTop = surfacePath({ edge: [3, 0], t: 0.5 }, { edge: [5, 6], t: 0.5 })
+  check(leftTop.faces.length === 3 && Math.abs(leftTop.length - Math.sqrt(41)) < 1e-6, `왼쪽 면 → 윗면 ${JSON.stringify(leftTop)}`)
+  // 앞면 아래 모서리 가운데 → 윗면 뒤 모서리 가운데: 3 + 2 = 5
+  check(Math.abs(surfacePath({ edge: [0, 1], t: 0.5 }, { edge: [6, 7], t: 0.5 }).length - 5) < 1e-6, '앞면 → 윗면 뒤 모서리 5')
 }
 
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 전개도 위 직선)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로)')
