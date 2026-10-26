@@ -124,11 +124,12 @@ export function placeLines(poly: Polyhedron, lines: Line<PolyhedronPoint>[]): (P
   })
 }
 
-// 다른 면의 두 점을 겉면 최단 경로로 잇기 (viewer.md "선 긋기"): 두 점 사이에 지나갈 면들(이웃한 면 사슬)을 하나의 평면으로
-// 펼쳐 두 점을 직선으로 잇고, 직선이 사슬 안에만 있는 것 중 가장 짧은 것을 고른다 (상자 위 거미와 파리 문제).
-// 결과는 지나는 면마다 자른 면별 선분이다. 접으면 겉면을 따라 꺾인 선이 된다. 이을 수 없으면 null.
+// 다른 면의 두 점을 겉면 위 길로 잇기 (viewer.md "선 긋기"): 두 점 사이에 지나갈 면들(이웃한 면 사슬)을 하나의 평면으로
+// 펼쳐 두 점을 직선으로 잇는다. 직선이 사슬 안에만 있는 사슬마다 길이 하나씩 나온다. 짧은 순으로 최대 max 개를 돌려주고,
+// 첫째가 겉면 최단 경로다 (상자 위 거미와 파리 문제). 나머지는 "다른 길" 후보.
+// 길은 지나는 면마다 자른 면별 선분이다. 접으면 겉면을 따라 꺾인 선이 된다. 이을 수 없으면 빈 목록.
 // 두 점은 고를 수 있는 점(꼭짓점·모서리 위 점)이라 면의 경계 위에 있고, 잘린 끝점도 모두 면의 경계(모서리) 위다
-export function lineOnSurface(poly: Polyhedron, from: PolyhedronPoint, to: PolyhedronPoint): Line<PolyhedronPoint>[] | null {
+export function surfaceRoutes(poly: Polyhedron, from: PolyhedronPoint, to: PolyhedronPoint, max = 3): { length: number; lines: Line<PolyhedronPoint>[] }[] {
   const EPS = 1e-6
   const MAX_FACES = 6 // 사슬 길이 한도 (정다면체에서 경우의 수가 너무 많아지지 않게)
   const corners = poly.faces.map((f) => f.vertices.map((v) => v3(poly.positions[v])))
@@ -144,14 +145,13 @@ export function lineOnSurface(poly: Polyhedron, from: PolyhedronPoint, to: Polyh
     return null
   }
 
-  let best: { length: number; lines: Line<PolyhedronPoint>[] } | null = null
+  const found: { length: number; lines: Line<PolyhedronPoint>[] }[] = []
   // 사슬 [c0, c1, …] 을 c0 평면으로 펼친다: c_i 는 c_{i-1} 과 붙는 모서리를 축으로 돌려 법선을 맞춘다
   const tryChain = (chain: number[], maps: THREE.Matrix4[]) => {
     const p = at(from)
     const q = at(to).applyMatrix4(maps[maps.length - 1])
     const dir = q.clone().sub(p)
     const length = dir.length()
-    if (best && length >= best.length - EPS) return
     const normal = normals[chain[0]]
     // 면마다 직선 p + s·dir 이 펼친 볼록 다각형 안에 있는 구간 (Cyrus–Beck). 사슬 순서대로 0 ~ 1 을 이어 덮어야 한다
     let covered = 0
@@ -187,13 +187,13 @@ export function lineOnSurface(poly: Polyhedron, from: PolyhedronPoint, to: Polyh
         if (t > 1 - EPS) return { vertex: vs[(k + 1) % vs.length] }
         return { edge: [vs[k], vs[(k + 1) % vs.length]], t }
       }
-      throw new Error(`lineOnSurface: 면 ${face} 의 경계 위 점이 아님`)
+      throw new Error(`surfaceRoutes: 면 ${face} 의 경계 위 점이 아님`)
     }
     const lines = pieces.map(({ face, s0, s1, map }, i) => ({
       from: i === 0 ? from : toPoint(face, map, s0),
       to: i === pieces.length - 1 ? to : toPoint(face, map, s1),
     }))
-    best = { length, lines }
+    found.push({ length, lines }) // 사슬(면 순서)마다 길 하나라서 서로 다른 길이다
   }
 
   // 시작 점을 가진 면에서 끝 점을 가진 면까지 이웃한 면을 따라가는 사슬을 모두 해 본다 (같은 면은 두 번 지나지 않음)
@@ -218,7 +218,7 @@ export function lineOnSurface(poly: Polyhedron, from: PolyhedronPoint, to: Polyh
     })
   }
   for (const start of facesOf(from)) walk([start], [new THREE.Matrix4()])
-  return (best as { lines: Line<PolyhedronPoint>[] } | null)?.lines ?? null
+  return found.sort((a, b) => a.length - b.length).slice(0, max)
 }
 
 // 선 긋기에서 한 면 위에 고를 수 있는 점 (viewer.md "선 긋기"): 꼭짓점 + 모서리 a→b 의 k/n 등분점 (양 끝 제외).

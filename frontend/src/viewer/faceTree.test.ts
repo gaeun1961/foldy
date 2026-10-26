@@ -1,9 +1,9 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, facePoints, layOnFloor, lineOnSurface, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, polyhedronOf, type Polyhedron } from './polyhedra.ts'
-import type { PolyhedronPoint, ShapeScene } from '../shared/types.ts'
+import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 
 const EPS = 1e-9
 const check = (ok: boolean, msg: string) => {
@@ -140,14 +140,17 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   check(placeLines(poly, [{ from: third.point, to: { vertex: 5 } }])[0]?.face === 0, '등분점 선분이 앞면에 놓임')
 
   // 다른 면의 두 점: 겉면 최단 경로 (viewer.md "선 긋기"). 선분마다 면 위에 놓이고, 이어진 한 줄이며, 길이가 최단이어야 한다
-  const surfacePath = (from: PolyhedronPoint, to: PolyhedronPoint) => {
-    const lines = lineOnSurface(poly, from, to)!
-    check(!!lines, `이을 수 없음 ${JSON.stringify([from, to])}`)
+  const checkRoute = (lines: Line<PolyhedronPoint>[]) => {
     const placed = placeLines(poly, lines).map((l) => l!)
     check(placed.every(Boolean), `면 위에 없는 선분 ${JSON.stringify(lines)}`)
     placed.slice(1).forEach((l, i) => check(near(placed[i].to, l.from), `선분 ${i}, ${i + 1} 이 끊김`))
     const length = placed.reduce((sum, l) => sum + Math.hypot(...l.to.map((v, k) => v - l.from[k])), 0)
     return { faces: placed.map((l) => l.face), length }
+  }
+  const surfacePath = (from: PolyhedronPoint, to: PolyhedronPoint) => {
+    const routes = surfaceRoutes(poly, from, to)
+    check(routes.length > 0, `이을 수 없음 ${JSON.stringify([from, to])}`)
+    return checkRoute(routes[0].lines)
   }
   // 앞면 꼭짓점 0 → 반대쪽 꼭짓점 6 (4×2×3): 펼치는 방법 셋 √45, √53, √41 중 가장 짧은 √41
   const corner = surfacePath({ vertex: 0 }, { vertex: 6 })
@@ -158,9 +161,16 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   check(leftTop.faces.length === 3 && Math.abs(leftTop.length - Math.sqrt(41)) < 1e-6, `왼쪽 면 → 윗면 ${JSON.stringify(leftTop)}`)
   // 앞면 아래 모서리 가운데 → 윗면 뒤 모서리 가운데: 3 + 2 = 5
   check(Math.abs(surfacePath({ edge: [0, 1], t: 0.5 }, { edge: [6, 7], t: 0.5 }).length - 5) < 1e-6, '앞면 → 윗면 뒤 모서리 5')
+  // 길 고르기: 후보는 짧은 순으로 최대 3개, 모두 이어진 겉면 위 길이고 서로 다른 면 순서다. 첫째가 최단
+  const routes = surfaceRoutes(poly, { vertex: 0 }, { vertex: 6 })
+  const checked = routes.map((r) => checkRoute(r.lines))
+  check(routes.length === 3, `길 후보 3개 ${routes.length}`)
+  check(checked.every((c, i) => Math.abs(c.length - routes[i].length) < 1e-6 && (i === 0 || c.length >= checked[i - 1].length - 1e-9)), '후보 길이가 짧은 순')
+  check(Math.abs(checked[0].length - Math.sqrt(41)) < 1e-6, '첫째 후보는 최단 √41')
+  check(new Set(checked.map((c) => c.faces.join())).size === 3, '후보는 서로 다른 길')
 }
 
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보)')
