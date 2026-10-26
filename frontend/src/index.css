@@ -125,6 +125,38 @@ h2 {
 .toggle-row button:first-child { border-left: 0; }
 .toggle-row button[aria-pressed='true'] { background: #3d6fd9; color: #fff; font-weight: 700; }
 
+/* 보기 옵션: 접기 패널 아래 한 줄 체크박스 (ui.md 화면 배치 6번) */
+.view-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0 16px 12px;
+  border: 0;
+  background: #fff;
+  font-size: 16px;
+}
+.view-options legend {
+  float: left; /* legend 를 체크박스와 같은 줄에 */
+  margin-right: 4px;
+  padding: 0;
+  font-weight: 700;
+}
+.view-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.view-options input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #3d6fd9;
+}
+
 /* 3D 뷰 오른쪽 위 단계 표시 (글 없이 점만) */
 .step-dots {
   position: absolute;
