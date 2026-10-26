@@ -25,7 +25,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 담당자 |
 |---|---|---|
-| **TODO-6** [꼭짓점·모서리 등분점 클릭으로 선 긋기](06-click-draw-line.md) | [#12](https://github.com/gaeun1961/foldy/issues/12) | gaeun1961 |
+| (없음) | | |
 
 ## 1차 남은 일
 

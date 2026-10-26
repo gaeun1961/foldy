@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
-import type { Line, PolyhedronPoint } from '../shared/types.ts'
-import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
-import { foldOrderOf, matchingEdges, polyhedronOf } from './polyhedra.ts'
+import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
+import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
+import { foldOrderOf, matchingEdges, polyhedronOf, type Vec3 } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
@@ -46,7 +46,7 @@ function labelTexture(text: string) {
 // 단계별 접기(foldMode = 'step')는 면을 하나씩 접고 지금 접히는 면을 강조한다 (docs/specs/viewer.md)
 // 가려진 모서리는 점선 (showHiddenEdges), 맞닿는 모서리 쌍은 같은 색이고 누르면 쌍이 함께 굵어진다 (showMatchingEdges)
 // 꼭짓점은 면마다 표시점·라벨 복사본을 두고, 누르거나 highlightVertices 로 강조하면 복사본이 모두 같은 색이 된다 (showVertexLabels)
-// 면 위 선분(scene.lines)은 면 메시의 자식이라 접힘을 따라간다
+// 면 위 선분(scene.lines)은 면 메시의 자식이라 접힘을 따라간다. 선 긋기 모드(drawLines)에서는 두 점을 눌러 선분을 더한다
 // TODO(3D): 곡면 도형(TODO-17)
 export function ThreeViewer({
   scene,
@@ -56,19 +56,37 @@ export function ThreeViewer({
   showMatchingEdges = true,
   showVertexLabels = true,
   highlightVertices = [],
+  drawLines = false,
+  edgeDivisions = 2,
+  onSceneChange,
+  onDrawState,
 }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 도형을 새로 만들 때 지금 값으로 시작하려고
-  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices })
+  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions })
   const applyRef = useRef<(() => void) | null>(null)
+  const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
+  const callbacksRef = useRef({ onSceneChange, onDrawState })
+  const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
 
-  // unfold·foldMode·보기 옵션·강조만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
+  // unfold·foldMode·보기 옵션·강조·선 긋기 모드만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices }
+    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions }
     applyRef.current?.()
-  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices])
+  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions])
+  useEffect(() => {
+    callbacksRef.current = { onSceneChange, onDrawState }
+  }, [onSceneChange, onDrawState])
+
+  // lines 만 바뀌면 선분만 다시 그린다. 선을 그을 때마다 카메라가 처음 구도로 돌아가지 않게 (viewer.md ViewerProps)
+  useEffect(() => {
+    sceneRef.current = scene
+    drawSceneLinesRef.current?.(scene.lines)
+  }, [scene])
+  const shapeKey = JSON.stringify({ ...scene, lines: undefined }) // lines 를 뺀 도형. 이것이 바뀔 때만 다시 만든다
 
   useEffect(() => {
+    const scene = sceneRef.current
     const poly = polyhedronOf(scene)
     if (!poly) return // 곡면 도형·아직 데이터가 없는 도형
     const container = containerRef.current!
@@ -134,17 +152,56 @@ export function ThreeViewer({
     }
 
     // 면 위 선분: 면 메시의 자식으로 붙여 접고 펼 때 따라오게 한다. 1px 선은 잘 안 보여서 가는 원기둥으로 (viewer.md "선분")
+    // lines 가 바뀌면 이 함수로 선분만 다시 그린다
     const lineMaterial = new THREE.MeshBasicMaterial({ color: '#e64980' })
-    placeLines(poly, scene.lines as Line<PolyhedronPoint>[]).forEach((placed, k) => {
-      if (!placed) return console.warn(`foldy: lines[${k}] 의 두 끝점이 같은 면 위에 없어서 그리지 않습니다`, scene.lines[k])
-      const [from, to] = [new THREE.Vector3(...placed.from), new THREE.Vector3(...placed.to)]
-      // 양 끝을 굵기만큼 줄인다. 꼭짓점·모서리에서 끝나는 선이 접은 입체 밖으로 삐져나오지 않게
-      const length = Math.max(0, from.distanceTo(to) - 2 * radius * 0.01)
-      const tube = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.01, radius * 0.01, length, 12), lineMaterial)
-      tube.position.copy(from).add(to).multiplyScalar(0.5)
-      tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize())
-      tree.nodes[placed.face].mesh.add(tube)
-    })
+    let tubes: THREE.Mesh[] = []
+    const drawSceneLines = (lines: ShapeScene['lines']) => {
+      for (const t of tubes) {
+        t.removeFromParent()
+        t.geometry.dispose()
+      }
+      tubes = []
+      placeLines(poly, lines as Line<PolyhedronPoint>[]).forEach((placed, k) => {
+        if (!placed) return console.warn(`foldy: lines[${k}] 의 두 끝점이 같은 면 위에 없어서 그리지 않습니다`, lines[k])
+        const [from, to] = [new THREE.Vector3(...placed.from), new THREE.Vector3(...placed.to)]
+        // 양 끝을 굵기만큼 줄인다. 꼭짓점·모서리에서 끝나는 선이 접은 입체 밖으로 삐져나오지 않게
+        const length = Math.max(0, from.distanceTo(to) - 2 * radius * 0.01)
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.01, radius * 0.01, length, 12), lineMaterial)
+        tube.position.copy(from).add(to).multiplyScalar(0.5)
+        tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize())
+        tree.nodes[placed.face].mesh.add(tube)
+        tubes.push(tube)
+      })
+    }
+    drawSceneLines(scene.lines)
+    drawSceneLinesRef.current = drawSceneLines
+
+    // 선 긋기 (viewer.md "선 긋기"): 면마다 2·3·4등분점 표시점을 미리 두고, 지금 등분만 보인다.
+    // 고른 첫 점은 선분 색의 큰 점(pickMarker)으로 그 면 메시에 붙인다
+    const divisionMaterial = new THREE.MeshBasicMaterial({ color: '#3d6fd9' })
+    const divisionGeometry = new THREE.SphereGeometry(radius * 0.013, 12, 8)
+    const divisionMarkers: { n: number; mesh: THREE.Mesh }[] = []
+    for (const node of tree.nodes)
+      for (const n of [2, 3, 4])
+        for (const { point, at } of facePoints(poly, node.face, n)) {
+          if ('vertex' in point) continue
+          const mesh = new THREE.Mesh(divisionGeometry, divisionMaterial)
+          mesh.position.set(...at)
+          mesh.visible = false
+          node.mesh.add(mesh)
+          divisionMarkers.push({ n, mesh })
+        }
+    const pickMarker = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.03, 16, 12), lineMaterial)
+    pickMarker.visible = false
+    let firstPick: { point: PolyhedronPoint; at: Vec3 } | null = null
+    const setFirstPick = (pick: typeof firstPick, face = 0) => {
+      firstPick = pick
+      pickMarker.visible = !!pick
+      if (pick) {
+        tree.nodes[face].mesh.add(pickMarker)
+        pickMarker.position.set(...pick.at)
+      }
+    }
 
     // 가려진 모서리 점선: 같은 모서리 선을 한 번 더, 면 뒤에 있는 부분(GreaterDepth)만 그린다.
     // 면을 다 그린 뒤에 그려야 깊이가 차 있으므로 renderOrder 를 1 로 (docs/specs/viewer.md "가려진 모서리").
@@ -237,7 +294,10 @@ export function ThreeViewer({
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
     let active: number | null = null
     const apply = () => {
-      const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices } = viewRef.current
+      const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
+      for (const { n, mesh } of divisionMarkers) mesh.visible = drawLines && n === edgeDivisions
+      if (!drawLines) setFirstPick(null)
+      if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍 고르기를 하지 않는다
       for (const line of hiddenEdges) line.visible = showHiddenEdges
       if (!showMatchingEdges) picked = null
       pairEdges.forEach((pair, k) =>
@@ -341,11 +401,39 @@ export function ThreeViewer({
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
+      if (viewRef.current.drawLines) return pickLinePoint(raycaster.intersectObjects(faceTargets, false)[0])
       const targets = [...faceTargets, ...vertexTargets, ...(viewRef.current.showMatchingEdges ? pairTargets : [])]
       const { vertex = null, pair = null } = raycaster.intersectObjects(targets, false)[0]?.object.userData ?? {}
       pickedVertex = vertex === null || vertex === pickedVertex ? null : vertex
       picked = pair === null || pair === picked ? null : pair
       apply()
+    }
+    // 선 긋기: 누른 면에서 가장 가까운 고를 수 있는 점 (도형 크기의 6% 안). 두 점이 같은 면 위면 선분을 더한다
+    const pickLinePoint = (hit: THREE.Intersection | undefined) => {
+      const { onSceneChange, onDrawState } = callbacksRef.current
+      if (!hit) {
+        setFirstPick(null)
+        return onDrawState?.('idle') // 도형 밖을 누르면 풀린다
+      }
+      const face: number = hit.object.userData.face
+      const local = hit.object.worldToLocal(hit.point.clone())
+      const near = facePoints(poly, face, viewRef.current.edgeDivisions)
+        .map((c) => ({ ...c, d: local.distanceTo(new THREE.Vector3(...c.at)) }))
+        .sort((a, b) => a.d - b.d)[0]
+      if (near.d > radius * 0.06) return // 면 가운데처럼 점에서 먼 곳은 무시
+      const pick = { point: near.point, at: near.at }
+      if (!firstPick) {
+        setFirstPick(pick, face)
+        return onDrawState?.('picked')
+      }
+      const from = firstPick.point
+      const same = new THREE.Vector3(...firstPick.at).distanceTo(new THREE.Vector3(...pick.at)) < 1e-9
+      setFirstPick(null)
+      if (same) return onDrawState?.('idle') // 같은 점을 다시 누르면 풀린다
+      if (!placeLines(poly, [{ from, to: pick.point }])[0]) return onDrawState?.('not-same-face')
+      const current = sceneRef.current
+      onSceneChange?.({ ...current, lines: [...current.lines, { from, to: pick.point }] } as ShapeScene)
+      onDrawState?.('idle')
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
     renderer.domElement.addEventListener('pointerup', onUp)
@@ -357,6 +445,7 @@ export function ThreeViewer({
 
     return () => {
       applyRef.current = null
+      drawSceneLinesRef.current = null
       renderer.setAnimationLoop(null)
       observer.disconnect()
       renderer.domElement.removeEventListener('pointerdown', onDown)
@@ -364,19 +453,19 @@ export function ThreeViewer({
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, shadowFloor.material, grid.material]) m.dispose()
+      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, divisionMaterial, shadowFloor.material, grid.material]) m.dispose()
       for (const m of labelMaterials) {
         m?.map?.dispose()
         m?.dispose()
       }
-      for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry]) g.dispose()
+      for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry, divisionGeometry, pickMarker.geometry]) g.dispose()
       shadowFloor.geometry.dispose()
       grid.geometry.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
       container.removeChild(renderer.domElement)
     }
-  }, [scene])
+  }, [shapeKey]) // scene 은 sceneRef 로 읽는다. lines 만 바뀌면 다시 만들지 않는다
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
 }

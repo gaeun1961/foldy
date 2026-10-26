@@ -121,6 +121,21 @@ export function placeLines(poly: Polyhedron, lines: Line<PolyhedronPoint>[]): (P
   })
 }
 
+// 선 긋기에서 한 면 위에 고를 수 있는 점 (viewer.md "선 긋기"): 꼭짓점 + 모서리 a→b 의 k/n 등분점 (양 끝 제외).
+// at 은 접힌 상태 좌표 = 면 메시 기준 좌표
+export function facePoints(poly: Polyhedron, face: number, n: number): { point: PolyhedronPoint; at: Vec3 }[] {
+  const vs = poly.faces[face].vertices
+  const vertices = vs.map((v) => ({ point: { vertex: v } as PolyhedronPoint, at: poly.positions[v] }))
+  const divisions = vs.flatMap((a, i) => {
+    const b = vs[(i + 1) % vs.length]
+    return [...Array(n - 1).keys()].map((k) => {
+      const point: PolyhedronPoint = { edge: [a, b], t: (k + 1) / n }
+      return { point, at: placeLines(poly, [{ from: point, to: point }])[0]!.from }
+    })
+  })
+  return [...vertices, ...divisions]
+}
+
 // 화면에 놓기: 트리 전체를 돌려 루트 면의 바깥 법선이 아래(−y)를 향하고 루트 면이 바닥(y = 0)에 닿게 한다.
 // 면 트리 좌표와 applyUnfold 는 그대로라서, 펼치면 전개도가 바닥에 눕고 접으면 면이 위로 일어선다
 export function layOnFloor(tree: FaceTree, poly: Polyhedron) {

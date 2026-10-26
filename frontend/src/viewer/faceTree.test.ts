@@ -1,7 +1,7 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { ShapeScene } from '../shared/types.ts'
 
@@ -129,9 +129,18 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   check(mid?.face === 3 && near(mid.from, [0, 1.5, 1]) && near(mid.to, [0, 1.5, -1]), `윗면 중점 연결 ${JSON.stringify(mid)}`)
   check(offFace === null && notEdge === null, '같은 면에 없는 선분은 null')
   check(onEdge?.face === 0, '여러 면에 맞으면 가장 작은 면 인덱스')
+
+  // 선 긋기 점 (viewer.md "선 긋기"): 앞면(0-1-5-4)을 3등분하면 꼭짓점 4 + 모서리 4개 × 2점
+  const points = facePoints(poly, 0, 3)
+  check(points.length === 4 + 4 * 2, `3등분 점 수 ${points.length}`)
+  const third = points.find((p) => 'edge' in p.point && p.point.edge[0] === 0 && p.point.t === 1 / 3)!
+  check(near(third.at, [-2 + 4 / 3, -1.5, 1]), `0→1 모서리 1/3 지점 ${third.at}`)
+  check(facePoints(poly, 0, 2).filter((p) => 'edge' in p.point).length === 4, '2등분은 모서리마다 중점 하나')
+  // 고른 두 점으로 만든 선분은 그 면에 놓인다 (3등분점 → 맞은편 꼭짓점)
+  check(placeLines(poly, [{ from: third.point, to: { vertex: 5 } }])[0]?.face === 0, '등분점 선분이 앞면에 놓임')
 }
 
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점)')
