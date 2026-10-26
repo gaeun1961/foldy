@@ -9,6 +9,7 @@
 
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
+- **TODO-6** [꼭짓점·모서리 중점 클릭으로 선 긋기](06-click-draw-line.md) · [#12](https://github.com/gaeun1961/foldy/issues/12) — 3D: 꼭짓점·모서리 중점을 눌러 면 위에 선을 긋는다
 - **TODO-5** [같은 꼭짓점을 같은 색으로 하이라이트](05-vertex-highlight.md) · [#11](https://github.com/gaeun1961/foldy/issues/11) — 3D: 접었을 때 만나는 꼭짓점들을 같은 색으로 표시한다
 - **TODO-22** [맞닿는 모서리 같은 색으로 칠하기](22-matching-edge-colors.md) · [#32](https://github.com/gaeun1961/foldy/issues/32) — 3D: 접었을 때 맞닿는 모서리 한 쌍을 같은 색으로 칠한다
 - **TODO-7** [학습지 사진 10장 수집 + 비전 LLM 프롬프트로 ShapeScene 추출 테스트](07-vision-prompt-test.md) · [#13](https://github.com/gaeun1961/foldy/issues/13) — AI: 실제 사진으로 인식 정확도를 재고 프롬프트를 만든다
@@ -19,6 +20,7 @@
 - **TODO-26** [직육면체 부피 시각화](26-cuboid-volume.md) · [#41](https://github.com/gaeun1961/foldy/issues/41) — 3D: 단위 정육면체를 한 층씩 쌓아 가로×세로×높이를 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-25** [직육면체 겉넓이 시각화](25-cuboid-surface-area.md) · [#40](https://github.com/gaeun1961/foldy/issues/40) — 3D: 마주 보는 면 쌍을 차례로 칠하고 2×(ab+bc+ca)를 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) · [#44](https://github.com/gaeun1961/foldy/issues/44) — 3D: 모서리를 누르면 평행·수직·꼬인 위치 모서리를 색으로 구분한다 (1차 다른 TODO보다 뒤)
+- **TODO-30** [피타고라스: 직육면체 대각선, 겉면 위 최단 거리](30-pythagoras.md) · [#46](https://github.com/gaeun1961/foldy/issues/46) — 3D: 대각선 길이와 전개도 위 최단 거리를 직각삼각형으로 보여준다 (1차 다른 TODO보다 뒤)
 
 ## 진행 중
 
@@ -26,7 +28,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 담당자 |
 |---|---|---|
-| **TODO-4** [ShapeScene.lines를 면 위에 그리기, 접힐 때 같이 움직이게](04-face-lines.md) | [#10](https://github.com/gaeun1961/foldy/issues/10) | gaeun1961 |
+| (없음) | | |
 
 ## 1차 남은 일
 
@@ -34,13 +36,11 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 선행 |
 |---|---|---|
-| **TODO-6** [꼭짓점·모서리 중점 클릭으로 선 긋기](06-click-draw-line.md) | [#12](https://github.com/gaeun1961/foldy/issues/12) | TODO-4 |
 | **TODO-8** [/analyze에 비전 LLM 연결, 실패 시 에러 응답](08-analyze-vision-llm.md) | [#14](https://github.com/gaeun1961/foldy/issues/14) | TODO-7 |
 | **TODO-10** [챗봇이 화면 조작 명령을 함께 반환 (하이라이트, 슬라이더 값)](10-chatbot-view-commands.md) | [#16](https://github.com/gaeun1961/foldy/issues/16) | TODO-3, TODO-5, TODO-9 |
 | **TODO-14** [전체 화면 디자인 정리](14-screen-design.md) | [#20](https://github.com/gaeun1961/foldy/issues/20) | TODO-11, TODO-12, TODO-13 |
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | TODO-8, TODO-10, TODO-14 |
 | **TODO-29** [닮은 직육면체의 겉넓이비·부피비](29-similar-ratio.md) (1차 다른 TODO보다 뒤) | [#45](https://github.com/gaeun1961/foldy/issues/45) | TODO-25, TODO-26 |
-| **TODO-30** [피타고라스: 직육면체 대각선, 겉면 위 최단 거리](30-pythagoras.md) (1차 다른 TODO보다 뒤) | [#46](https://github.com/gaeun1961/foldy/issues/46) | TODO-4 |
 
 ## 나중에 (2차·3차)
 

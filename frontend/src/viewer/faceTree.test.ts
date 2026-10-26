@@ -1,7 +1,7 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, layOnFloor, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { ShapeScene } from '../shared/types.ts'
 
@@ -103,7 +103,24 @@ function checkStepFold(scene: ShapeScene, poly: Polyhedron, tree: ReturnType<typ
 const base = { vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' as const } }
 checkBox({ ...base, shape: 'cuboid', size: { width: 4, depth: 2, height: 3 } }, 4, 2, 3)
 checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
+// 면 위 선분 (viewer.md "선분"): 목 데이터 4×2×3 의 앞면 대각선, 윗면 중점 연결
+{
+  const poly = polyhedronOf({ ...base, shape: 'cuboid', size: { width: 4, depth: 2, height: 3 } })!
+  const near = (a: number[], b: number[]) => a.every((v, k) => Math.abs(v - b[k]) < EPS)
+  const [diag, mid, offFace, notEdge, onEdge] = placeLines(poly, [
+    { from: { vertex: 0 }, to: { vertex: 5 } },
+    { from: { edge: [4, 5], t: 0.5 }, to: { edge: [6, 7], t: 0.5 } },
+    { from: { vertex: 0 }, to: { vertex: 6 } }, // 마주 보는 꼭짓점: 같은 면에 없음
+    { from: { edge: [0, 5], t: 0.5 }, to: { vertex: 1 } }, // 0-5 는 앞면의 대각선이지 모서리가 아님
+    { from: { vertex: 0 }, to: { vertex: 1 } }, // 앞면·아랫면이 공유하는 모서리 → 작은 면 인덱스(앞면 0)
+  ])
+  check(diag?.face === 0 && near(diag.from, [-2, -1.5, 1]) && near(diag.to, [2, 1.5, 1]), `앞면 대각선 ${JSON.stringify(diag)}`)
+  check(mid?.face === 3 && near(mid.from, [0, 1.5, 1]) && near(mid.to, [0, 1.5, -1]), `윗면 중점 연결 ${JSON.stringify(mid)}`)
+  check(offFace === null && notEdge === null, '같은 면에 없는 선분은 null')
+  check(onEdge?.face === 0, '여러 면에 맞으면 가장 작은 면 인덱스')
+}
+
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 면 위 선분)')

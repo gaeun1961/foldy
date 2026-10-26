@@ -2,6 +2,7 @@
 // 면마다 부모와 붙는 모서리 위치에 pivot Group 을 두고, 그 안에 면 메시를 접힌 상태 좌표 그대로 넣는다.
 // 그래서 회전각이 0 이면 입체, 모든 pivot 을 (180° − 이면각) 돌리면 전개도가 된다.
 import * as THREE from 'three'
+import type { Line, PolyhedronPoint } from '../shared/types.ts'
 import type { Polyhedron, Vec3 } from './polyhedra.ts'
 
 export interface FaceNode {
@@ -92,6 +93,32 @@ export function stepUnfold(order: number[], faceCount: number, s: number) {
   const f = (1 - s) * order.length
   order.forEach((face, k) => (out[face] = 1 - THREE.MathUtils.clamp(f - k, 0, 1)))
   return out
+}
+
+// 면 위 선분 (docs/specs/viewer.md "선분"): 선분마다 붙일 면과 끝점 좌표(= 접힌 상태 좌표 = 면 메시 기준 좌표).
+// { vertex: v } 는 v 를 가진 면, { edge: [i, j] } 는 i-j 가 그 면의 모서리인 면. 둘 다 맞는 면이 여럿이면 가장 작은 면 인덱스.
+// 같은 면 위에 없으면 null (계약 위반, 그리는 쪽에서 경고)
+export interface PlacedLine {
+  face: number
+  from: Vec3
+  to: Vec3
+}
+
+export function placeLines(poly: Polyhedron, lines: Line<PolyhedronPoint>[]): (PlacedLine | null)[] {
+  const onFace = (p: PolyhedronPoint, vs: number[]) => {
+    if ('vertex' in p) return vs.includes(p.vertex)
+    const [a, b] = p.edge.map((i) => vs.indexOf(i))
+    return a >= 0 && b >= 0 && (Math.abs(a - b) === 1 || Math.abs(a - b) === vs.length - 1) // 다각형에서 이웃한 두 꼭짓점
+  }
+  const point = (p: PolyhedronPoint): Vec3 => {
+    if ('vertex' in p) return poly.positions[p.vertex]
+    const [a, b] = p.edge.map((i) => poly.positions[i])
+    return [0, 1, 2].map((k) => a[k] + (b[k] - a[k]) * p.t) as Vec3
+  }
+  return lines.map(({ from, to }) => {
+    const face = poly.faces.findIndex((f) => onFace(from, f.vertices) && onFace(to, f.vertices))
+    return face < 0 ? null : { face, from: point(from), to: point(to) }
+  })
 }
 
 // 화면에 놓기: 트리 전체를 돌려 루트 면의 바깥 법선이 아래(−y)를 향하고 루트 면이 바닥(y = 0)에 닿게 한다.

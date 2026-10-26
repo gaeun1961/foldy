@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
-import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, stepUnfold } from './faceTree.ts'
+import type { Line, PolyhedronPoint } from '../shared/types.ts'
+import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, placeLines, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
@@ -25,7 +26,8 @@ function pullTowardCamera<M extends THREE.Material>(material: M, pull: { value: 
 // three.js 뷰어: 다면체를 면 트리(polyhedra.ts)로 그려 바닥에 눕히고, unfold 값만큼 펼친다. 마우스로 돌려 볼 수 있다.
 // 단계별 접기(foldMode = 'step')는 면을 하나씩 접고 지금 접히는 면을 강조한다 (docs/specs/viewer.md)
 // 가려진 모서리는 점선 (showHiddenEdges)
-// TODO(3D): 선(TODO-4), 하이라이트(TODO-5), 맞닿는 모서리 색(TODO-22), 곡면 도형(TODO-17)
+// 면 위 선분(scene.lines)은 면 메시의 자식이라 접힘을 따라간다
+// TODO(3D): 하이라이트(TODO-5), 맞닿는 모서리 색(TODO-22), 곡면 도형(TODO-17)
 export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdges = true }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges }) // 도형을 새로 만들 때 지금 값으로 시작하려고
@@ -102,6 +104,19 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
       bars.set(n.face, bar)
     }
 
+    // 면 위 선분: 면 메시의 자식으로 붙여 접고 펼 때 따라오게 한다. 1px 선은 잘 안 보여서 가는 원기둥으로 (viewer.md "선분")
+    const lineMaterial = new THREE.MeshBasicMaterial({ color: '#e64980' })
+    placeLines(poly, scene.lines as Line<PolyhedronPoint>[]).forEach((placed, k) => {
+      if (!placed) return console.warn(`foldy: lines[${k}] 의 두 끝점이 같은 면 위에 없어서 그리지 않습니다`, scene.lines[k])
+      const [from, to] = [new THREE.Vector3(...placed.from), new THREE.Vector3(...placed.to)]
+      // 양 끝을 굵기만큼 줄인다. 꼭짓점·모서리에서 끝나는 선이 접은 입체 밖으로 삐져나오지 않게
+      const length = Math.max(0, from.distanceTo(to) - 2 * radius * 0.01)
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.01, radius * 0.01, length, 12), lineMaterial)
+      tube.position.copy(from).add(to).multiplyScalar(0.5)
+      tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize())
+      tree.nodes[placed.face].mesh.add(tube)
+    })
+
     // 가려진 모서리 점선: 같은 모서리 선을 한 번 더, 면 뒤에 있는 부분(GreaterDepth)만 그린다.
     // 면을 다 그린 뒤에 그려야 깊이가 차 있으므로 renderOrder 를 1 로 (docs/specs/viewer.md "가려진 모서리").
     // 실선·점선 모두 도형 크기의 2% 만큼 카메라 쪽으로 당겨서, 보이는 모서리는 확실히 면 앞, 가려진 모서리는 그대로 면 뒤가 되게 한다
@@ -123,6 +138,8 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
       const dashed = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pairs), hiddenMaterial).computeLineDistances()
       dashed.renderOrder = 1
       n.mesh.add(dashed)
+      // 실선도 면을 다 그린 뒤에. 실선은 깊이를 안 써서, 먼저 그리면 나중에 그린 이웃 면에 덮여 끊겨 보인다 (펼친 전개도의 접는 선)
+      n.mesh.children[0].renderOrder = 1
       return dashed
     })
 
@@ -209,7 +226,7 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, barMaterial, hiddenMaterial, shadowFloor.material, grid.material]) m.dispose()
+      for (const m of [...lookMaterials, barMaterial, hiddenMaterial, lineMaterial, shadowFloor.material, grid.material]) m.dispose()
       shadowFloor.geometry.dispose()
       grid.geometry.dispose()
       light.shadow.map?.dispose()
