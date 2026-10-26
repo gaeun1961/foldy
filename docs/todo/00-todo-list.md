@@ -15,7 +15,6 @@
 - **TODO-11** [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) · [#17](https://github.com/gaeun1961/foldy/issues/17) — UI: 사진을 올리면 backend 결과로 뷰어를 그린다
 - **TODO-12** [수동 입력: 도형 드롭다운 + 치수 슬라이더](12-manual-input-form.md) · [#18](https://github.com/gaeun1961/foldy/issues/18) — UI: 인식이 틀렸을 때 도형과 치수를 바로 고친다
 - **TODO-13** [챗봇 대화창 UI, /chat 연결](13-chat-ui.md) · [#19](https://github.com/gaeun1961/foldy/issues/19) — UI: 질문을 보내고 답을 대화로 본다
-- **TODO-25** [직육면체 겉넓이 시각화](25-cuboid-surface-area.md) · [#40](https://github.com/gaeun1961/foldy/issues/40) — 3D: 마주 보는 면 쌍을 차례로 칠하고 2×(ab+bc+ca)를 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) · [#44](https://github.com/gaeun1961/foldy/issues/44) — 3D: 모서리를 누르면 평행·수직·꼬인 위치 모서리를 색으로 구분한다 (1차 다른 TODO보다 뒤)
 - **TODO-30** [피타고라스: 직육면체 대각선, 겉면 위 최단 거리](30-pythagoras.md) · [#46](https://github.com/gaeun1961/foldy/issues/46) — 3D: 대각선 길이와 전개도 위 최단 거리를 직각삼각형으로 보여준다 (1차 다른 TODO보다 뒤)
 

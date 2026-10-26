@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { mockScene } from '../shared/mock'
-import { foldStepCount, Viewer, type Lesson } from '../viewer'
+import { foldStepCount, LESSON_HINT, LESSON_POSE, Viewer, type Lesson } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus } from './foldStatus.ts'
 import { LessonControls, LessonDots } from './LessonControls'
@@ -14,11 +14,11 @@ export default function App() {
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
   const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
   const [view, setView] = useState<ViewOptionValues>({ showHiddenEdges: true, showVertexLabels: true, showMatchingEdges: true }) // 보기 옵션 체크박스, 기본값은 ui.md
-  const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 입체로 접고 접기 패널 대신 설명 조작을 보인다
+  const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = foldStepCount(scene)
   const status = lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing)
   const changeLesson = (next: Lesson | null) => {
-    if (next && !lesson) setUnfold(0) // 설명은 입체에서 본다
+    if (next && next.kind !== lesson?.kind) setUnfold(LESSON_POSE[next.kind] === 'net' ? 1 : 0)
     setLesson(next)
   }
 
@@ -39,7 +39,7 @@ export default function App() {
           {lesson ? <LessonDots scene={scene} lesson={lesson} /> : foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
           {/* 안내 문구: 애니메이션 중에는 숨긴다 (ui.md 친절한 설명 원칙) */}
           {!lesson && view.showMatchingEdges && steps > 0 && !playing && <p className="viewer-hint">같은 색 모서리끼리 만나요</p>}
-          {lesson && lesson.progress <= 0 && !playing && <p className="viewer-hint">한 층씩 쌓아 볼까요</p>}
+          {lesson && lesson.progress <= 0 && !playing && <p className="viewer-hint">{LESSON_HINT[lesson.kind]}</p>}
         </div>
         {!lesson && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} />}
         <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} />

@@ -16,4 +16,4 @@ export interface ViewerProps {
 
 export { ThreeViewer as Viewer } from './ThreeViewer'
 export { foldStepCount } from './polyhedra'
-export { LESSON_LABEL, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'
+export { LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'
