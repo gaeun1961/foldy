@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import { applyUnfold, buildFaceTree, disposeFaceTree, layOnFloor, stepUnfold } from './faceTree.ts'
 import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
+import { addView } from './sharedRenderer.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 
@@ -25,27 +26,23 @@ function pullTowardCamera<M extends THREE.Material>(material: M, pull: { value: 
 // three.js 뷰어: 다면체를 면 트리(polyhedra.ts)로 그려 바닥에 눕히고, unfold 값만큼 펼친다. 마우스로 돌려 볼 수 있다.
 // 단계별 접기(foldMode = 'step')는 면을 하나씩 접고 지금 접히는 면을 강조한다 (docs/specs/viewer.md)
 // 가려진 모서리는 점선 (showHiddenEdges)
+// 렌더러는 뷰어가 몇 개든 하나다 (sharedRenderer.ts). 이 컴포넌트는 자기 scene·camera 를 컨테이너와 함께 등록만 한다
 // TODO(3D): 선(TODO-4), 하이라이트(TODO-5), 맞닿는 모서리 색(TODO-22), 곡면 도형(TODO-17)
-export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdges = true }: ViewerProps) {
+export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdges = true, interactive = true }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef({ unfold, foldMode, showHiddenEdges }) // 도형을 새로 만들 때 지금 값으로 시작하려고
+  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, interactive }) // 도형을 새로 만들 때 지금 값으로 시작하려고
   const applyRef = useRef<(() => void) | null>(null)
 
   // unfold·foldMode·보기 옵션만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    viewRef.current = { unfold, foldMode, showHiddenEdges }
+    viewRef.current = { unfold, foldMode, showHiddenEdges, interactive }
     applyRef.current?.()
-  }, [unfold, foldMode, showHiddenEdges])
+  }, [unfold, foldMode, showHiddenEdges, interactive])
 
   useEffect(() => {
     const poly = polyhedronOf(scene)
     if (!poly) return // 곡면 도형·아직 데이터가 없는 도형
     const container = containerRef.current!
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.shadowMap.enabled = true // 기본 PCF. 가장자리는 light.shadow.radius 로 흐리게
-    container.appendChild(renderer.domElement)
 
     const world = new THREE.Scene()
     world.background = new THREE.Color('#f5f3ef')
@@ -86,6 +83,16 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     }
     const center = bounds.getCenter(new THREE.Vector3())
     const radius = bounds.getBoundingSphere(new THREE.Sphere()).radius
+
+    // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
+    camera.position.copy(center).add(new THREE.Vector3(0.5, 0.9, 1))
+
+    // 공용 캔버스는 입력을 받지 않으므로 컨테이너에 붙인다. interactive 가 false 면 apply 에서 끈다
+    const controls = new OrbitControls(camera, container)
+    controls.target.copy(center)
+    controls.enableDamping = true
+    controls.maxPolarAngle = Math.PI / 2 - 0.05 // 바닥 아래로는 돌아가지 않게
 
     // 회전축 모서리를 굵게: 붙는 모서리를 따라 가는 원기둥. pivot 에 붙이면 축 위에 있어서 회전해도 그 자리다
     const barMaterial = new THREE.MeshBasicMaterial({ color: '#3c4048' })
@@ -129,7 +136,8 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
     let active: number | null = null
     const apply = () => {
-      const { unfold, foldMode, showHiddenEdges } = viewRef.current
+      const { unfold, foldMode, showHiddenEdges, interactive } = viewRef.current
+      controls.enabled = interactive
       for (const line of hiddenEdges) line.visible = showHiddenEdges
       if (foldMode === 'step') {
         const values = stepUnfold(order, poly.faces.length, unfold)
@@ -173,19 +181,10 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     shadowFloor.receiveShadow = true
     world.add(grid, shadowFloor)
 
-    // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
-    camera.position.copy(center).add(new THREE.Vector3(0.5, 0.9, 1))
-
-    const controls = new OrbitControls(camera, renderer.domElement)
-    controls.target.copy(center)
-    controls.enableDamping = true
-    controls.maxPolarAngle = Math.PI / 2 - 0.05 // 바닥 아래로는 돌아가지 않게
-
     // 화면 비율이 바뀌면(휴대폰 세로 등) 가로·세로 중 좁은 시야에 맞춰 거리를 다시 잡는다. 보는 방향은 유지
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
-      renderer.setSize(w, h)
+      if (w === 0 || h === 0) return
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       const vfov = THREE.MathUtils.degToRad(camera.fov)
@@ -197,14 +196,11 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
     observer.observe(container)
     resize()
 
-    renderer.setAnimationLoop(() => {
-      controls.update()
-      renderer.render(world, camera)
-    })
+    const removeView = addView({ container, scene: world, camera, beforeRender: () => controls.update() })
 
     return () => {
       applyRef.current = null
-      renderer.setAnimationLoop(null)
+      removeView()
       observer.disconnect()
       controls.dispose()
       disposeFaceTree(tree)
@@ -213,8 +209,6 @@ export function ThreeViewer({ scene, unfold = 0, foldMode = 'all', showHiddenEdg
       shadowFloor.geometry.dispose()
       grid.geometry.dispose()
       light.shadow.map?.dispose()
-      renderer.dispose()
-      container.removeChild(renderer.domElement)
     }
   }, [scene])
 

@@ -30,6 +30,32 @@ h2 {
 }
 
 .upload { grid-area: upload; border-right: 1px solid #e5e7eb; }
+
+/* 예시 도형 썸네일 (ui.md 화면 배치 2번). 공용 캔버스(body 맨 뒤, 고정)가 비치도록 썸네일 자리는 배경을 두지 않는다 */
+.examples { margin-top: 24px; color: #1f2430; }
+.example-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-width: 360px; /* 좁은 화면(한 칸 배치)에서 썸네일이 화면 폭만큼 커지지 않게 */
+}
+.example-list button {
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.example-list button:hover { border-color: #3d6fd9; }
+.example-thumb {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+}
 .viewer { grid-area: viewer; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 
 /* 3D 뷰 + 상태 배지 + 접기 조작 (docs/specs/ui.md) */
@@ -39,7 +65,7 @@ h2 {
   min-height: 0;
   overflow: hidden; /* 캔버스 픽셀 크기가 칸을 밀어 넓히지 않게 */
 }
-.viewer-canvas canvas { display: block; }
+/* 캔버스는 뷰어 안이 아니라 body 맨 뒤에 하나만 고정돼 있다 (viewer.md 공용 렌더러). 이 칸은 배경 없이 비워 두어 캔버스가 비치게 한다 */
 
 .status-badge {
   position: absolute;
