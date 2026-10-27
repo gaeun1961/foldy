@@ -1,4 +1,4 @@
-import type { ShapeScene } from '../shared/types'
+import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 
 // 뷰어 구현이 지켜야 할 props (docs/specs/viewer.md). UI는 이 인터페이스와 아래 Viewer, foldStepCount 만 사용한다.
 // GeoGebra 등으로 바꿀 때는 같은 props 를 받는 컴포넌트를 만들고 아래 export 한 줄만 교체.
@@ -14,6 +14,7 @@ export interface ViewerProps {
   edgeDivisions?: 2 | 3 | 4 // 선 긋기에서 모서리 등분 (기본 2 = 중점)
   onSceneChange?: (scene: ShapeScene) => void // 선분이 더해진 새 scene. UI가 다시 scene 으로 넘긴다
   onDrawState?: (state: DrawState) => void // 선 긋기 진행 상태 (안내 문구용)
+  onRouteChoices?: (routes: Line<PolyhedronPoint>[][]) => void // 다른 면을 이은 선의 길 후보 (짧은 순, 첫째가 그은 길). 같은 면 선이면 []
 }
 
 // idle: 첫 점을 기다림 / picked: 첫 점을 고름 / no-path: 겉면으로 이을 길을 찾지 못해 긋지 않음 (드묾)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { mockScene } from '../shared/mock'
-import type { ShapeScene } from '../shared/types'
+import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import { foldStepCount, Viewer, type DrawState } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, unfoldOf } from './foldStatus.ts'
@@ -31,6 +31,8 @@ export default function App() {
   const [drawState, setDrawState] = useState<DrawState>('idle')
   // 한 번 그은 선이 선분 몇 개로 저장됐는지 (면에 걸친 선은 2~3개). 선 지우기는 그은 선 하나를 통째로 지운다
   const [strokes, setStrokes] = useState<number[]>(() => scene.lines.map(() => 1))
+  // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
+  const [route, setRoute] = useState<{ routes: Line<PolyhedronPoint>[][]; index: number } | null>(null)
   const steps = foldStepCount(scene)
   const status = foldStatus(scene.shape, unfold, playing)
 
@@ -59,6 +61,7 @@ export default function App() {
               setScene(next)
             }}
             onDrawState={setDrawState}
+            onRouteChoices={(routes) => setRoute(routes.length > 1 ? { routes, index: 0 } : null)}
           />
           <div className={`status-badge${status.done ? ' done' : ''}`} role="status">
             {status.done && '✔ '}
@@ -77,9 +80,19 @@ export default function App() {
           divisions={edgeDivisions}
           onDivisionsChange={setEdgeDivisions}
           lineCount={strokes.length}
+          route={route && { index: route.index, count: route.routes.length }}
+          onNextRoute={() => {
+            if (!route) return
+            const index = (route.index + 1) % route.routes.length
+            const kept = scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1])
+            setScene({ ...scene, lines: [...kept, ...route.routes[index]] } as ShapeScene)
+            setStrokes([...strokes.slice(0, -1), route.routes[index].length])
+            setRoute({ ...route, index })
+          }}
           onEraseLast={() => {
             setScene({ ...scene, lines: scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1]) } as ShapeScene)
             setStrokes(strokes.slice(0, -1))
+            setRoute(null)
           }}
         />
         <ViewOptions values={view} onChange={setView} />

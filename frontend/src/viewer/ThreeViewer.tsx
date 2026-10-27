@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
-import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, lineOnSurface, placeLines, stepUnfold } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
 import { foldOrderOf, matchingEdges, polyhedronOf, type Vec3 } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
@@ -60,13 +60,14 @@ export function ThreeViewer({
   edgeDivisions = 2,
   onSceneChange,
   onDrawState,
+  onRouteChoices,
 }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 도형을 새로 만들 때 지금 값으로 시작하려고
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions })
   const applyRef = useRef<(() => void) | null>(null)
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
-  const callbacksRef = useRef({ onSceneChange, onDrawState })
+  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
 
   // unfold·foldMode·보기 옵션·강조·선 긋기 모드만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
@@ -75,8 +76,8 @@ export function ThreeViewer({
     applyRef.current?.()
   }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions])
   useEffect(() => {
-    callbacksRef.current = { onSceneChange, onDrawState }
-  }, [onSceneChange, onDrawState])
+    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices }
+  }, [onSceneChange, onDrawState, onRouteChoices])
 
   // lines 만 바뀌면 선분만 다시 그린다. 선을 그을 때마다 카메라가 처음 구도로 돌아가지 않게 (viewer.md ViewerProps)
   useEffect(() => {
@@ -433,7 +434,7 @@ export function ThreeViewer({
       return !front || front.distance >= toPoint.length() - radius * 0.02 // 점보다 앞에 다른 면이 없음
     }
     const pickLinePoint = (sx: number, sy: number, rect: DOMRect) => {
-      const { onSceneChange, onDrawState } = callbacksRef.current
+      const { onSceneChange, onDrawState, onRouteChoices } = callbacksRef.current
       const hitFace: number | undefined = raycaster.intersectObjects(faceTargets, false)[0]?.object.userData.face
       const candidates = tree.nodes.flatMap((node) =>
         facePoints(poly, node.face, viewRef.current.edgeDivisions).flatMap((c) => {
@@ -458,12 +459,14 @@ export function ThreeViewer({
       const same = new THREE.Vector3(...first.at).distanceTo(new THREE.Vector3(...pick.at)) < 1e-9
       setFirstPick(null)
       if (same) return onDrawState?.('idle') // 같은 점을 다시 누르면 풀린다
-      const added = placeLines(poly, [{ from: first.point, to: pick.point }])[0]
-        ? [{ from: first.point, to: pick.point }]
-        : lineOnSurface(poly, first.point, pick.point)
+      // 같은 면이면 선분 하나, 다른 면이면 길 후보 중 가장 짧은 길. 후보 목록은 UI의 "다른 길" 버튼이 쓴다
+      const sameFace = !!placeLines(poly, [{ from: first.point, to: pick.point }])[0]
+      const routes = sameFace ? [] : surfaceRoutes(poly, first.point, pick.point).map((r) => r.lines)
+      const added = sameFace ? [{ from: first.point, to: pick.point }] : routes[0]
       if (!added) return onDrawState?.('no-path')
       const current = sceneRef.current
       onSceneChange?.({ ...current, lines: [...current.lines, ...added] } as ShapeScene)
+      onRouteChoices?.(routes)
       onDrawState?.('idle')
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
