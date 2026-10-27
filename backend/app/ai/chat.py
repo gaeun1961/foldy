@@ -1,7 +1,68 @@
+"""챗봇 답변 (docs/specs/api.md /chat).
+
+현재 도형(ShapeScene)을 맥락으로 Gemini 를 불러, 정답 대신 힌트를 준다.
+LLM_API_KEY 가 없으면 고정 문장으로 답해서 키 없이도 개발할 수 있다.
+"""
+
+import os
+
+from google import genai
+from google.genai import types
+
 from app.ai.schema import ShapeScene
+
+MODEL = "gemini-3.5-flash-lite"  # 짧은 힌트라 가벼운 모델로 충분하고 빠르다 (Flash 는 2026-10 기준 과부하로 504·503이 잦았다)
+TIMEOUT_MS = 20_000  # 학생이 오래 기다리지 않게. 넘으면 ChatError
+NO_KEY_REPLY = "좋은 질문이에요! 도형을 돌려 보면서 어느 면이 마주 보는지 찾아볼까요?"
+
+SYSTEM_PROMPT = """\
+너는 초등학교 5학년~중학교 1학년 학생과 입체도형을 공부하는 친절한 선생님이야.
+학생은 화면에서 입체도형의 전개도를 접고 펴 보면서 질문해.
+
+규칙
+- 정답을 바로 말하지 마. 학생이 스스로 찾을 수 있게 힌트를 하나 주고, 생각해 볼 질문으로 끝내.
+- 계산 문제도 답 숫자를 말하지 말고, 어떤 길이나 면을 보면 되는지 알려 줘.
+- 화면에서 해 볼 수 있는 것을 권해: 접기 슬라이더로 접고 펴 보기, 도형 돌려 보기, 꼭짓점이나 모서리 눌러 보기.
+  (같은 색 모서리는 접으면 서로 맞닿아. 꼭짓점을 누르면 같은 꼭짓점이 전개도의 여러 곳에서 함께 칠해져.)
+- 2~4문장으로 짧게 써. 인사로 시작하지 말고 바로 힌트부터.
+- 처음부터 끝까지 친근한 존댓말("~해 볼까요?", "~예요")만 써. 반말("~볼까?", "반가워")은 한 번도 쓰지 마. 어려운 낱말은 쉬운 말로 바꿔.
+- 꼭짓점은 라벨(ㄱ, ㄴ…)로 부르고, 라벨이 없으면 "앞쪽 왼쪽 아래 꼭짓점"처럼 위치로 불러.
+  꼭짓점 번호(0번, 꼭짓점 5 등)와 JSON 낱말(vertex, edge 등)은 학생에게 말하지 마. 데이터를 읽는 데만 써.
+- 도형 공부와 상관없는 질문에는 부드럽게 도형 이야기로 돌아와.
+- 마크다운 기호(**, #, - 목록)는 쓰지 마.
+
+도형 데이터(ShapeScene JSON) 읽는 법
+- shape: cuboid 직육면체, cube 정육면체, regular-tetrahedron 정사면체, regular-octahedron 정팔면체,
+  regular-dodecahedron 정십이면체, regular-icosahedron 정이십면체, cylinder 원기둥, cone 원뿔
+- size: width 가로, depth 세로(깊이), height 높이, edge 한 모서리, radius 밑면 반지름
+- vertexLabels[i] 는 꼭짓점 i 의 라벨. null 이면 라벨 없음
+- 직육면체·정육면체 꼭짓점: 0 앞왼쪽아래, 1 앞오른쪽아래, 2 뒤오른쪽아래, 3 뒤왼쪽아래, 4~7 은 각각 0~3 바로 위.
+  면: 앞면 0-1-5-4, 뒷면 3-7-6-2, 윗면 4-5-6-7, 아랫면 0-3-2-1, 왼쪽 0-4-7-3, 오른쪽 1-2-6-5
+- lines: 학생 문제에 그려진 선분. {"vertex": i} 는 꼭짓점 i, {"edge": [i, j], "t": 0.5} 는 모서리 i→j 위 t 비율 점(0.5면 가운데)
+"""
+
+
+class ChatError(Exception):
+    """LLM 호출 실패. 라우터가 502 로 바꾼다."""
 
 
 def reply(message: str, scene: ShapeScene) -> str:
-    # TODO(AI): LLM 챗봇 연결 위치. scene 을 문맥으로 넣어 힌트를 생성하고,
-    #   화면 조작(회전, 접기 등)이 필요하면 응답 형식을 이슈로 합의한 뒤 확장한다.
-    return "좋은 질문이에요! 도형을 돌려 보면서 어느 면이 마주 보는지 찾아볼까요?"
+    key = os.environ.get("LLM_API_KEY")
+    if not key:
+        return NO_KEY_REPLY
+    prompt = f"지금 화면의 도형:\n{scene.model_dump_json(exclude_none=True)}\n\n학생 질문: {message}"
+    # 변수에 담아 둔다. 바로 이어 쓰면 요청 전에 클라이언트가 닫힌다
+    client = genai.Client(
+        api_key=key, http_options=types.HttpOptions(timeout=TIMEOUT_MS)
+    )
+    try:
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+        )
+    except genai.errors.APIError as e:
+        raise ChatError(str(e)) from e
+    if not response.text:
+        raise ChatError("빈 답변")
+    return response.text.strip()

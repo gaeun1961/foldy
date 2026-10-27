@@ -8,4 +8,4 @@ backend 기본 주소는 `http://localhost:8000`이고, 자동 문서는 `/docs`
 |---|---|---|---|
 | GET | `/health` | - | `{ "status": "ok" }` |
 | POST | `/analyze` | multipart `file` (이미지만, 아니면 400) | `ShapeScene` (현재는 목) |
-| POST | `/chat` | `{ "message": string, "scene": ShapeScene }` | `{ "reply": string }` (현재는 고정 문자열) |
+| POST | `/chat` | `{ "message": string, "scene": ShapeScene }` | `{ "reply": string }`. Gemini가 도형을 보고 힌트를 준다. LLM 호출이 실패하거나 20초를 넘기면 502 `{ "detail": string }`. `LLM_API_KEY`가 없으면 고정 문장 |
