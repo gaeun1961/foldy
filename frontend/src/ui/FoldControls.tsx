@@ -12,6 +12,7 @@ interface Props {
   onModeChange: (mode: FoldMode) => void
   steps: number // 단계 수 (0 이면 단계별 접기 없음)
   onPlayingChange: (playing: boolean) => void // 애니메이션 시작·끝 (상태 배지가 숫자를 숨기려고)
+  target?: { unfold: number } // 이 값까지 부드럽게 움직인다 (챗봇 화면 조작). 새 객체가 올 때마다 한 번
 }
 
 // 속도별 시간. 보통도 TODO-3 처음 버전(끝까지 1.5초)보다 느리다
@@ -24,7 +25,7 @@ type Speed = keyof typeof SPEEDS
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2) // ease-in-out
 
-export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPlayingChange }: Props) {
+export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPlayingChange, target }: Props) {
   const [speed, setSpeed] = useState<Speed>('normal')
   const frame = useRef(0)
   const stop = () => {
@@ -64,6 +65,11 @@ export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPl
     const targets = stepTargets(unfold, steps, dir)
     play(oneStep ? targets.slice(0, 1) : targets, stepMs * steps, pauseMs)
   }
+
+  // 챗봇이 정한 접기 값: 단계 멈춤 없이 "한 번에" 속도로 간다
+  useEffect(() => {
+    if (target) play([target.unfold], allMs, 0)
+  }, [target]) // eslint-disable-line react-hooks/exhaustive-deps -- target 이 바뀔 때만
 
   const percent = foldPercent(unfold)
   return (

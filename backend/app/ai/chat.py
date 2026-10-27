@@ -1,6 +1,7 @@
 """챗봇 답변 (docs/specs/api.md /chat).
 
 현재 도형(ShapeScene)을 맥락으로 Gemini 를 불러, 정답 대신 힌트를 준다.
+힌트와 함께 화면 조작(꼭짓점 강조, 접기 %)을 JSON 으로 받는다 (api.md "/chat 화면 조작").
 LLM_API_KEY 가 없으면 고정 문장으로 답해서 키 없이도 개발할 수 있다.
 """
 
@@ -8,6 +9,7 @@ import os
 
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, ValidationError
 
 from app.ai.schema import ShapeScene
 
@@ -39,17 +41,49 @@ SYSTEM_PROMPT = """\
 - 직육면체·정육면체 꼭짓점: 0 앞왼쪽아래, 1 앞오른쪽아래, 2 뒤오른쪽아래, 3 뒤왼쪽아래, 4~7 은 각각 0~3 바로 위.
   면: 앞면 0-1-5-4, 뒷면 3-7-6-2, 윗면 4-5-6-7, 아랫면 0-3-2-1, 왼쪽 0-4-7-3, 오른쪽 1-2-6-5
 - lines: 학생 문제에 그려진 선분. {"vertex": i} 는 꼭짓점 i, {"edge": [i, j], "t": 0.5} 는 모서리 i→j 위 t 비율 점(0.5면 가운데)
+
+답 형식: JSON {"reply": 학생에게 할 말, "view": 화면 조작 또는 null}
+- view.highlightVertices: 화면에서 색으로 크게 강조할 꼭짓점 번호 목록. 질문에 나온 꼭짓점만 넣어.
+  정답이 되는 꼭짓점(예: "ㄱ과 만나는 꼭짓점"의 답)은 절대 넣지 마. 강조할 게 없으면 빈 목록.
+- view.foldPercent: 접기 슬라이더를 옮길 값. 0 = 펼친 전개도, 100 = 다 접힌 입체, 50 = 반쯤 접힘.
+  접거나 펴 보면 도움이 될 때만 넣고, 아니면 null. 다 접으면 답이 바로 보이는 질문이면 100 대신 30~60 처럼 중간으로.
+- 화면을 바꿀 필요가 없으면 view 는 null.
+- reply 에서 화면을 바꿨다고 말해도 돼 (예: "꼭짓점 ㄱ을 색칠해 두었어요").
 """
+
+
+class ChatView(BaseModel):
+    highlightVertices: list[int] = []  # 강조할 꼭짓점 인덱스. 빈 목록이면 강조 끔
+    foldPercent: float | None = None  # 접기 % (0 전개도 ~ 100 입체). None 이면 그대로
+
+
+class ChatAnswer(BaseModel):
+    reply: str
+    view: ChatView | None = None
 
 
 class ChatError(Exception):
     """LLM 호출 실패. 라우터가 502 로 바꾼다."""
 
 
-def reply(message: str, scene: ShapeScene) -> str:
+def clean_view(view: ChatView | None, vertex_count: int) -> ChatView | None:
+    """도형에 없는 꼭짓점은 버리고 foldPercent 는 0~100 으로 자른다."""
+    if view is None:
+        return None
+    return ChatView(
+        highlightVertices=sorted(
+            {i for i in view.highlightVertices if 0 <= i < vertex_count}
+        ),
+        foldPercent=None
+        if view.foldPercent is None
+        else min(100.0, max(0.0, view.foldPercent)),
+    )
+
+
+def reply(message: str, scene: ShapeScene) -> ChatAnswer:
     key = os.environ.get("LLM_API_KEY")
     if not key:
-        return NO_KEY_REPLY
+        return ChatAnswer(reply=NO_KEY_REPLY)
     prompt = f"지금 화면의 도형:\n{scene.model_dump_json(exclude_none=True)}\n\n학생 질문: {message}"
     # 변수에 담아 둔다. 바로 이어 쓰면 요청 전에 클라이언트가 닫힌다
     client = genai.Client(
@@ -59,10 +93,16 @@ def reply(message: str, scene: ShapeScene) -> str:
         response = client.models.generate_content(
             model=MODEL,
             contents=prompt,
-            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                response_json_schema=ChatAnswer.model_json_schema(),
+            ),
         )
-    except genai.errors.APIError as e:
+        answer = ChatAnswer.model_validate_json(response.text or "")
+    except (genai.errors.APIError, ValidationError) as e:
         raise ChatError(str(e)) from e
-    if not response.text:
-        raise ChatError("빈 답변")
-    return response.text.strip()
+    vertex_count = len(scene.root.vertexLabels)
+    return ChatAnswer(
+        reply=answer.reply.strip(), view=clean_view(answer.view, vertex_count)
+    )

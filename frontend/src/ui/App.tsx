@@ -3,7 +3,7 @@ import { mockScene } from '../shared/mock'
 import type { ShapeScene } from '../shared/types'
 import { foldStepCount, Viewer, type DrawState } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
-import { foldStatus } from './foldStatus.ts'
+import { foldStatus, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { LineControls } from './LineControls'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
@@ -24,6 +24,9 @@ export default function App() {
   const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
   const [view, setView] = useState<ViewOptionValues>({ showHiddenEdges: true, showVertexLabels: true, showMatchingEdges: true }) // 보기 옵션 체크박스, 기본값은 ui.md
   const [drawLines, setDrawLines] = useState(false)
+  // 챗봇 화면 조작 (api.md "/chat 화면 조작"): 꼭짓점 강조, 접기 목표
+  const [highlight, setHighlight] = useState<number[]>([])
+  const [foldTarget, setFoldTarget] = useState<{ unfold: number }>()
   const [edgeDivisions, setEdgeDivisions] = useState<2 | 3 | 4>(2)
   const [drawState, setDrawState] = useState<DrawState>('idle')
   // 한 번 그은 선이 선분 몇 개로 저장됐는지 (면에 걸친 선은 2~3개). 선 지우기는 그은 선 하나를 통째로 지운다
@@ -48,6 +51,7 @@ export default function App() {
             unfold={unfold}
             foldMode={foldMode}
             {...view}
+            highlightVertices={highlight}
             drawLines={drawLines}
             edgeDivisions={edgeDivisions}
             onSceneChange={(next) => {
@@ -63,7 +67,7 @@ export default function App() {
           {foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
           {hint && <p className="viewer-hint">{hint}</p>}
         </div>
-        <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} />
+        <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />
         <LineControls
           drawing={drawLines}
           onDrawingChange={(on) => {
@@ -80,7 +84,13 @@ export default function App() {
         />
         <ViewOptions values={view} onChange={setView} />
       </main>
-      <ChatPanel scene={scene} />
+      <ChatPanel
+        scene={scene}
+        onView={({ highlightVertices, foldPercent }) => {
+          setHighlight(highlightVertices)
+          if (foldPercent !== null) setFoldTarget({ unfold: unfoldOf(foldPercent) })
+        }}
+      />
     </div>
   )
 }

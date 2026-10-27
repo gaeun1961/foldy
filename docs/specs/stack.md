@@ -20,7 +20,7 @@ frontend·backend 기술 스택과, 어느 영역에서든 지켜야 하는 공�
 - **업로드**: python-multipart
 - **LLM**: Google Gemini (`google-genai` SDK). 키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 받아 `backend/.env`의 `LLM_API_KEY`에 넣는다. 챗봇 모델은 `gemini-3.5-flash-lite`(`backend/app/ai/chat.py`의 `MODEL`). Flash 계열은 2026-10 기준 과부하(504·503)가 잦았고, `gemini-2.5-*`는 새 사용자에게 막혀 있다
 - **린트/포맷**: ruff (`ruff check .`, `ruff format .`)
-- **검사**: `python -m tests.test_schema` (ShapeScene 도형별 검증, 의존성 없음)
+- **검사**: `python -m tests.test_schema` (ShapeScene 도형별 검증), `python -m tests.test_chat` (챗봇 화면 조작 값 거르기). LLM은 부르지 않는다
 - **환경 변수**: `backend/.env` (`uvicorn --env-file .env`로 읽음), 커밋은 `.env.example`만
 
 ## 공통 구현 규칙
