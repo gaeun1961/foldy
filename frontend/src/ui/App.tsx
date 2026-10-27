@@ -4,6 +4,7 @@ import type { ShapeScene } from '../shared/types'
 import { foldStepCount, Viewer, type DrawState } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus } from './foldStatus.ts'
+import { ChatPanel } from './ChatPanel'
 import { LineControls } from './LineControls'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 
@@ -14,7 +15,7 @@ const DRAW_HINT: Record<DrawState, string> = {
   'no-path': '이 두 점은 이을 수 없어요',
 }
 
-// 화면 배치 자리만 잡아 둔 상태. TODO(UI): 업로드 → /analyze, 오른쪽 아래 동그란 챗봇 아이콘 → /chat (TODO-13), 전체 디자인(TODO-14)
+// 화면 배치 자리만 잡아 둔 상태. TODO(UI): 업로드 → /analyze (TODO-11), 전체 디자인(TODO-14)
 export default function App() {
   // 선 없이 시작해서 학생이 직접 긋는다 (목 데이터의 선은 backend MOCK_SCENE·검사와 맞추려고 그대로 둔다). 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene>({ ...mockScene, lines: [] })
@@ -79,6 +80,7 @@ export default function App() {
         />
         <ViewOptions values={view} onChange={setView} />
       </main>
+      <ChatPanel scene={scene} />
     </div>
   )
 }

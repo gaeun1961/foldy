@@ -62,7 +62,7 @@ foldy
 |---|---|
 | `frontend/src/viewer/` | 3D 뷰어. `index.ts`(`ViewerProps`, `Viewer` export), `ThreeViewer.tsx`(three.js 화면), `polyhedra.ts`(다면체 면 트리 데이터, three.js 없음), `faceTree.ts`(면 트리 → pivot 계층, 펼침 값 적용), `faceTree.test.ts`(`npm test`). 면 렌더링, 전개도 접기, 면 위 선분, 꼭짓점 하이라이트·클릭. 앞으로 `curved.ts`(원기둥·원뿔 말기, TODO-17)가 들어온다 |
 | `frontend/lab/` | 실험용 페이지. 서비스 화면과 분리된 HTML + TS 파일로, `npm run dev` 중 `http://localhost:5173/lab/{파일}.html`로 연다. `npm run build`에는 들어가지 않는다. `src/`의 코드를 import할 수 있지만 `src/`는 `lab/`을 import하지 않는다. 지금은 `geogebra.html`(TODO-1 GeoGebra 실험 기록. **실험용이며 서비스에 쓰지 않음**, 3D는 three.js로 결정) |
-| `frontend/src/ui/` | 화면 구성과 backend 연결. `App.tsx`(업로드 / 뷰어 / 챗봇 배치). 사진 업로드, 수동 입력 폼, 챗봇 대화창, API 호출 |
+| `frontend/src/ui/` | 화면 구성과 backend 연결. `App.tsx`(업로드 / 뷰어 / 챗봇 배치), `api.ts`(backend 주소와 호출, `/chat`), `ChatPanel.tsx`(챗봇 아이콘·대화창). 사진 업로드, 수동 입력 폼 |
 | `frontend/src/shared/` | 공용 코드. `types.ts`(ShapeScene 타입), `mock.ts`(목 데이터). ShapeScene 변경은 이슈로 합의 |
 | `backend/app/ai/` | LLM 관련 코드. `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `chat.py`(챗봇 답변), 프롬프트 |
 | `backend/app/api/` | 라우터. `routes.py`(`/health`, `/analyze`, `/chat`). `ai/` 함수를 부르기만 한다 |
