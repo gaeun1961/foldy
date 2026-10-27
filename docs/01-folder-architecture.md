@@ -30,7 +30,7 @@ foldy
 │  │  ├─ main.py                     # FastAPI 앱, CORS, 라우터 등록
 │  │  ├─ api                         # 라우터
 │  │  └─ ai                          # 사진 인식, 챗봇, ShapeScene 스키마
-│  └─ tests                          # 검사 스크립트 (python -m tests.test_schema)
+│  └─ tests                          # 검사 스크립트 (python -m tests.test_schema, test_chat)
 └─ docs                              # 기준 문서
    ├─ 01-folder-architecture.md
    ├─ 02-specs.md                    # specs 목차 ("이런 작업이면 이 파일")
@@ -66,7 +66,7 @@ foldy
 | `frontend/src/shared/` | 공용 코드. `types.ts`(ShapeScene 타입), `mock.ts`(목 데이터). ShapeScene 변경은 이슈로 합의 |
 | `backend/app/ai/` | LLM 관련 코드. `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `chat.py`(챗봇 답변), 프롬프트 |
 | `backend/app/api/` | 라우터. `routes.py`(`/health`, `/analyze`, `/chat`). `ai/` 함수를 부르기만 한다 |
-| `backend/tests/` | 의존성 없이 돌리는 검사 스크립트. `test_schema.py`(ShapeScene 도형별 검증) |
+| `backend/tests/` | 테스트 프레임워크 없이 돌리는 검사 스크립트. `test_schema.py`(ShapeScene 도형별 검증), `test_chat.py`(챗봇 화면 조작 값 거르기, LLM 호출 없음) |
 | `docs/` | 기준 문서(01·02·03, `specs/`), 디자인 참고(`design/`), 작업 기록(`reports/`), TODO(`todo/`) |
 | `.github/` | GitHub 설정. `pull_request_template.md`(커밋·PR 본문 형식) |
 

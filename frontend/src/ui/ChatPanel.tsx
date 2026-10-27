@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types'
-import { chat } from './api'
+import { chat, type ChatView } from './api'
 
 // 챗봇 (docs/specs/ui.md 화면 배치 7번): 오른쪽 아래 동그란 아이콘을 누르면 대화창이 열린다.
 // 넓은 화면은 아이콘 위 작은 창, 좁은 화면은 아래에서 올라오는 절반 높이 시트. 3D 뷰는 계속 보인다.
-// 보낼 때 지금 도형을 같이 보낸다. 대화는 닫았다 열어도 남는다
+// 보낼 때 지금 도형을 같이 보낸다. 대화는 닫았다 열어도 남는다.
+// 답과 함께 온 화면 조작(view)은 onView 로 넘긴다. 다음 답이 오면 그 답의 값으로 바뀌고, 창을 닫으면 강조를 끈다 (api.md)
 interface Message {
   from: 'me' | 'bot' | 'error'
   text: string
 }
 
-export function ChatPanel({ scene }: { scene: ShapeScene | null }) {
+const CLEAR: ChatView = { highlightVertices: [], foldPercent: null }
+
+export function ChatPanel({ scene, onView }: { scene: ShapeScene | null; onView: (view: ChatView) => void }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -21,6 +24,11 @@ export function ChatPanel({ scene }: { scene: ShapeScene | null }) {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
   }, [messages, waiting, open])
 
+  const close = () => {
+    setOpen(false)
+    onView(CLEAR)
+  }
+
   const send = async () => {
     const text = input.trim()
     if (!text || !scene || waiting) return
@@ -28,8 +36,9 @@ export function ChatPanel({ scene }: { scene: ShapeScene | null }) {
     setMessages((m) => [...m, { from: 'me', text }])
     setWaiting(true)
     try {
-      const reply = await chat(text, scene)
+      const { reply, view } = await chat(text, scene)
       setMessages((m) => [...m, { from: 'bot', text: reply }])
+      onView(view ?? CLEAR)
     } catch (e) {
       setMessages((m) => [...m, { from: 'error', text: (e as Error).message }])
     } finally {
@@ -43,7 +52,7 @@ export function ChatPanel({ scene }: { scene: ShapeScene | null }) {
         <section className="chat-panel" role="dialog" aria-label="도형 선생님과 대화">
           <header>
             <strong>도형 선생님</strong>
-            <button type="button" onClick={() => setOpen(false)} aria-label="대화창 닫기">
+            <button type="button" onClick={close} aria-label="대화창 닫기">
               ✕
             </button>
           </header>
@@ -80,7 +89,7 @@ export function ChatPanel({ scene }: { scene: ShapeScene | null }) {
           </form>
         </section>
       )}
-      <button type="button" className="chat-fab" aria-label={open ? '대화창 닫기' : '챗봇에게 물어보기'} aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className="chat-fab" aria-label={open ? '대화창 닫기' : '챗봇에게 물어보기'} aria-expanded={open} onClick={() => (open ? close() : setOpen(true))}>
         {open ? '✕' : '💬'}
       </button>
     </>

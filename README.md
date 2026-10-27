@@ -34,6 +34,7 @@ cd backend
 ruff check .
 ruff format --check .
 python -m tests.test_schema
+python -m tests.test_chat
 ```
 
 ## 일하는 방식

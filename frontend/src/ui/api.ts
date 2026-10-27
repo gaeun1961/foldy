@@ -3,8 +3,18 @@ import type { ShapeScene } from '../shared/types'
 
 export const API_URL = 'http://localhost:8000'
 
+// 챗봇이 답과 함께 보내는 화면 조작 (api.md "/chat 화면 조작")
+export interface ChatView {
+  highlightVertices: number[] // 강조할 꼭짓점 인덱스. 빈 배열이면 강조 끔
+  foldPercent: number | null // 접기 % (0 전개도 ~ 100 입체). null 이면 그대로
+}
+export interface ChatAnswer {
+  reply: string
+  view: ChatView | null
+}
+
 // 실패하면 backend 의 안내 문구(detail)를 담은 Error 를 던진다
-export async function chat(message: string, scene: ShapeScene): Promise<string> {
+export async function chat(message: string, scene: ShapeScene): Promise<ChatAnswer> {
   const res = await fetch(`${API_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -15,5 +25,5 @@ export async function chat(message: string, scene: ShapeScene): Promise<string> 
   })
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : '답변을 가져오지 못했어요')
-  return body.reply
+  return body
 }

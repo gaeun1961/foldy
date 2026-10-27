@@ -24,14 +24,10 @@ class ChatRequest(BaseModel):
     scene: ShapeScene
 
 
-class ChatResponse(BaseModel):
-    reply: str
-
-
 @router.post("/chat")
-def chat_endpoint(req: ChatRequest) -> ChatResponse:
+def chat_endpoint(req: ChatRequest) -> chat.ChatAnswer:
     try:
-        return ChatResponse(reply=chat.reply(req.message, req.scene))
+        return chat.reply(req.message, req.scene)
     except chat.ChatError as e:
         raise HTTPException(
             502, "답변을 가져오지 못했어요. 잠시 뒤 다시 물어봐 주세요"
