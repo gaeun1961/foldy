@@ -27,6 +27,7 @@ export interface GridPolyhedron extends Polyhedron {
   cornerLabels: { face: number; vertex: number; text: string }[] // 전개도 꼭짓점 라벨을 붙일 (면, 꼭짓점)
   marks: { face: number; text?: string; fill?: boolean }[] // 면 표시
   netLines: Line<PolyhedronPoint>[] // 전개도 위 선을 면마다 자른 면 위 선분
+  netFaces: number[] // 면 인덱스 → net.faces 인덱스 (면 표시를 쓸 칸)
 }
 
 export function gridPolyhedron(net: GridNet): GridPolyhedron {
@@ -162,5 +163,5 @@ export function gridPolyhedron(net: GridNet): GridPolyhedron {
     })
   })
 
-  return { positions, faces, foldOrder: order.slice(1).map((_, k) => k + 1), cornerLabels, marks, netLines }
+  return { positions, faces, foldOrder: order.slice(1).map((_, k) => k + 1), cornerLabels, marks, netLines, netFaces: order }
 }

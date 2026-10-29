@@ -40,6 +40,22 @@ export function gridScene(faces: NetFace[]): ShapeScene {
   return { ...base, shape: 'cuboid', size: { width, depth, height } }
 }
 
+// 십자형 → 같은 모양의 grid 전개도 (면 표시를 쓰려고, ui.md 화면 배치 5번). shape-scene.md cross 배치:
+// [왼][앞][오][뒤] 한 줄, 위·아래는 앞면에 붙는다. 가로 w, 세로(깊이) d, 높이 h. 선은 꼭짓점 번호가 달라져서 옮기지 않는다
+export function crossToGrid(scene: ShapeScene): ShapeScene {
+  const s = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge', number>>
+  const [w, d, h] = s.edge ? [s.edge, s.edge, s.edge] : [s.width!, s.depth!, s.height!]
+  const faces: NetFace[] = [
+    { x: 0, y: d, w: d, h },
+    { x: d, y: d, w, h },
+    { x: d + w, y: d, w: d, h },
+    { x: 2 * d + w, y: d, w, h },
+    { x: d, y: 0, w, h: d },
+    { x: d, y: d + h, w, h: d },
+  ]
+  return { ...scene, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'grid', faces } } as ShapeScene
+}
+
 // 칸 위를 끈 두 칸 (a, b) → 둘을 꼭짓점으로 하는 직사각형 면 (칸 단위)
 export function rectOf(a: { x: number; y: number }, b: { x: number; y: number }): NetFace {
   return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x) + 1, h: Math.abs(a.y - b.y) + 1 }

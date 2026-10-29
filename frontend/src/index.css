@@ -210,6 +210,12 @@ h2 {
 .line-controls > button:disabled { opacity: 0.4; cursor: default; }
 .line-controls > button.secondary { margin-left: auto; }
 .line-controls > button.route { border-color: #e64980; color: #c2255c; font-weight: 700; } /* 다른 길: 선분 색 테두리 */
+.face-marks .mark-picker { display: grid; grid-template-columns: repeat(6, 1fr); } /* 면 표시 고르기 두 줄 (ui.md 화면 배치 5번) */
+.face-marks .mark-picker button { min-width: 40px; padding: 0 8px; border-left: 1px solid #d0d5dd; }
+.face-marks .mark-picker button:nth-child(6n + 1) { border-left: 0; }
+.face-marks .mark-picker button:nth-child(n + 7) { border-top: 1px solid #d0d5dd; }
+.face-marks .mark-picker button:last-child { grid-column: span 2; }
+.line-controls > button.toggle-button:disabled { opacity: 0.4; cursor: default; }
 
 /* 접기 패널: 세 줄(방식·속도 / 슬라이더 / 버튼)로 작고 촘촘하게. 버튼 높이 40px, 터치 화면 44px (ui.md 눈높이) */
 .fold-controls {
