@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import { foldStepCount, netCheck, Viewer, type DrawState } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
-import { foldStatus, unfoldOf } from './foldStatus.ts'
+import { foldStatus, SHAPE_NAME, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
@@ -16,7 +16,15 @@ const DRAW_HINT: Record<DrawState, string> = {
   'no-path': '이 두 점은 이을 수 없어요',
 }
 
-// 사진을 올리면 /analyze 결과 도형을 그린다 (TODO-11). 도형이 생기기 전에는 빈 상태 안내. TODO(UI): 수동 입력(TODO-12), 전체 디자인(TODO-14)
+// 책 장면 왼쪽 페이지 글 (viewer.md "책 장면"): 제목, 치수, 할 일 한 줄
+function pageTextOf(scene: ShapeScene) {
+  const size = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge', number>>
+  const dims = size.width ? `가로 ${size.width} · 세로 ${size.depth} · 높이 ${size.height}` : size.edge ? `한 모서리 ${size.edge}` : ''
+  return [`${SHAPE_NAME[scene.shape]}의 전개도`, dims, '전개도를 접어 보며 어떤 모서리끼리 만나는지 찾아보세요.'].filter(Boolean)
+}
+
+// 화면 (docs/specs/ui.md 화면 배치): 3D 책 장면(stage) + 아래 바(dock: 안내·접기·선 긋기·보기) + 만들기 카드(사진·직접 만들기) + 챗봇.
+// 넓은 화면은 stage 가 화면을 채우고 dock·카드가 그 위에 뜬다. 좁은 화면은 위 3D, 아래로 dock·카드
 export default function App() {
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
@@ -49,86 +57,95 @@ export default function App() {
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
-  const hint = !scene ? '학습지 사진을 올리거나 왼쪽에서 직접 만들어 보세요' : playing ? null : drawLines ? DRAW_HINT[drawState] : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요' : null
+  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : drawLines ? DRAW_HINT[drawState] : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요' : null
 
   return (
     <div className="layout">
-      <header>foldy</header>
-      <section className="upload">
-        <h2>학습지 사진</h2>
-        <PhotoUpload onScene={loadScene} onPhoto={setPhoto} />
-        <ManualInput
-          key={photo} // 새 사진이면 전개도 그리기로 열고 사진 위치를 처음부터
-          photo={photo}
-          scene={scene}
-          onScene={(next, how) => {
-            if (!next) return setScene(null)
-            // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
-            if (how === 'size' && scene) return setScene(next)
-            loadScene(next)
-          }}
-        />
-      </section>
-      <main className="viewer">
-        <div className="viewer-canvas">
-          {scene && (
-            <Viewer
-              scene={scene}
-              unfold={unfold}
-              foldMode={foldMode}
-              {...view}
-              highlightVertices={highlight}
-              drawLines={drawLines}
-              edgeDivisions={edgeDivisions}
-              onSceneChange={(next) => {
-                setStrokes([...strokes, next.lines.length - scene.lines.length])
-                setScene(next)
-              }}
-              onDrawState={setDrawState}
-              onRouteChoices={(routes) => setRoute(routes.length > 1 ? { routes, index: 0 } : null)}
-            />
-          )}
-          {status && (
-            <div className={`status-badge${status.done ? ' done' : ''}${status.wrong ? ' wrong' : ''}`} role="status">
-              {status.done && '✔ '}
-              {status.wrong && '✖ '}
-              {status.text}
-            </div>
-          )}
-          {foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
-          {hint && <p className="viewer-hint">{hint}</p>}
-        </div>
+      <main className="stage">
+        {scene && (
+          <Viewer
+            scene={scene}
+            unfold={unfold}
+            foldMode={foldMode}
+            {...view}
+            highlightVertices={highlight}
+            drawLines={drawLines}
+            edgeDivisions={edgeDivisions}
+            pageText={pageTextOf(scene)}
+            onSceneChange={(next) => {
+              setStrokes([...strokes, next.lines.length - scene.lines.length])
+              setScene(next)
+            }}
+            onDrawState={setDrawState}
+            onRouteChoices={(routes) => setRoute(routes.length > 1 ? { routes, index: 0 } : null)}
+          />
+        )}
+        {status && (
+          <div className={`status-badge${status.done ? ' done' : ''}${status.wrong ? ' wrong' : ''}`} role="status">
+            {status.done && '✔ '}
+            {status.wrong && '✖ '}
+            {status.text}
+          </div>
+        )}
+        {foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
+      </main>
+      <section className="dock" aria-label="접기">
+        {hint && <p className="viewer-hint">{hint}</p>}
         {scene && (
           <>
             <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />
-            <LineControls
-              drawing={drawLines}
-              onDrawingChange={(on) => {
-                setDrawLines(on)
-                setDrawState('idle')
-              }}
-              divisions={edgeDivisions}
-              onDivisionsChange={setEdgeDivisions}
-              lineCount={strokes.length}
-              route={route && { index: route.index, count: route.routes.length }}
-              onNextRoute={() => {
-                if (!route) return
-                const index = (route.index + 1) % route.routes.length
-                const kept = scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1])
-                setScene({ ...scene, lines: [...kept, ...route.routes[index]] } as ShapeScene)
-                setStrokes([...strokes.slice(0, -1), route.routes[index].length])
-                setRoute({ ...route, index })
-              }}
-              onEraseLast={() => {
-                setScene({ ...scene, lines: scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1]) } as ShapeScene)
-                setStrokes(strokes.slice(0, -1))
-                setRoute(null)
-              }}
-            />
-            <ViewOptions values={view} onChange={setView} />
+            <div className="dock-row">
+              <LineControls
+                drawing={drawLines}
+                onDrawingChange={(on) => {
+                  setDrawLines(on)
+                  setDrawState('idle')
+                }}
+                divisions={edgeDivisions}
+                onDivisionsChange={setEdgeDivisions}
+                lineCount={strokes.length}
+                route={route && { index: route.index, count: route.routes.length }}
+                onNextRoute={() => {
+                  if (!route) return
+                  const index = (route.index + 1) % route.routes.length
+                  const kept = scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1])
+                  setScene({ ...scene, lines: [...kept, ...route.routes[index]] } as ShapeScene)
+                  setStrokes([...strokes.slice(0, -1), route.routes[index].length])
+                  setRoute({ ...route, index })
+                }}
+                onEraseLast={() => {
+                  setScene({ ...scene, lines: scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1]) } as ShapeScene)
+                  setStrokes(strokes.slice(0, -1))
+                  setRoute(null)
+                }}
+              />
+              <details className="view-menu">
+                <summary>보기</summary>
+                <ViewOptions values={view} onChange={setView} />
+              </details>
+            </div>
           </>
         )}
-      </main>
+      </section>
+      <details className="make-card" open>
+        <summary>
+          <span className="brand">foldy</span> 도형 만들기
+        </summary>
+        <div className="make-body">
+          <PhotoUpload onScene={loadScene} onPhoto={setPhoto} />
+          <ManualInput
+            key={photo} // 새 사진이면 전개도 그리기로 열고 사진 위치를 처음부터
+            photo={photo}
+            scene={scene}
+            onScene={(next, how) => {
+              if (!next) return setScene(null)
+              // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
+              if (how === 'size' && scene) return setScene(next)
+              loadScene(next)
+            }}
+          />
+        </div>
+      </details>
       <ChatPanel
         scene={scene}
         onView={({ highlightVertices, foldPercent }) => {

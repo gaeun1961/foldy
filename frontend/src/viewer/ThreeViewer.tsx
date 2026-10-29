@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
+import { buildBook, DESK_COLOR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, polyhedronOf, type Vec3 } from './polyhedra.ts'
 
@@ -58,6 +59,7 @@ export function ThreeViewer({
   showVertexLabels = true,
   highlightVertices = [],
   drawLines = false,
+  pageText = [],
   edgeDivisions = 2,
   onSceneChange,
   onDrawState,
@@ -85,7 +87,11 @@ export function ThreeViewer({
     sceneRef.current = scene
     drawSceneLinesRef.current?.(scene.lines)
   }, [scene])
-  const shapeKey = JSON.stringify({ ...scene, lines: undefined }) // lines 를 뺀 도형. 이것이 바뀔 때만 다시 만든다
+  const shapeKey = JSON.stringify({ ...scene, lines: undefined, pageText }) // lines 를 뺀 도형과 책 페이지 글. 이것이 바뀔 때만 다시 만든다
+  const pageTextRef = useRef(pageText)
+  useEffect(() => {
+    pageTextRef.current = pageText // 아래 다시 만들기 effect 보다 먼저 돈다
+  }, [pageText])
 
   useEffect(() => {
     const scene = sceneRef.current
@@ -99,7 +105,7 @@ export function ThreeViewer({
     container.appendChild(renderer.domElement)
 
     const world = new THREE.Scene()
-    world.background = new THREE.Color('#f5f3ef')
+    world.background = new THREE.Color(DESK_COLOR)
 
     // 면 바깥은 흰색, 안쪽은 아주 연한 하늘색, 모서리는 진한 회색 (docs/specs/ui.md 색 기준)
     const faceStyle = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } // 모서리 선이 면에 묻혀 깜빡이지 않게
@@ -143,6 +149,8 @@ export function ThreeViewer({
     }
     const center = bounds.getCenter(new THREE.Vector3())
     const radius = bounds.getBoundingSphere(new THREE.Sphere()).radius
+    applyUnfold(tree, 1)
+    const flatNet = new THREE.Box3().setFromObject(tree.root) // 다 펼친 전개도 범위. 책 페이지 크기를 정한다
 
     // 회전축 모서리를 굵게: 붙는 모서리를 따라 가는 원기둥. pivot 에 붙이면 축 위에 있어서 회전해도 그 자리다
     const barMaterial = new THREE.MeshBasicMaterial({ color: '#3c4048' })
@@ -397,9 +405,15 @@ export function ThreeViewer({
     apply()
     applyRef.current = apply
 
-    // 밝고 부드러운 조명: 위아래 은은한 환경광 + 비스듬한 위쪽 빛 하나(그림자)
-    world.add(new THREE.HemisphereLight('#ffffff', '#efe9df', 1.8))
-    const light = new THREE.DirectionalLight('#ffffff', 1.4)
+    // 책 장면: 바닥(y = 0)이 펼친 책의 오른쪽 페이지다 (viewer.md "책 장면")
+    const book = buildBook(flatNet, radius, pageTextRef.current)
+    world.add(book.group)
+    world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22) // 멀리 있는 책상은 흐리게
+
+    // 밝고 따뜻한 조명: 위아래 은은한 환경광 + 비스듬한 위쪽 빛 하나. 그림자는 도형 둘레만 덮는다
+    // (책 전체를 덮으면 같은 그림자 지도로 넓은 곳을 덮어 도형 그림자가 흐릿해진다)
+    world.add(new THREE.HemisphereLight('#fffaf0', '#d9cbb3', 1.7))
+    const light = new THREE.DirectionalLight('#fff4e2', 1.5)
     light.position.copy(center).add(new THREE.Vector3(-0.4, 1, 0.5).multiplyScalar(radius * 3))
     light.target.position.copy(center)
     light.castShadow = true
@@ -409,26 +423,19 @@ export function ThreeViewer({
     Object.assign(light.shadow.camera, { left: -radius * 1.5, right: radius * 1.5, top: radius * 1.5, bottom: -radius * 1.5, far: radius * 6 })
     world.add(light, light.target)
 
-    // 바닥: 옅은 격자 + 그림자만 받는 투명한 판. 전개도와 겹쳐 깜빡이지 않게 아주 조금 아래에 둔다
-    const floorY = -radius * 0.002
-    const floorGrid = new THREE.GridHelper(Math.ceil(radius * 8), Math.ceil(radius * 8), '#e4ded4', '#e4ded4')
-    floorGrid.position.set(center.x, floorY, center.z)
-    const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(radius * 8, radius * 8), new THREE.ShadowMaterial({ opacity: 0.12 }))
-    shadowFloor.rotation.x = -Math.PI / 2
-    shadowFloor.position.set(center.x, floorY, center.z)
-    shadowFloor.receiveShadow = true
-    world.add(floorGrid, shadowFloor)
-
-    // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다
+    // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다.
+    // 도형 가운데를 보되 책등 쪽으로 조금 옮겨 왼쪽 페이지가 살짝 보이게 한다
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
-    camera.position.copy(center).add(new THREE.Vector3(0.5, 0.9, 1))
+    const target = center.clone().lerp(new THREE.Vector3(book.center.x, center.y, center.z), 0.3)
+    camera.position.copy(target).add(new THREE.Vector3(0.5, 0.9, 1))
 
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.target.copy(center)
+    controls.target.copy(target)
     controls.enableDamping = true
     controls.maxPolarAngle = Math.PI / 2 - 0.05 // 바닥 아래로는 돌아가지 않게
 
-    // 화면 비율이 바뀌면(휴대폰 세로 등) 가로·세로 중 좁은 시야에 맞춰 거리를 다시 잡는다. 보는 방향은 유지
+    // 화면 비율이 바뀌면(휴대폰 세로 등) 가로·세로 중 좁은 시야에 맞춰 거리를 다시 잡는다. 보는 방향은 유지.
+    // 가로로 긴 화면은 아래 바(ui.md 화면 배치)가 3D 위에 떠 있어서, 보는 점을 앞쪽으로 옮겨 도형을 화면 위쪽에 둔다
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
@@ -437,7 +444,8 @@ export function ThreeViewer({
       const vfov = THREE.MathUtils.degToRad(camera.fov)
       const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect))
       const dir = camera.position.clone().sub(controls.target).normalize()
-      camera.position.copy(controls.target).addScaledVector(dir, (radius / Math.sin(fov / 2)) * 1.05)
+      controls.target.copy(target).add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? radius * 0.45 : 0))
+      camera.position.copy(controls.target).addScaledVector(dir, (radius / Math.sin(fov / 2)) * 1.15)
     }
     const observer = new ResizeObserver(resize)
     observer.observe(container)
@@ -528,7 +536,7 @@ export function ThreeViewer({
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial, shadowFloor.material, floorGrid.material]) m.dispose()
+      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial]) m.dispose()
       for (const m of [...cornerMaterials.map((c) => c.material), ...textMaterials]) {
         m.map?.dispose()
         m.dispose()
@@ -538,8 +546,7 @@ export function ThreeViewer({
         m?.dispose()
       }
       for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry, divisionGeometry, pickMarker.geometry]) g.dispose()
-      shadowFloor.geometry.dispose()
-      floorGrid.geometry.dispose()
+      book.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
       container.removeChild(renderer.domElement)
