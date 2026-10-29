@@ -15,6 +15,7 @@ export interface ViewerProps {
   onSceneChange?: (scene: ShapeScene) => void // 선분이 더해진 새 scene. UI가 다시 scene 으로 넘긴다
   onDrawState?: (state: DrawState) => void // 선 긋기 진행 상태 (안내 문구용)
   pageText?: string[] // 책 장면 왼쪽 페이지 글. 첫 줄 제목, 나머지 본문 (UI가 정한다, viewer.md "책 장면")
+  pageNumbers?: [number, number] // 책 아래 귀퉁이 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음, UI가 차례에 맞춰 정한다)
   onRouteChoices?: (routes: Line<PolyhedronPoint>[][]) => void // 방금 그은 선의 길 후보 (첫째가 그은 길). 같은 면 두 점이면 그 면 위 직선 + 다른 면들을 지나는 길
   photo?: NetPhoto // 따라 그린 학습지 사진. 전개도 grid 일 때만 책 페이지에 깐다 (viewer.md "책 장면")
   onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
@@ -32,4 +33,6 @@ export type NetPhoto = { src: string; x: number; y: number; size: number; angle:
 export type DrawState = 'idle' | 'picked' | 'no-path'
 
 export { ThreeViewer as Viewer } from './ThreeViewer'
+export { EmptyBook } from './EmptyBook' // 도형이 없을 때 빈 책 + 차례 (viewer.md "빈 책")
+export type { BookContent } from './bookScene'
 export { foldStepCount, netCheck } from './polyhedra'

@@ -12,8 +12,12 @@ const INK = '#2a2f3a'
 const RED = '#b5452f'
 const SERIF = "'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif"
 
-// 종이 한 장의 윗면: 종이색 + 책등 쪽 그늘 + (왼쪽 페이지) 글자. 캔버스 위쪽이 책의 먼 쪽(−z)
-function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[]) {
+// 빈 책 오른쪽 쪽의 차례 한 줄 (viewer.md "빈 책")
+export type BookContent = { title: string; page: number | null } // page: 그 도형의 왼쪽 쪽 번호, 아직 없는 도형이면 null
+
+// 종이 한 장의 윗면: 종이색 + 책등 쪽 그늘 + (왼쪽 페이지) 글자 / (오른쪽, 빈 책) 차례. 캔버스 위쪽이 책의 먼 쪽(−z).
+// 차례를 그리면 줄마다 캔버스 위 세로 범위(0 = 위, 1 = 아래)를 rows 에 담는다 (누른 줄 찾기)
+function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number) {
   const canvas = document.createElement('canvas')
   canvas.width = 1024
   canvas.height = Math.round((1024 * pageD) / pageW)
@@ -32,8 +36,53 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
   ctx.fillStyle = '#9a9184'
   ctx.font = `28px ${SERIF}`
   ctx.textAlign = side === 'left' ? 'left' : 'right'
-  ctx.fillText(side === 'left' ? '12' : '13', side === 'left' ? w * 0.08 : w * 0.92, h * 0.95) // 쪽 번호
-  if (side === 'right' || text.length === 0) return finish(canvas)
+  if (pageNumber !== undefined) ctx.fillText(String(pageNumber), side === 'left' ? w * 0.08 : w * 0.92, h * 0.95) // 쪽 번호 (바깥 아래 귀퉁이)
+  if (side === 'right') {
+    if (!contents.length) return finish(canvas)
+    const x = w * 0.12
+    const right = w * 0.88
+    let y = h * 0.14
+    ctx.textAlign = 'left'
+    ctx.fillStyle = RED
+    ctx.font = `bold 30px ${SERIF}`
+    ctx.fillText('CONTENTS', x, y)
+    y += 90
+    ctx.fillStyle = INK
+    ctx.font = `bold 76px ${SERIF}`
+    ctx.fillText('차례', x, y)
+    y += 40
+    ctx.fillStyle = '#cfc6b6'
+    ctx.fillRect(x, y, right - x, 3)
+    y += 110
+    contents.forEach(({ title, page }, k) => {
+      const ready = page !== null
+      ctx.textAlign = 'left'
+      ctx.fillStyle = ready ? RED : '#c9c0b0'
+      ctx.font = `bold 44px ${SERIF}`
+      ctx.fillText(String(k + 1), x, y)
+      ctx.fillStyle = ready ? INK : '#b5ad9f'
+      ctx.font = `48px ${SERIF}`
+      ctx.fillText(title, x + 70, y, right - x - 300)
+      const titleEnd = x + 70 + Math.min(ctx.measureText(title).width, right - x - 300)
+      ctx.textAlign = 'right'
+      if (ready) {
+        ctx.font = `44px ${SERIF}`
+        ctx.fillStyle = INK
+        ctx.fillText(String(page), right, y)
+        // 제목과 쪽 번호 사이 점선 (차례 줄)
+        ctx.fillStyle = '#b9b0a0'
+        for (let dx = titleEnd + 24; dx < right - 60; dx += 18) ctx.fillRect(dx, y - 8, 4, 4)
+      } else {
+        ctx.font = `34px ${SERIF}`
+        ctx.fillStyle = '#c9c0b0'
+        ctx.fillText('곧 나와요', right, y)
+      }
+      rows.push({ top: (y - 62) / h, bottom: (y + 34) / h })
+      y += 104
+    })
+    return finish(canvas)
+  }
+  if (text.length === 0) return finish(canvas)
 
   const x = w * 0.12
   const maxWidth = w * 0.74
@@ -128,8 +177,9 @@ function woodTexture() {
   return texture
 }
 
-// net: 다 펼친 전개도의 범위(y ≈ 0), size: 도형 크기(카메라 범위 반지름), pageText: 왼쪽 페이지 글 (첫 줄 제목)
-export function buildBook(net: THREE.Box3, size: number, pageText: string[]) {
+// net: 다 펼친 전개도의 범위(y ≈ 0), size: 도형 크기(카메라 범위 반지름), pageText: 왼쪽 페이지 글 (첫 줄 제목),
+// contents: 빈 책이면 오른쪽 쪽 차례 (viewer.md "빈 책"), pageNumbers: 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음)
+export function buildBook(net: THREE.Box3, size: number, pageText: string[], contents: BookContent[] = [], pageNumbers?: [number, number]) {
   const group = new THREE.Group()
   const owned: { dispose(): void }[] = []
   const own = <T extends { dispose(): void }>(x: T) => (owned.push(x), x)
@@ -163,8 +213,10 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[]) {
   // 종이 두 장: 윗면은 페이지 텍스처, 옆면은 종이 단면. BoxGeometry 재질 순서 +x, −x, +y, −y, +z, −z
   // 가로로 잘게 나눈 상자의 위쪽 꼭짓점을 sag 만큼 내려 윗면과 앞뒤 단면이 함께 휜다
   const edge = own(new THREE.MeshStandardMaterial({ map: own(edgeTexture()) }))
+  const rows: { top: number; bottom: number }[] = []
+  let rightPage: THREE.Mesh | null = null
   for (const side of ['left', 'right'] as const) {
-    const face = own(new THREE.MeshStandardMaterial({ map: own(pageTexture(pageW, pageD, side, pageText)) }))
+    const face = own(new THREE.MeshStandardMaterial({ map: own(pageTexture(pageW, pageD, side, pageText, contents, rows, pageNumbers?.[side === 'left' ? 0 : 1])) }))
     const x = side === 'left' ? spineX - pageW / 2 : spineX + pageW / 2
     const geometry = new THREE.BoxGeometry(pageW, thick, pageD, 48, 1, 1)
     const pos = geometry.attributes.position
@@ -174,7 +226,9 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[]) {
       pos.setY(i, pos.getY(i) + sag(s))
     }
     geometry.computeVertexNormals()
-    add(geometry, [edge, edge, face, edge, edge, edge], x, top - thick / 2, cz).castShadow = true
+    const page = add(geometry, [edge, edge, face, edge, edge, edge], x, top - thick / 2, cz)
+    page.castShadow = true
+    if (side === 'right') rightPage = page
   }
 
   // 표지: 종이보다 조금 크게, 종이 아래
@@ -197,6 +251,14 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[]) {
     group,
     center: new THREE.Vector3(spineX, 0, cz), // 펼친 책의 가운데 (책등 위)
     top, // 페이지 윗면 높이 (평평한 곳)
+    // 빈 책: 광선이 맞힌 곳이 오른쪽 쪽 차례의 몇 번째 줄인가 (윗면 텍스처 v 는 위쪽이 1). 아니면 null
+    contentAt: (hit: THREE.Intersection | undefined) => {
+      if (!hit || hit.object !== rightPage || hit.face?.materialIndex !== 2 || !hit.uv) return null
+      const v = 1 - hit.uv.y
+      const k = rows.findIndex((r) => v >= r.top && v <= r.bottom)
+      return k < 0 ? null : k
+    },
+    pages: () => (rightPage ? [rightPage] : []),
     dispose: () => owned.forEach((x) => x.dispose()),
   }
 }

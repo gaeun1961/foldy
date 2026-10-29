@@ -93,6 +93,8 @@ h2 {
 .view-menu > summary::-webkit-details-marker { display: none; }
 .view-menu > summary::after { content: ' ▴'; }
 .view-menu[open] > summary { border-color: var(--accent); color: var(--accent); }
+/* 차례로 돌아가기 (ui.md 화면 배치 6번): 보기 버튼과 같은 모양 */
+.contents-button { min-height: var(--button-height, 40px); padding: 0 14px; border: 1px solid #d0d5dd; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-size: 16px; cursor: pointer; }
 .view-menu > .view-options {
   position: absolute;
   right: 0;
