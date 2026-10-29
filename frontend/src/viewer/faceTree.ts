@@ -221,6 +221,21 @@ export function surfaceRoutes(poly: Polyhedron, from: PolyhedronPoint, to: Polyh
   return found.sort((a, b) => a.length - b.length).slice(0, max)
 }
 
+// 선이 그어지는 모양: 선분마다 두 끝점(접힌 좌표, 소수 넷째 자리)을 순서 없이 적은 것. 지나는 면·방향이 달라도 모양이 같으면 같다
+export function lineShape(poly: Polyhedron, lines: Line<PolyhedronPoint>[]): Set<string> {
+  const key = (p: Vec3) => p.map((x) => (Math.round(x * 1e4) / 1e4).toFixed(4)).join(',')
+  return new Set(placeLines(poly, lines).flatMap((l) => (l ? [[key(l.from), key(l.to)].sort().join(' ')] : [])))
+}
+
+// 길 후보에서 그어지는 모양이 앞의 것과 같은 길을 뺀다 (꼭짓점·모서리를 따라가는 길은 면 순서가 달라도 모양이 같을 수 있다)
+export function uniqueRoutes(poly: Polyhedron, routes: Line<PolyhedronPoint>[][]) {
+  const seen = new Set<string>()
+  return routes.filter((r) => {
+    const k = [...lineShape(poly, r)].sort().join('|')
+    return !seen.has(k) && !!seen.add(k)
+  })
+}
+
 // 선 긋기에서 한 면 위에 고를 수 있는 점 (viewer.md "선 긋기"): 꼭짓점 + 모서리 a→b 의 k/n 등분점 (양 끝 제외).
 // at 은 접힌 상태 좌표 = 면 메시 기준 좌표
 export function facePoints(poly: Polyhedron, face: number, n: number): { point: PolyhedronPoint; at: Vec3 }[] {

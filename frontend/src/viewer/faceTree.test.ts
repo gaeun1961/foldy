@@ -1,7 +1,7 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import type { GridNet, Line, NetFace, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
@@ -218,6 +218,13 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   const textOf = (f: number) => dice.marks.find((m) => m.face === f)?.text
   const oppositeText = (t: string) => oppositeFaces(dice, faceOf(t)).map(textOf).join()
   check(oppositeText('3') === '6' && oppositeText('2') === '4' && oppositeText('1') === '5' && oppositeText('6') === '3', `주사위 마주 보는 면 3↔${oppositeText('3')} 2↔${oppositeText('2')} 1↔${oppositeText('1')}`)
+  // 선 모양이 같은 길은 하나만 (방향을 뒤집거나 똑같은 길을 두 번 넣어도 하나)
+  const box2 = polyhedronOf(cuboid)!
+  const [d0, , d2, d3] = box2.faces[0].vertices // 면 0 의 대각선과 변
+  const diagonal: Line<PolyhedronPoint>[] = [{ from: { vertex: d0 }, to: { vertex: d2 } }]
+  const flipped: Line<PolyhedronPoint>[] = [{ from: { vertex: d2 }, to: { vertex: d0 } }]
+  const side: Line<PolyhedronPoint>[] = [{ from: { vertex: d0 }, to: { vertex: d3 } }]
+  check(uniqueRoutes(box2, [diagonal, flipped, side, diagonal]).length === 2, '모양이 같은 길은 하나만 (대각선 2번·뒤집은 것 → 하나, 변 하나)')
   // 잘못된 전개도: 겹친 두 면은 서로 마주 보지 않고, 빈 자리(아랫면)와 마주 볼 면은 없다
   const wrongPoly = polyhedronOf(scene({ layout: 'grid', faces: [sq(0, 1), sq(1, 1), sq(2, 1), sq(3, 1), sq(0, 0), sq(1, 0)] }))!
   check(wrongPoly.faces.some((_, f) => oppositeFaces(wrongPoly, f).length === 0), '잘못된 전개도에는 마주 보는 면이 없는 면이 있다')
@@ -238,4 +245,4 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보, 학습지 전개도 grid, 마주 보는 면)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보, 학습지 전개도 grid, 마주 보는 면, 같은 모양 길 빼기)')
