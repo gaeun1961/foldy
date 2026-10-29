@@ -2,11 +2,18 @@
 
 recognize(): 비전 LLM(Gemini)에 사진과 VISION_PROMPT 를 보내 ShapeScene 을 받는다 (TODO-7 정확도 측정에도 쓴다).
 analyze_image(): /analyze 가 부른다. 같은 사진은 기억해 둔 결과를 쓰고, 모델이 붐비면 한 번 더 부른다 (api.md "/analyze 에러").
+  API 를 못 쓰고 VISION_CLI=1 이면 recognize_cli() 로 Gemini CLI 에 한 번 더 묻는다 (시연 노트북용 비상 경로).
 """
 
 import hashlib
+import json
+import mimetypes
 import os
+import shutil
+import subprocess
+import tempfile
 import time
+from pathlib import Path
 
 import httpx
 from google import genai
@@ -78,19 +85,74 @@ _remembered: dict[
 ] = {}  # 사진 해시 → 결과. 성공만, 오래된 것부터 버린다
 
 
-def analyze_image(image: bytes, content_type: str) -> ShapeScene:
-    key = hashlib.sha256(image).hexdigest()
-    if key in _remembered:
-        return _remembered[key]
+CLI_TIMEOUT_S = 120  # CLI 는 띄우는 시간까지 들어서 API 보다 넉넉히
+
+
+def cli_scene(stdout: str) -> ShapeScene:
+    """`gemini --output-format json` 출력 → ShapeScene. 답이 ```json 으로 감싸여 와도 { } 사이만 쓴다."""
     try:
-        scene = recognize(image, content_type)
+        text = json.loads(stdout)["response"]
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise VisionError(f"Gemini CLI 출력이 이상하다: {stdout[:200]}") from e
+    try:
+        return ShapeScene.model_validate_json(
+            text[text.find("{") : text.rfind("}") + 1]
+        )
+    except ValidationError as e:
+        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+
+
+def recognize_cli(image: bytes, content_type: str) -> ShapeScene:
+    """비상 경로 (api.md "/analyze 에러"): 이 컴퓨터에 로그인된 Gemini CLI 로 사진을 읽는다.
+    사진은 임시 폴더에 두고 @파일 로 넘긴다. 프롬프트는 길고 줄바꿈이 있어 stdin 으로 (Windows .cmd 인자로는 깨진다)."""
+    exe = shutil.which("gemini")
+    if not exe:
+        raise VisionError("Gemini CLI(gemini) 가 설치돼 있지 않다")
+    with tempfile.TemporaryDirectory() as folder:
+        name = "photo" + (mimetypes.guess_extension(content_type) or ".jpg")
+        (Path(folder) / name).write_bytes(image)
+        ask = f"@{name} Read this worksheet photo and answer with one JSON only, following the instructions above."
+        try:
+            done = subprocess.run(
+                [exe, "-p", ask, "--output-format", "json"],
+                check=False,  # 실패는 아래 returncode 로 본다
+                input=VISION_PROMPT,
+                cwd=folder,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=CLI_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise VisionError("Gemini CLI 시간 초과") from e
+    if done.returncode != 0:
+        raise VisionError(f"Gemini CLI 실패: {done.stderr[-300:]}")
+    return cli_scene(done.stdout)
+
+
+def _recognize_api(image: bytes, content_type: str) -> ShapeScene:
+    try:
+        return recognize(image, content_type)
     except VisionError as e:
         if "UNAVAILABLE" not in str(
             e
         ):  # 과부하(503)만 한 번 더. 한도 초과·시간 초과는 바로 실패
             raise
         time.sleep(2)
-        scene = recognize(image, content_type)
+        return recognize(image, content_type)
+
+
+def analyze_image(image: bytes, content_type: str) -> ShapeScene:
+    key = hashlib.sha256(image).hexdigest()
+    if key in _remembered:
+        return _remembered[key]
+    try:
+        scene = _recognize_api(image, content_type)
+    except VisionError as e:
+        # API 를 지금 못 쓰면(한도·과부하·키 없음) VISION_CLI=1 일 때만 Gemini CLI 로 한 번 더
+        if not (e.unavailable and os.environ.get("VISION_CLI") == "1"):
+            raise
+        scene = recognize_cli(image, content_type)
     if len(_remembered) >= REMEMBER:
         _remembered.pop(next(iter(_remembered)))
     _remembered[key] = scene
