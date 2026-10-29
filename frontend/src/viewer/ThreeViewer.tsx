@@ -61,6 +61,7 @@ export function ThreeViewer({
   highlightVertices = [],
   drawLines = false,
   pageText = [],
+  pageNumbers,
   photo,
   edgeDivisions = 2,
   onSceneChange,
@@ -96,11 +97,11 @@ export function ThreeViewer({
   }, [scene])
   // lines 와 면 표시(글자·색칠)를 뺀 도형과 책 페이지(글·사진). 이것이 바뀔 때만 다시 만든다 (선·면 표시는 카메라 각도를 지키며 그것만 다시 그린다)
   const net = scene.net.layout === 'grid' ? { ...scene.net, faces: scene.net.faces.map(({ x, y, w, h }) => ({ x, y, w, h })) } : scene.net
-  const shapeKey = JSON.stringify({ ...scene, lines: undefined, net, pageText, photo })
-  const pageRef = useRef({ pageText, photo })
+  const shapeKey = JSON.stringify({ ...scene, lines: undefined, net, pageText, pageNumbers, photo })
+  const pageRef = useRef({ pageText, pageNumbers, photo })
   useEffect(() => {
-    pageRef.current = { pageText, photo } // 아래 다시 만들기 effect 보다 먼저 돈다
-  }, [pageText, photo])
+    pageRef.current = { pageText, pageNumbers, photo } // 아래 다시 만들기 effect 보다 먼저 돈다
+  }, [pageText, pageNumbers, photo])
 
   useEffect(() => {
     const scene = sceneRef.current
@@ -468,7 +469,7 @@ export function ThreeViewer({
     drawMarksRef.current = drawMarks
 
     // 책 장면: 바닥(y = 0)이 펼친 책의 오른쪽 페이지다 (viewer.md "책 장면")
-    const book = buildBook(flatNet, radius, pageRef.current.pageText)
+    const book = buildBook(flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers)
     photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
     world.add(book.group)
     world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22) // 멀리 있는 책상은 흐리게

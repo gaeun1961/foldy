@@ -9,6 +9,7 @@
 
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
+- **TODO-38** [다양한 전개도 모양 고르기](38-net-variants.md) · [#91](https://github.com/gaeun1961/foldy/issues/91) — UI: "다른 전개도 보기"로 정육면체 11가지·직육면체 여러 모양을 바꿔 보며 접는다
 - **TODO-26** [직육면체 부피 시각화](26-cuboid-volume.md) · [#41](https://github.com/gaeun1961/foldy/issues/41) — 3D: 단위 정육면체를 한 층씩 쌓아 가로×세로×높이를 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-25** [직육면체 겉넓이 시각화](25-cuboid-surface-area.md) · [#40](https://github.com/gaeun1961/foldy/issues/40) — 3D: 마주 보는 면 쌍을 차례로 칠하고 2×(ab+bc+ca)를 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) · [#44](https://github.com/gaeun1961/foldy/issues/44) — 3D: 모서리를 누르면 평행·수직·꼬인 위치 모서리를 색으로 구분한다 (1차 다른 TODO보다 뒤)
