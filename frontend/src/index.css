@@ -52,9 +52,27 @@ h2 {
   font-size: 16px;
 }
 .status-badge.done { color: #2e7d4f; font-weight: 700; }
-/* 예시 전개도 고르기 (업로드 영역, 사진 업로드 전까지) */
-.sample-picker { display: grid; gap: 6px; margin-top: 12px; font-size: 16px; color: #1f2430; }
-.sample-picker select { min-height: 40px; font-size: 16px; }
+/* 학습지 사진 올리기 (ui.md 화면 배치 2번) */
+.photo-upload { display: grid; gap: 10px; }
+.upload-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border-radius: 12px;
+  background: #3d6fd9;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.upload-button input { display: none; }
+.upload-button.disabled { opacity: 0.5; cursor: default; }
+.upload-preview { width: 100%; max-height: 180px; object-fit: contain; border-radius: 8px; background: #f5f3ef; }
+.upload-status { margin: 0; font-size: 16px; color: #1f2430; }
+.upload-status.loading { color: #3d6fd9; }
+.upload-status.done { color: #2e7d4f; font-weight: 700; }
+.upload-status.error { color: #c92a2a; }
 .status-badge.wrong { color: #c92a2a; font-weight: 700; } /* 잘못 그린 전개도 (ui.md 상태 배지) */
 
 /* 3D 뷰 아래쪽 안내 한 줄 (ui.md 바꿀 것 "안내 문구") */
