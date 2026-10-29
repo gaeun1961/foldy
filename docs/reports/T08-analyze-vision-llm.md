@@ -16,7 +16,7 @@
 - `backend/app/api/routes.py`: `VisionError` → 422·503, 원인 로그
 - `backend/tests/test_analyze.py`(새 파일): 400·422·503, 재시도, 같은 사진 기억, 실패는 기억 안 함 (LLM 호출 없음, `recognize`를 가짜로)
 - 문서: `api.md` "/analyze 에러", `stack.md`(목 데이터), AGENTS·README 검증 명령, `01-folder-architecture.md`
-- TODO-35(#70) "찍은 사진 위에 3D 전개도를 겹쳐 그 자리에서 접기" 등록
+- TODO-37(#70, 처음엔 TODO-35로 등록했다가 #54와 겹쳐 바꿈) "찍은 사진 위에 3D 전개도를 겹쳐 그 자리에서 접기" 등록
 
 ## 결정
 - 실패 시 목 도형을 돌려주지 않는다. 학생이 틀린 도형을 사진 결과로 오해하지 않게, 실패는 안내 문구로 보여주고 수동 입력(전개도 직접 만들기, TODO-12)으로 넘긴다
