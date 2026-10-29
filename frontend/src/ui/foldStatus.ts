@@ -33,10 +33,12 @@ function subjectParticle(word: string) {
 }
 
 // playing: 애니메이션 중이면 숫자를 숨긴다 (ui.md 친절한 설명 원칙: 숫자는 멈춘 뒤에)
-export function foldStatus(shape: ShapeKind, unfold: number, playing = false) {
+// closed: 바른 전개도인지 (viewer netCheck). 학습지에 잘못 그린 전개도면 다 접었을 때 "전개도가 아니에요" (ui.md 상태 배지)
+export function foldStatus(shape: ShapeKind, unfold: number, playing = false, closed = true) {
   const name = SHAPE_NAME[shape]
   const percent = foldPercent(unfold)
   if (playing && percent > 0 && percent < 100) return { done: false, text: `${name} · 접는 중` }
+  if (percent >= 100 && !closed) return { done: false, wrong: true, text: `${name} 전개도가 아니에요 · 면이 겹치거나 비어요` }
   if (percent >= 100) return { done: true, text: `빈틈없이 ${name}${subjectParticle(name)} 됐어요` }
   if (percent <= 0) return { done: false, text: `${name} · 펼친 상태` }
   return { done: false, text: `${name} · 접는 중 ${percent}%` }

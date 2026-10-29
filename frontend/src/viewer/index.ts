@@ -21,4 +21,4 @@ export interface ViewerProps {
 export type DrawState = 'idle' | 'picked' | 'no-path'
 
 export { ThreeViewer as Viewer } from './ThreeViewer'
-export { foldStepCount } from './polyhedra'
+export { foldStepCount, netCheck } from './polyhedra'

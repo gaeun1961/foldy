@@ -2,8 +2,9 @@
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
 import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
-import { foldOrderOf, foldStepCount, matchingEdges, polyhedronOf, type Polyhedron } from './polyhedra.ts'
-import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
+import { foldOrderOf, foldStepCount, matchingEdges, netCheck, polyhedronOf, type Polyhedron } from './polyhedra.ts'
+import type { GridPolyhedron } from './gridNet.ts'
+import type { GridNet, Line, NetFace, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 
 const EPS = 1e-9
 const check = (ok: boolean, msg: string) => {
@@ -170,7 +171,59 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   check(new Set(checked.map((c) => c.faces.join())).size === 3, '후보는 서로 다른 길')
 }
 
+// 학습지 전개도 grid (viewer.md "전개도 grid"): 전개도를 그대로 접는다
+{
+  const sq = (x: number, y: number, extra: Partial<NetFace> = {}): NetFace => ({ x, y, w: 1, h: 1, ...extra })
+  const scene = (net: GridNet): ShapeScene => ({ shape: 'cube', size: { edge: 1 }, vertexLabels: Array(8).fill(null), lines: [], net })
+  const near = (a: number[], b: number[]) => a.every((v, k) => Math.abs(v - b[k]) < 1e-6)
+  const extent = (poly: Polyhedron) => [0, 1, 2].map((k) => Math.max(...poly.positions.map((p) => p[k])) - Math.min(...poly.positions.map((p) => p[k]))).sort()
+
+  // 십자형을 grid 로 적은 4×2×3 직육면체: 닫히고 꼭짓점 8, 맞닿는 모서리 7쌍, 크기 2·3·4
+  const crossGrid: GridNet = {
+    layout: 'grid',
+    faces: [
+      { x: 2, y: 2, w: 4, h: 3 }, // 앞
+      { x: 0, y: 2, w: 2, h: 3 }, // 왼
+      { x: 6, y: 2, w: 2, h: 3 }, // 오
+      { x: 8, y: 2, w: 4, h: 3 }, // 뒤
+      { x: 2, y: 0, w: 4, h: 2 }, // 위
+      { x: 2, y: 5, w: 4, h: 2 }, // 아래
+    ],
+  }
+  const cuboid: ShapeScene = { shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: crossGrid }
+  const box = polyhedronOf(cuboid)!
+  check(netCheck(cuboid)!.closed && box.positions.length === 8, `십자형 grid 는 닫힌 직육면체 ${JSON.stringify(netCheck(cuboid))} ${box.positions.length}`)
+  check(matchingEdges(box).length === 7 && extent(box).join() === '2,3,4', `맞닿는 모서리 ${matchingEdges(box).length}, 크기 ${extent(box)}`)
+  // 펼침 값 1 이면 모든 면이 한 평면에 같은 방향으로 펴지고, 0 이면 원래(접힌) 좌표
+  const tree = buildFaceTree(box, [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()], new THREE.LineBasicMaterial())
+  applyUnfold(tree, 1)
+  tree.root.updateMatrixWorld(true)
+  const normals = tree.nodes.map((n) => {
+    const pts = worldPoints(n.mesh)
+    return new THREE.Vector3().crossVectors(pts[1].clone().sub(pts[0]), pts[2].clone().sub(pts[0])).normalize()
+  })
+  check(normals.every((v) => v.distanceTo(normals[0]) < 1e-6), 'grid 를 다 펴면 모든 면이 같은 방향')
+
+  // 계단형 정육면체 전개도 (2-2-2): 바른 전개도
+  check(netCheck(scene({ layout: 'grid', faces: [sq(0, 0), sq(1, 0), sq(1, 1), sq(2, 1), sq(2, 2), sq(3, 2)] }))!.closed, '계단형은 닫힘')
+  // 잘못 그린 전개도: 4개 한 줄 위에 이웃한 두 면 → 접으면 윗면 자리에 두 면이 겹치고 아랫면이 빈다
+  const wrong = netCheck(scene({ layout: 'grid', faces: [sq(0, 1), sq(1, 1), sq(2, 1), sq(3, 1), sq(0, 0), sq(1, 0)] }))!
+  check(!wrong.closed && wrong.overlapFaces.length === 2, `잘못된 전개도는 겹친 면 2개 ${JSON.stringify(wrong)}`)
+
+  // 전개도 위 선: 왼쪽 면 왼쪽 변 가운데 → 오른쪽 면 오른쪽 변 가운데 (가로로 세 면을 지남). 면마다 잘려 이어진다
+  const lined = polyhedronOf({ ...cuboid, net: { ...crossGrid, lines: [{ from: { x: 0, y: 3.5 }, to: { x: 8, y: 3.5 } }] } }) as GridPolyhedron
+  const placedNet = placeLines(lined, lined.netLines).map((l) => l!)
+  check(placedNet.length === 3 && placedNet.every(Boolean), `전개도 위 선은 면 3개에 ${JSON.stringify(lined.netLines)}`)
+  check(near(placedNet[0].to, placedNet[1].from) && near(placedNet[1].to, placedNet[2].from), '전개도 위 선은 접어도 이어짐')
+  // 꼭짓점 라벨: 전개도 꼭짓점 자리 그대로. 없는 자리는 버린다
+  const labeled = polyhedronOf({ ...cuboid, net: { ...crossGrid, cornerLabels: [{ x: 2, y: 2, text: 'ㄱ' }, { x: 1, y: 1, text: '없음' }] } }) as GridPolyhedron
+  check(labeled.cornerLabels.length === 1 && labeled.cornerLabels[0].text === 'ㄱ', `전개도 라벨 ${JSON.stringify(labeled.cornerLabels)}`)
+  // 면 표시
+  const marked = polyhedronOf(scene({ layout: 'grid', faces: [sq(1, 0, { text: '가' }), sq(0, 1), sq(1, 1, { fill: true }), sq(2, 1), sq(3, 1), sq(1, 2)] })) as GridPolyhedron
+  check(marked.marks.length === 2 && marked.marks.some((m) => m.text === '가') && marked.marks.some((m) => m.fill), `면 표시 ${JSON.stringify(marked.marks)}`)
+}
+
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보, 학습지 전개도 grid)')
