@@ -56,6 +56,25 @@ export const PHOTO_W = 12 * CELL // 깐 사진의 처음 폭 (칸이 늘어나�
 export type PhotoFit = { x: number; y: number; scale: number; angle: number }
 export const NO_FIT: PhotoFit = { x: 0, y: 0, scale: 1, angle: 0 }
 
+// 사진에서 고른 네모(사진 비율 0~1)에 인식된 전개도를 맞추는 사진 위치 (ui.md 화면 배치 2번).
+// 사진은 PHOTO_W 정사각형 안에 비율대로 들어간다(SVG preserveAspectRatio meet). 네모 가운데 → 전개도 가운데, 크기는 가로·세로 배율의 평균.
+// aspect: 사진 가로 / 세로
+export type PhotoBox = { x: number; y: number; w: number; h: number }
+export function fitToBox(box: PhotoBox, aspect: number, faces: NetFace[]): PhotoFit {
+  const P = PHOTO_W
+  const dw = aspect >= 1 ? P : P * aspect
+  const dh = aspect >= 1 ? P / aspect : P
+  const x0 = Math.min(...faces.map((f) => f.x))
+  const y0 = Math.min(...faces.map((f) => f.y))
+  const nw = Math.max(...faces.map((f) => f.x + f.w)) - x0
+  const nh = Math.max(...faces.map((f) => f.y + f.h)) - y0
+  const scale = ((nw * CELL) / (box.w * dw) + (nh * CELL) / (box.h * dh)) / 2
+  const c = P / 2
+  const px = (P - dw) / 2 + (box.x + box.w / 2) * dw // 확대 전 네모 가운데 (SVG)
+  const py = (P - dh) / 2 + (box.y + box.h / 2) * dh
+  return { x: (x0 + nw / 2) * CELL - c - scale * (px - c), y: (y0 + nh / 2) * CELL - c - scale * (py - c), scale, angle: 0 }
+}
+
 // 3D 뷰어에 넘길 사진 위치 (viewer.md ViewerProps photo): SVG 단위 → 칸 단위, 사진 가운데 기준
 export const netPhoto = (src: string, fit: PhotoFit): NetPhoto => ({
   src,

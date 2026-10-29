@@ -163,7 +163,12 @@ h2 {
 }
 .upload-button input { display: none; }
 .upload-button.disabled { opacity: 0.5; cursor: default; }
-.upload-preview { width: 100%; max-height: 180px; object-fit: contain; border-radius: 8px; background: #f5f3ef; }
+/* 사진에서 읽을 부분 네모로 고르기 (ui.md 화면 배치 2번) */
+.photo-pick { position: relative; touch-action: none; cursor: crosshair; user-select: none; border-radius: 8px; overflow: hidden; }
+.photo-pick.disabled { cursor: default; opacity: 0.7; }
+.photo-pick img { display: block; width: 100%; height: auto; }
+.pick-box { position: absolute; border: 2px solid var(--accent); background: rgb(61 111 217 / 15%); box-shadow: 0 0 0 9999px rgb(0 0 0 / 25%); pointer-events: none; }
+.pick-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .upload-status { margin: 0; font-size: 16px; color: #1f2430; }
 .upload-status.loading { color: #3d6fd9; }
 .upload-status.done { color: #2e7d4f; font-weight: 700; }

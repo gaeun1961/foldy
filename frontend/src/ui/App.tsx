@@ -6,7 +6,7 @@ import { foldStatus, SHAPE_NAME, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
-import { netPhoto, NO_FIT } from './manualScene.ts'
+import { fitToBox, netPhoto, NO_FIT } from './manualScene.ts'
 import { PhotoUpload } from './PhotoUpload'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 
@@ -136,7 +136,11 @@ export default function App() {
         </summary>
         <div className="make-body">
           <PhotoUpload
-            onScene={loadScene}
+            onScene={(next, place) => {
+              loadScene(next)
+              // 네모로 읽은 전개도면 사진 위치를 그 네모에 맞춘다 (ui.md 화면 배치 2번)
+              if (place && next.net.layout === 'grid') setFit(fitToBox(place.box, place.aspect, next.net.faces))
+            }}
             onPhoto={(url) => {
               setPhoto(url)
               setFit(NO_FIT)
