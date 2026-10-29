@@ -3,10 +3,13 @@
 LLM 은 부르지 않는다. vision.recognize 를 가짜로 바꿔서 성공·422·503, 과부하 재시도, 같은 사진 기억을 본다.
 """
 
+import json
+import os
+
 from fastapi.testclient import TestClient
 
 from app.ai import vision
-from app.ai.vision import MOCK_SCENE, VisionError
+from app.ai.vision import MOCK_SCENE, VisionError, cli_scene
 from app.main import app
 
 client = TestClient(app)
@@ -73,6 +76,38 @@ assert post(b"photo-5").status_code == 503 and len(calls) == 2
 fake(MOCK_SCENE)
 assert post(b"photo-3").status_code == 200 and len(calls) == 1
 
+# Gemini CLI 비상 경로: VISION_CLI=1 이고 API 를 못 쓸 때만 (CLI 도 가짜로)
+cli_calls: list[bytes] = []
+
+
+def fake_cli(image, content_type):
+    cli_calls.append(image)
+    return MOCK_SCENE
+
+
+vision.recognize_cli = fake_cli
+fake(VisionError("ClientError: 429 RESOURCE_EXHAUSTED"))
+assert post(b"photo-6").status_code == 503 and cli_calls == []  # 꺼져 있으면 안 부른다
+os.environ["VISION_CLI"] = "1"
+fake(VisionError("ClientError: 429 RESOURCE_EXHAUSTED"))
+assert post(b"photo-7").status_code == 200 and cli_calls == [b"photo-7"]
+fake(VisionError("ShapeScene 아님", unavailable=False))
+assert (
+    post(b"photo-8").status_code == 422 and len(cli_calls) == 1
+)  # 못 읽은 사진은 CLI 로 넘기지 않는다
+del os.environ["VISION_CLI"]
+
+# CLI 출력 읽기: ```json 으로 감싸여 와도, 이상한 출력은 503 쪽 에러
+scene_json = MOCK_SCENE.model_dump_json(by_alias=True)
+wrapped = json.dumps({"response": f"```json\n{scene_json}\n```"})
+assert cli_scene(wrapped).root.shape == "cuboid"
+for bad, unavailable in (("not json", True), (json.dumps({"response": "{}"}), False)):
+    try:
+        cli_scene(bad)
+        raise AssertionError("에러가 나야 한다")
+    except VisionError as e:
+        assert e.unavailable == unavailable, bad
+
 print(
-    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함)"
+    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로)"
 )
