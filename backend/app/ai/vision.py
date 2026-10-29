@@ -1,10 +1,12 @@
 """학습지 사진 → ShapeScene (docs/specs/api.md /analyze).
 
-recognize(): 비전 LLM(Gemini)에 사진과 VISION_PROMPT 를 보내 ShapeScene 을 받는다 (TODO-7 정확도 측정에 쓴다).
-analyze_image(): /analyze 가 부른다. 아직 목 데이터를 돌려준다. recognize 로 바꾸는 것은 TODO-8.
+recognize(): 비전 LLM(Gemini)에 사진과 VISION_PROMPT 를 보내 ShapeScene 을 받는다 (TODO-7 정확도 측정에도 쓴다).
+analyze_image(): /analyze 가 부른다. 같은 사진은 기억해 둔 결과를 쓰고, 모델이 붐비면 한 번 더 부른다 (api.md "/analyze 에러").
 """
 
+import hashlib
 import os
+import time
 
 import httpx
 from google import genai
@@ -17,7 +19,9 @@ from app.ai.vision_prompt import VISION_PROMPT
 MODEL = "gemini-3.5-flash"  # 그림을 읽고 꼭짓점 번호를 맞춰야 해서 챗봇(lite)보다 큰 모델. 비교는 eval/vision_eval.py --model
 TIMEOUT_MS = 60_000
 
-# frontend/src/shared/mock.ts 의 mockScene 과 같은 내용
+REMEMBER = 100  # 같은 사진 결과를 기억하는 수 (무료 한도 모델당 하루 20번을 아끼려고)
+
+# 검사(tests/)에서만 쓰는 예시 도형. /analyze 는 실패해도 이것을 돌려주지 않는다
 MOCK_SCENE = ShapeScene.model_validate(
     {
         "shape": "cuboid",
@@ -33,7 +37,12 @@ MOCK_SCENE = ShapeScene.model_validate(
 
 
 class VisionError(Exception):
-    """키 없음, LLM 호출 실패, 응답이 ShapeScene 이 아님."""
+    """사진 인식 실패. unavailable=True 면 지금 인식을 쓸 수 없음(키 없음, 한도 초과, 과부하, 시간 초과) → 503,
+    False 면 사진에서 도형을 읽지 못함(답이 ShapeScene 이 아님) → 422."""
+
+    def __init__(self, message: str, unavailable: bool = True):
+        super().__init__(message)
+        self.unavailable = unavailable
 
 
 def recognize(image: bytes, content_type: str, model: str = MODEL) -> ShapeScene:
@@ -54,12 +63,35 @@ def recognize(image: bytes, content_type: str, model: str = MODEL) -> ShapeScene
                 response_mime_type="application/json",
             ),
         )
-        return ShapeScene.model_validate_json(response.text or "")
+        text = response.text or ""
     # 시간 초과는 genai 가 httpx 예외 그대로 올린다
-    except (genai.errors.APIError, ValidationError, httpx.TimeoutException) as e:
+    except (genai.errors.APIError, httpx.TimeoutException) as e:
         raise VisionError(f"{type(e).__name__}: {e}") from e
+    try:
+        return ShapeScene.model_validate_json(text)
+    except ValidationError as e:
+        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+
+
+_remembered: dict[
+    str, ShapeScene
+] = {}  # 사진 해시 → 결과. 성공만, 오래된 것부터 버린다
 
 
 def analyze_image(image: bytes, content_type: str) -> ShapeScene:
-    # TODO(AI, TODO-8): recognize 로 바꾸고, VisionError 를 정해진 에러 응답으로 돌려 frontend 가 수동 입력으로 넘어가게 한다
-    return MOCK_SCENE
+    key = hashlib.sha256(image).hexdigest()
+    if key in _remembered:
+        return _remembered[key]
+    try:
+        scene = recognize(image, content_type)
+    except VisionError as e:
+        if "UNAVAILABLE" not in str(
+            e
+        ):  # 과부하(503)만 한 번 더. 한도 초과·시간 초과는 바로 실패
+            raise
+        time.sleep(2)
+        scene = recognize(image, content_type)
+    if len(_remembered) >= REMEMBER:
+        _remembered.pop(next(iter(_remembered)))
+    _remembered[key] = scene
+    return scene

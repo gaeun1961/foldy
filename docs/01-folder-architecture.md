@@ -68,7 +68,7 @@ foldy
 | `backend/app/ai/` | LLM 관련 코드. `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `vision_prompt.py`(비전 프롬프트), `chat.py`(챗봇 답변과 프롬프트) |
 | `backend/evals/` | 비전 LLM 정확도 측정 (TODO-7). `vision_eval.py`(`python -m evals.vision_eval [--model 이름]`, LLM을 실제로 부름), `answers.json`(사진별 정답 ShapeScene). `photos/`(학습지 사진)와 `results/`는 저작권·용량 때문에 git에 올리지 않는다 |
 | `backend/app/api/` | 라우터. `routes.py`(`/health`, `/analyze`, `/chat`). `ai/` 함수를 부르기만 한다 |
-| `backend/tests/` | 테스트 프레임워크 없이 돌리는 검사 스크립트. `test_schema.py`(ShapeScene 도형별 검증), `test_chat.py`(챗봇 화면 조작 값 거르기, LLM 호출 없음), `test_vision_eval.py`(비전 정확도 비교 함수, LLM 호출 없음) |
+| `backend/tests/` | 테스트 프레임워크 없이 돌리는 검사 스크립트. `test_schema.py`(ShapeScene 도형별 검증), `test_chat.py`(챗봇 화면 조작 값 거르기, LLM 호출 없음), `test_vision_eval.py`(비전 정확도 비교 함수, LLM 호출 없음), `test_analyze.py`(`/analyze` 에러·재시도·같은 사진 기억, LLM 호출 없음) |
 | `docs/` | 기준 문서(01·02·03, `specs/`), 디자인 참고(`design/`), 작업 기록(`reports/`), TODO(`todo/`) |
 | `.github/` | GitHub 설정. `pull_request_template.md`(커밋·PR 본문 형식) |
 
