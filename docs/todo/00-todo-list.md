@@ -22,7 +22,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 담당자 |
 |---|---|---|
-| **TODO-11** [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) | [#17](https://github.com/gaeun1961/foldy/issues/17) | gaeun1961 |
+| (없음) | | |
 
 ## 1차 남은 일
 
