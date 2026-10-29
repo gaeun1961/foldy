@@ -7,8 +7,22 @@ backend 기본 주소는 `http://localhost:8000`이고, 자동 문서는 `/docs`
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | GET | `/health` | - | `{ "status": "ok" }` |
-| POST | `/analyze` | multipart `file` (이미지만, 아니면 400) | `ShapeScene` (현재는 목) |
+| POST | `/analyze` | multipart `file` (이미지만, 아니면 400) | `ShapeScene`. Gemini가 학습지 사진을 읽는다(프롬프트 `vision_prompt.py`). 실패하면 422·503 `{ "detail": string }` (아래 "/analyze 에러") |
 | POST | `/chat` | `{ "message": string, "scene": ShapeScene }` | `{ "reply": string, "view": ChatView \| null }` (아래 "화면 조작"). Gemini가 도형을 보고 힌트를 준다. LLM 호출이 실패하거나 20초를 넘기면 502 `{ "detail": string }`. `LLM_API_KEY`가 없으면 고정 문장, `view`는 `null` |
+
+## `/analyze` 에러
+
+실패하면 목 데이터를 돌려주지 않고 에러를 돌려준다. frontend는 `detail`을 그대로 보여주고, 아래 수동 입력(전개도 직접 만들기, TODO-12)으로 안내한다.
+
+| 상태 | 언제 | `detail` (학생에게 그대로 보임) |
+|---|---|---|
+| 400 | 이미지 파일이 아님 | "이미지 파일만 올릴 수 있어요" |
+| 422 | 사진에서 직육면체·정육면체를 읽지 못함 (Gemini 답이 ShapeScene이 아님) | "사진에서 도형을 찾지 못했어요" |
+| 503 | 사진 인식을 지금 쓸 수 없음: 키 없음, 하루 사용 한도 초과(429), 모델 과부하(503), 60초 넘김 | "지금은 사진 인식을 쓸 수 없어요" |
+
+- 모델이 붐비면(503) 2초 쉬고 한 번 더 부른다
+- **같은 사진은 다시 부르지 않는다**: 사진 바이트의 해시로 성공한 결과를 backend가 켜져 있는 동안 기억한다(최근 100장). 무료 한도(모델당 하루 20번)를 아끼려고. 실패는 기억하지 않는다
+- 서버 로그에는 원인(429, 시간 초과 등)을 남긴다
 
 ## `/chat` 화면 조작 (`view`)
 
