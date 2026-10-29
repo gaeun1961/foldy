@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { mockScene } from '../shared/mock'
+import { mockScene, sampleScenes } from '../shared/mock'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { foldStepCount, Viewer, type DrawState } from '../viewer'
+import { foldStepCount, netCheck, Viewer, type DrawState } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
@@ -34,7 +34,17 @@ export default function App() {
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
   const [route, setRoute] = useState<{ routes: Line<PolyhedronPoint>[][]; index: number } | null>(null)
   const steps = foldStepCount(scene)
-  const status = foldStatus(scene.shape, unfold, playing)
+  const status = foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true)
+
+  // 예시 전개도 불러오기 (사진 업로드 TODO-11 전까지). 펼친 상태에서 새로 시작한다
+  const loadSample = (next: ShapeScene) => {
+    setScene(next)
+    setUnfold(1)
+    setStrokes(next.lines.map(() => 1))
+    setRoute(null)
+    setHighlight([])
+    setDrawState('idle')
+  }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
   const hint = playing ? null : drawLines ? DRAW_HINT[drawState] : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요' : null
@@ -45,6 +55,16 @@ export default function App() {
       <section className="upload">
         <h2>학습지 사진</h2>
         <p>사진 업로드 영역 (준비 중)</p>
+        <label className="sample-picker">
+          예시 전개도
+          <select defaultValue={0} onChange={(e) => loadSample(sampleScenes[Number(e.target.value)].scene)}>
+            {sampleScenes.map((s, i) => (
+              <option key={s.name} value={i}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </section>
       <main className="viewer">
         <div className="viewer-canvas">
@@ -63,8 +83,9 @@ export default function App() {
             onDrawState={setDrawState}
             onRouteChoices={(routes) => setRoute(routes.length > 1 ? { routes, index: 0 } : null)}
           />
-          <div className={`status-badge${status.done ? ' done' : ''}`} role="status">
+          <div className={`status-badge${status.done ? ' done' : ''}${status.wrong ? ' wrong' : ''}`} role="status">
             {status.done && '✔ '}
+            {status.wrong && '✖ '}
             {status.text}
           </div>
           {foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
