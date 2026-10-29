@@ -42,4 +42,4 @@
 - TODO-15(gaeun1961 진행 중): 시연에서 "사진 올리기 → 따라 그리기 → 사진 위에서 접기" 흐름을 쓸 수 있다
 
 ## 참고
-- 관련 문서: `docs/specs/viewer.md` "책 장면", `docs/reports/T35-photo-trace.md`, `docs/reports/T14-screen-design.md`
+- 관련 문서: `docs/specs/viewer.md` "책 장면", `docs/reports/T37-photo-trace.md`, `docs/reports/T14-screen-design.md`
