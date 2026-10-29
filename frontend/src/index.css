@@ -1,8 +1,20 @@
+/* 색·글꼴 (ui.md 색 기준). 패널은 책 장면 위에 뜨는 반투명 종이색 */
+:root {
+  --ink: #1f2430;
+  --muted: #6b6457;
+  --accent: #3d6fd9;
+  --line: #ddd5c6;
+  --desk: #e9e0d1;
+  --panel: rgb(251 249 244 / 92%);
+  --panel-shadow: 0 6px 24px rgb(60 45 20 / 16%);
+  --serif: 'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif;
+}
+
 body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif;
-  color: #1f2430;
-  background: #fff;
+  color: var(--ink);
+  background: var(--desk);
 }
 
 h2 {
@@ -10,41 +22,96 @@ h2 {
   font-size: 18px;
 }
 
-/* 왼쪽: 업로드 / 오른쪽: 뷰어. 챗봇은 칸 없이 오른쪽 아래 동그란 아이콘으로 연다 (TODO-13) */
-.layout {
-  display: grid;
-  grid-template: 'head head' auto 'upload viewer' 1fr / 260px 1fr;
-  height: 100vh;
+/* 넓은 화면: 3D 책 장면(stage)이 화면을 채우고 만들기 카드(왼쪽 위)·아래 바(dock)가 그 위에 뜬다 (ui.md 화면 배치).
+   좁은 화면은 맨 아래 미디어 쿼리 */
+.layout { position: relative; height: 100vh; overflow: hidden; }
+.stage { position: absolute; inset: 0; overflow: hidden; background: var(--desk); }
+.stage canvas { display: block; }
+
+.make-card, .dock {
+  position: absolute;
+  z-index: 10;
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(10px);
 }
 
-.layout > header {
-  grid-area: head;
-  padding: 12px 16px;
+/* 만들기 카드: 제목 줄을 누르면 접힌다 (details) */
+.make-card { top: 16px; left: 16px; width: 300px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.make-card > summary {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--panel);
+  font-size: 17px;
   font-weight: 700;
-  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  list-style: none;
 }
+.make-card > summary::-webkit-details-marker { display: none; }
+.make-card > summary::after { content: '▾'; margin-left: auto; color: var(--muted); }
+.make-card:not([open]) > summary::after { content: '▸'; }
+.brand { font-family: var(--serif); font-size: 24px; letter-spacing: 0.02em; }
+.make-body { padding: 0 16px 16px; color: var(--muted); }
 
-.upload {
-  padding: 16px;
-  color: #6b7280;
+/* 아래 바: 안내 한 줄 + 접기 + 선 긋기·보기. 왼쪽 카드와 오른쪽 아래 챗봇 아이콘 사이 가운데 */
+.dock {
+  bottom: 16px;
+  left: 332px;
+  right: 92px;
+  max-width: 720px;
+  margin-inline: auto;
+  display: grid;
+  gap: 4px;
+  padding: 10px 0 6px;
 }
+.dock:not(:has(.fold-controls)) { padding: 0; } /* 도형이 없으면 안내 한 줄만 */
+.dock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 6px; }
+.dock-row .line-controls { flex: 1; padding: 0; background: none; }
 
-.upload { grid-area: upload; border-right: 1px solid #e5e7eb; min-height: 0; overflow-y: auto; }
-.viewer { grid-area: viewer; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-
-/* 3D 뷰 + 상태 배지 + 접기 조작 (docs/specs/ui.md) */
-.viewer-canvas {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden; /* 캔버스 픽셀 크기가 칸을 밀어 넓히지 않게 */
+/* 보기: 누르면 보기 옵션이 위로 펼쳐진다 */
+.view-menu { position: relative; }
+.view-menu > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--button-height, 40px);
+  padding: 0 14px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  list-style: none;
 }
-.viewer-canvas canvas { display: block; }
+.view-menu > summary::-webkit-details-marker { display: none; }
+.view-menu > summary::after { content: ' ▴'; }
+.view-menu[open] > summary { border-color: var(--accent); color: var(--accent); }
+.view-menu > .view-options {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  width: max-content;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--panel-shadow);
+}
+.view-menu > .view-options legend { display: none; }
 
 .status-badge {
   position: absolute;
   top: 16px;
-  left: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
   padding: 8px 16px;
   border-radius: 999px;
   background: #fff;
@@ -101,19 +168,13 @@ h2 {
 .upload-status.error { color: #c92a2a; }
 .status-badge.wrong { color: #c92a2a; font-weight: 700; } /* 잘못 그린 전개도 (ui.md 상태 배지) */
 
-/* 3D 뷰 아래쪽 안내 한 줄 (ui.md 바꿀 것 "안내 문구") */
+/* 안내 한 줄 (ui.md 바꿀 것 "안내 문구"): 아래 바 맨 위 */
 .viewer-hint {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
   margin: 0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 85%);
-  font-size: 16px;
-  white-space: nowrap;
-  pointer-events: none; /* 아래 모서리를 누를 수 있게 */
+  padding: 8px 16px;
+  font-family: var(--serif);
+  font-size: 17px;
+  text-align: center;
 }
 
 /* 선 긋기 한 줄: 선 긋기 토글 · 모서리 나누기 · 선 지우기 (ui.md 화면 배치 5번) */
@@ -123,7 +184,6 @@ h2 {
   align-items: center;
   gap: 8px;
   padding: 0 16px 12px;
-  background: #fff;
   --button-height: 40px;
 }
 @media (pointer: coarse) {
@@ -148,9 +208,7 @@ h2 {
 .fold-controls {
   display: grid;
   gap: 10px;
-  padding: 12px 16px;
-  border-top: 1px solid #e5e7eb;
-  background: #fff;
+  padding: 0 16px 6px;
   --button-height: 40px;
 }
 @media (pointer: coarse) {
@@ -225,7 +283,6 @@ h2 {
   margin: 0;
   padding: 0 16px 12px;
   border: 0;
-  background: #fff;
   font-size: 16px;
 }
 .view-options legend {
@@ -272,12 +329,24 @@ h2 {
 .step-dots span.done { background: #3d6fd9; border-color: #3d6fd9; }
 .step-dots span.current { background: #ffd982; border-color: #e0a400; transform: scale(1.5); }
 
-@media (max-width: 800px) {
-  .layout {
-    grid-template: 'head' auto 'upload' auto 'viewer' 85vh / 1fr;
-    height: auto;
+/* 좁은 화면 (ui.md 화면 배치): 위 3D 뷰(50%, 고정) → 아래 바 → 만들기 카드. 패널은 불투명하게 이어진다 */
+@media (max-width: 1023px) {
+  .layout { height: auto; overflow: visible; }
+  .stage { position: sticky; top: 0; z-index: 5; height: 50vh; }
+  .make-card, .dock {
+    position: static;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+    background: #fbf9f4;
+    box-shadow: none;
+    backdrop-filter: none;
   }
-  .upload { border: 0; }
+  .dock { padding-top: 6px; border-bottom: 1px solid var(--line); }
+  .make-card > summary { position: static; border-radius: 0; background: none; }
+  .status-badge { left: 12px; top: 12px; transform: none; }
 }
 
 /* 챗봇 (ui.md 화면 배치 7번): 오른쪽 아래 동그란 아이콘 + 대화창. 넓은 화면은 아이콘 위 작은 창, 좁은 화면은 아래 절반 시트 */
