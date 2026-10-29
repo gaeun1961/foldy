@@ -5,14 +5,17 @@ import { crossScene, gridScene, overlaps, rectOf, SHAPES, SLIDER, type BoxShape 
 // 직접 만들기 (docs/specs/ui.md 화면 배치 3번). 사진 인식(LLM) 없이 쓰는 기본 길.
 // ① 치수로 만들기: 도형 드롭다운 + 치수 슬라이더 → 십자형. ② 전개도 그리기: 칸 위를 끌어 직사각형 면을 그린다 → 그대로 접힌다.
 // 사진 인식 결과(scene)가 오면 십자형은 ①, 학습지 전개도(grid)는 ②에 채워진다
+// 사진을 올렸으면 ② 칸 밑에 반투명하게 깔아서 따라 그린다 (TODO-35)
 type Mode = 'size' | 'draw'
 interface Props {
   scene: ShapeScene | null
+  photo: string | null // 올린 학습지 사진 주소
   onScene: (scene: ShapeScene | null, how: 'size' | 'draw') => void // size: 치수만 바뀜(펼침 그대로), draw: 전개도가 바뀜(펼친 상태로)
 }
 
-export function ManualInput({ scene, onScene }: Props) {
-  const [mode, setMode] = useState<Mode>(scene?.net.layout === 'grid' ? 'draw' : 'size')
+export function ManualInput({ scene, photo, onScene }: Props) {
+  const [mode, setMode] = useState<Mode>(photo || scene?.net.layout === 'grid' ? 'draw' : 'size')
+  const [fit, setFit] = useState<PhotoFit>({ x: 0, y: 0, scale: 1, angle: 0 }) // 토글을 오가도 사진 위치는 그대로
   return (
     <section className="manual-input" id="manual-input" aria-label="직접 만들기">
       <h2>직접 만들기</h2>
@@ -23,7 +26,9 @@ export function ManualInput({ scene, onScene }: Props) {
           </button>
         ))}
       </div>
-      {mode === 'size' ? <SizeForm scene={scene} onScene={(s) => onScene(s, 'size')} /> : <NetDrawer scene={scene} onScene={(s) => onScene(s, 'draw')} />}
+      {mode === 'size' ? <SizeForm scene={scene} onScene={(s) => onScene(s, 'size')} /> : (
+        <NetDrawer scene={scene} onScene={(s) => onScene(s, 'draw')} photo={photo} fit={fit} onFit={setFit} />
+      )}
     </section>
   )
 }
@@ -78,45 +83,93 @@ function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scen
 // ② 전개도 그리기: 칸 위를 끌어서 직사각형 면을 그린다. 면을 누르면 지운다. 다른 면과 겹치게는 못 그린다.
 // 칸은 12 × 9부터. 면이 오른쪽·아래 끝 가까이 오면 늘 2칸씩 여유가 남게 늘어난다 (칸이 모자라지 않게)
 const CELL = 20 // SVG 안 칸 크기 (화면에서는 폭에 맞게 늘어난다)
+const PHOTO_W = 12 * CELL // 깐 사진의 처음 폭 (칸이 늘어나도 사진 크기는 그대로)
 
-function NetDrawer({ scene, onScene }: { scene: ShapeScene | null; onScene: (scene: ShapeScene | null) => void }) {
+// 깐 사진 위치: SVG 단위로 옮긴 만큼(x, y), 크기 배율, 돌린 각도(도). 사진 가운데를 기준으로 키우고 돌린다
+type PhotoFit = { x: number; y: number; scale: number; angle: number }
+interface DrawerProps {
+  scene: ShapeScene | null
+  onScene: (scene: ShapeScene | null) => void
+  photo: string | null
+  fit: PhotoFit
+  onFit: (fit: PhotoFit) => void
+}
+
+function NetDrawer({ scene, onScene, photo, fit, onFit }: DrawerProps) {
   const faces: NetFace[] = scene?.net.layout === 'grid' ? scene.net.faces : []
   const COLS = Math.max(12, ...faces.map((f) => Math.ceil(f.x + f.w) + 2))
   const ROWS = Math.max(9, ...faces.map((f) => Math.ceil(f.y + f.h) + 2))
   const [drag, setDrag] = useState<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null)
+  const [moving, setMoving] = useState(!!photo && faces.length === 0) // 사진 맞추기 중(끌면 사진이 움직임). 사진을 막 올렸으면 이것부터
+  const [pan, setPan] = useState<{ x: number; y: number } | null>(null) // 사진을 끄는 중이면 시작한 점 (SVG 단위)
   const svg = useRef<SVGSVGElement>(null)
 
-  const cellAt = (e: React.PointerEvent) => {
+  const pointAt = (e: React.PointerEvent) => {
     const r = svg.current!.getBoundingClientRect()
-    const x = Math.floor(((e.clientX - r.left) / r.width) * COLS)
-    const y = Math.floor(((e.clientY - r.top) / r.height) * ROWS)
+    return { x: ((e.clientX - r.left) / r.width) * COLS * CELL, y: ((e.clientY - r.top) / r.height) * ROWS * CELL }
+  }
+  const cellAt = (e: React.PointerEvent) => {
+    const p = pointAt(e)
+    const x = Math.floor(p.x / CELL)
+    const y = Math.floor(p.y / CELL)
     return { x: Math.max(0, Math.min(COLS - 1, x)), y: Math.max(0, Math.min(ROWS - 1, y)) }
   }
   const set = (next: NetFace[]) => onScene(next.length ? gridScene(next) : null)
   const preview = drag && rectOf(drag.a, drag.b)
   const blocked = !!preview && faces.some((f) => overlaps(f, preview))
+  const c = PHOTO_W / 2 // 사진 가운데 (정사각형 상자 안에 비율대로 들어간다)
 
   return (
     <div className="net-drawer">
-      <p className="drawer-help">칸 위를 끌어서 면을 그려요. 면을 누르면 지워져요</p>
+      {photo && (
+        <div className="toggle-row" role="group" aria-label="사진 위에서 할 일">
+          <button type="button" aria-pressed={moving} onClick={() => setMoving(true)}>
+            ✋ 사진 맞추기
+          </button>
+          <button type="button" aria-pressed={!moving} onClick={() => setMoving(false)}>
+            ✏️ 면 그리기
+          </button>
+        </div>
+      )}
+      <p className="drawer-help">
+        {moving ? '사진을 끌어 옮기고, 아래에서 크기와 방향을 칸에 맞춰요' : photo ? '사진 속 면을 따라 칸 위를 끌어 그려요. 면을 누르면 지워져요' : '칸 위를 끌어서 면을 그려요. 면을 누르면 지워져요'}
+      </p>
       <svg
         ref={svg}
+        className={moving ? 'moving' : undefined}
         viewBox={`0 0 ${COLS * CELL} ${ROWS * CELL}`}
         role="img"
         aria-label={`전개도 그리기 칸, 면 ${faces.length}개`}
         onPointerDown={(e) => {
-          const c = cellAt(e)
-          const hit = faces.findIndex((f) => overlaps(f, { ...c, w: 1, h: 1 }))
-          if (hit >= 0) return set(faces.filter((_, i) => i !== hit)) // 면을 누르면 지운다
           e.currentTarget.setPointerCapture(e.pointerId)
-          setDrag({ a: c, b: c })
+          if (moving) return setPan(pointAt(e))
+          const cell = cellAt(e)
+          const hit = faces.findIndex((f) => overlaps(f, { ...cell, w: 1, h: 1 }))
+          if (hit >= 0) return set(faces.filter((_, i) => i !== hit)) // 면을 누르면 지운다
+          setDrag({ a: cell, b: cell })
         }}
-        onPointerMove={(e) => drag && setDrag({ ...drag, b: cellAt(e) })}
+        onPointerMove={(e) => {
+          if (pan) {
+            const p = pointAt(e)
+            onFit({ ...fit, x: fit.x + p.x - pan.x, y: fit.y + p.y - pan.y })
+            setPan(p)
+          } else if (drag) setDrag({ ...drag, b: cellAt(e) })
+        }}
         onPointerUp={() => {
           if (preview && !blocked) set([...faces, preview])
           setDrag(null)
+          setPan(null)
         }}
       >
+        {photo && (
+          <image
+            href={photo}
+            width={PHOTO_W}
+            height={PHOTO_W}
+            className="trace-photo"
+            transform={`translate(${fit.x} ${fit.y}) rotate(${fit.angle} ${c} ${c}) translate(${c} ${c}) scale(${fit.scale}) translate(${-c} ${-c})`}
+          />
+        )}
         {[...Array(COLS + 1).keys()].map((i) => (
           <line key={`v${i}`} x1={i * CELL} y1={0} x2={i * CELL} y2={ROWS * CELL} className="grid-line" />
         ))}
@@ -137,9 +190,27 @@ function NetDrawer({ scene, onScene }: { scene: ShapeScene | null; onScene: (sce
           <rect x={preview.x * CELL} y={preview.y * CELL} width={preview.w * CELL} height={preview.h * CELL} className={`net-preview${blocked ? ' blocked' : ''}`} />
         )}
       </svg>
-      <button type="button" className="secondary-button" disabled={!faces.length} onClick={() => set([])}>
-        모두 지우기
-      </button>
+      {moving ? (
+        <>
+          <label className="slider-row">
+            <span>크기</span>
+            <input type="range" min={0.5} max={4} step={0.05} value={fit.scale} onChange={(e) => onFit({ ...fit, scale: Number(e.target.value) })} />
+            <output>{fit.scale.toFixed(1)}배</output>
+          </label>
+          <label className="slider-row">
+            <span>방향</span>
+            <input type="range" min={-180} max={180} step={1} value={fit.angle} onChange={(e) => onFit({ ...fit, angle: Number(e.target.value) })} />
+            <output>{fit.angle}°</output>
+          </label>
+          <button type="button" className="primary-button" onClick={() => setMoving(false)}>
+            다 맞췄어요, 면 그리기
+          </button>
+        </>
+      ) : (
+        <button type="button" className="secondary-button" disabled={!faces.length} onClick={() => set([])}>
+          모두 지우기
+        </button>
+      )}
     </div>
   )
 }

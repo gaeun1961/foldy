@@ -3,16 +3,18 @@ import type { ShapeScene } from '../shared/types'
 import { analyze } from './api'
 
 // 학습지 사진 올리기 (docs/specs/ui.md 화면 배치 2번). 고르면 바로 /analyze 를 부르고, 결과 도형을 onScene 으로 넘긴다.
-// 휴대폰은 input[type=file] 이 카메라 촬영과 앨범을 함께 보여준다
+// 휴대폰은 input[type=file] 이 카메라 촬영과 앨범을 함께 보여준다. 올린 사진 주소는 onPhoto 로도 넘겨 전개도 그리기 칸 밑에 깐다 (TODO-35)
 type State = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done' } | { kind: 'error'; message: string }
 
-export function PhotoUpload({ onScene }: { onScene: (scene: ShapeScene) => void }) {
+export function PhotoUpload({ onScene, onPhoto }: { onScene: (scene: ShapeScene) => void; onPhoto: (url: string) => void }) {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [preview, setPreview] = useState<string | null>(null)
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview])
 
   const upload = async (photo: File) => {
-    setPreview(URL.createObjectURL(photo))
+    const url = URL.createObjectURL(photo)
+    setPreview(url)
+    onPhoto(url)
     setState({ kind: 'loading' })
     try {
       onScene(await analyze(photo))
@@ -46,7 +48,7 @@ export function PhotoUpload({ onScene }: { onScene: (scene: ShapeScene) => void 
           <>
             {state.message}
             <br />
-            <a href="#manual-input">아래에서 전개도를 직접 만들어 보세요</a>
+            <a href="#manual-input">아래에서 사진을 따라 전개도를 그려 보세요</a>
           </>
         )}
       </p>
