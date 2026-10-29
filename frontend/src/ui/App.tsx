@@ -6,6 +6,7 @@ import { foldStatus, SHAPE_NAME, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
+import { netPhoto, NO_FIT } from './manualScene.ts'
 import { PhotoUpload } from './PhotoUpload'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 
@@ -29,6 +30,7 @@ export default function App() {
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
+  const [fit, setFit] = useState(NO_FIT) // 칸에 맞춘 사진 위치. 3D 책 페이지에도 같은 자리에 깐다 (TODO-36)
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
   const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
@@ -72,6 +74,7 @@ export default function App() {
             drawLines={drawLines}
             edgeDivisions={edgeDivisions}
             pageText={pageTextOf(scene)}
+            photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             onSceneChange={(next) => {
               setStrokes([...strokes, next.lines.length - scene.lines.length])
               setScene(next)
@@ -132,11 +135,19 @@ export default function App() {
           <span className="brand">foldy</span> 도형 만들기
         </summary>
         <div className="make-body">
-          <PhotoUpload onScene={loadScene} onPhoto={setPhoto} />
+          <PhotoUpload
+            onScene={loadScene}
+            onPhoto={(url) => {
+              setPhoto(url)
+              setFit(NO_FIT)
+            }}
+          />
           <ManualInput
             key={photo} // 새 사진이면 전개도 그리기로 열고 사진 위치를 처음부터
             photo={photo}
             scene={scene}
+            fit={fit}
+            onFit={setFit}
             onScene={(next, how) => {
               if (!next) return setScene(null)
               // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다

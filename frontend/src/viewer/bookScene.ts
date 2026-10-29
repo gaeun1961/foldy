@@ -10,7 +10,6 @@ const PAPER_COLOR = '#fbf8f1'
 const PAPER_EDGE = '#ece5d6'
 const INK = '#2a2f3a'
 const RED = '#b5452f'
-const RIBBON_COLOR = '#2b3a67'
 const SERIF = "'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif"
 
 // 종이 한 장의 윗면: 종이색 + 책등 쪽 그늘 + (왼쪽 페이지) 글자. 캔버스 위쪽이 책의 먼 쪽(−z)
@@ -84,6 +83,27 @@ function finish(canvas: HTMLCanvasElement) {
   return texture
 }
 
+// 종이 단면: 종이가 여러 장 쌓인 가는 가로줄. 상자 옆면은 텍스처 v 가 높이 방향이라 네 옆면에 같이 쓴다
+function edgeTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = PAPER_EDGE
+  ctx.fillRect(0, 0, 4, 128)
+  let seed = 3
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) // 매번 같은 무늬
+  // 화면에서 단면은 몇십 픽셀이라 줄이 촘촘하면 한 색으로 뭉개진다. 열 몇 장만, 굵은 진한 줄 + 밝은 줄로.
+  // 밉맵은 켜 둔다: 끄면 축소했을 때 줄이 지그재그로 깨진다
+  for (let y = 2; y < 128; y += 8 + Math.floor(rand() * 4)) {
+    ctx.fillStyle = `rgb(110 90 60 / ${45 + rand() * 25}%)`
+    ctx.fillRect(0, y, 4, 2)
+    ctx.fillStyle = 'rgb(255 255 255 / 55%)'
+    ctx.fillRect(0, y + 2, 4, 2)
+  }
+  return finish(canvas)
+}
+
 // 옅은 나뭇결: 책상색 바탕에 가로로 긴 줄
 function woodTexture() {
   const canvas = document.createElement('canvas')
@@ -135,12 +155,26 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[]) {
   const coverMargin = margin * 0.25
   const matT = thick * 0.15
 
-  // 종이 두 장: 윗면만 텍스처, 옆면은 종이 단면색. BoxGeometry 재질 순서 +x, −x, +y, −y, +z, −z
-  const edge = own(new THREE.MeshStandardMaterial({ color: PAPER_EDGE }))
+  // 책등 쪽 골: 책등에서 curl 안쪽만 아래로 말려 들어간다. 전개도는 책등에서 margin 이상 떨어져 있어 평평한 곳에만 놓인다
+  const curl = margin * 0.9
+  const dip = thick * 0.8
+  const sag = (s: number) => (s < curl ? -dip * (1 - s / curl) ** 2 : 0) // s: 책등에서 떨어진 거리
+
+  // 종이 두 장: 윗면은 페이지 텍스처, 옆면은 종이 단면. BoxGeometry 재질 순서 +x, −x, +y, −y, +z, −z
+  // 가로로 잘게 나눈 상자의 위쪽 꼭짓점을 sag 만큼 내려 윗면과 앞뒤 단면이 함께 휜다
+  const edge = own(new THREE.MeshStandardMaterial({ map: own(edgeTexture()) }))
   for (const side of ['left', 'right'] as const) {
     const face = own(new THREE.MeshStandardMaterial({ map: own(pageTexture(pageW, pageD, side, pageText)) }))
     const x = side === 'left' ? spineX - pageW / 2 : spineX + pageW / 2
-    add(new THREE.BoxGeometry(pageW, thick, pageD), [edge, edge, face, edge, edge, edge], x, top - thick / 2, cz).castShadow = true
+    const geometry = new THREE.BoxGeometry(pageW, thick, pageD, 48, 1, 1)
+    const pos = geometry.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      if (pos.getY(i) < 0) continue
+      const s = side === 'left' ? pageW / 2 - pos.getX(i) : pos.getX(i) + pageW / 2
+      pos.setY(i, pos.getY(i) + sag(s))
+    }
+    geometry.computeVertexNormals()
+    add(geometry, [edge, edge, face, edge, edge, edge], x, top - thick / 2, cz).castShadow = true
   }
 
   // 표지: 종이보다 조금 크게, 종이 아래
@@ -148,20 +182,8 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[]) {
   const coverY = top - thick - coverT / 2
   add(new THREE.BoxGeometry(2 * pageW + 2 * coverMargin, coverT, pageD + 2 * coverMargin), cover, spineX, coverY, cz).castShadow = true
 
-  // 리본 책갈피: 오른쪽 페이지 책등 가까이에서 앞쪽(+z) 끝으로 나와 매트까지 늘어진다
-  const ribbon = own(new THREE.MeshStandardMaterial({ color: RIBBON_COLOR, roughness: 0.6 }))
-  const rw = pageW * 0.045
-  const rx = spineX + pageW * 0.06
-  const front = cz + pageD / 2
-  const lie = pageD * 0.45
-  add(new THREE.BoxGeometry(rw, size * 0.001, lie), ribbon, rx, top + size * 0.0005, front - lie / 2)
-  const drop = thick + coverT
-  add(new THREE.BoxGeometry(rw, drop, size * 0.002), ribbon, rx, top - drop / 2, front + size * 0.001)
-  const tail = pageD * 0.12
-  const matTop = coverY - coverT / 2
-  add(new THREE.BoxGeometry(rw, size * 0.001, tail), ribbon, rx + rw * 0.4, matTop + size * 0.0005, front + tail / 2)
-
   // 데스크 매트와 책상
+  const matTop = coverY - coverT / 2
   const matW = (2 * pageW + 2 * coverMargin) * 1.25
   const matD = (pageD + 2 * coverMargin) * 1.3
   add(new THREE.BoxGeometry(matW, matT, matD), own(new THREE.MeshStandardMaterial({ color: MAT_COLOR, roughness: 1 })), spineX, matTop - matT / 2, cz)
@@ -174,6 +196,7 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[]) {
   return {
     group,
     center: new THREE.Vector3(spineX, 0, cz), // 펼친 책의 가운데 (책등 위)
+    top, // 페이지 윗면 높이 (평평한 곳)
     dispose: () => owned.forEach((x) => x.dispose()),
   }
 }

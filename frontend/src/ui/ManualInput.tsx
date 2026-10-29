@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { NetFace, ShapeScene } from '../shared/types'
-import { crossScene, gridScene, overlaps, rectOf, SHAPES, SLIDER, type BoxShape } from './manualScene.ts'
+import { CELL, crossScene, gridScene, overlaps, PHOTO_W, rectOf, SHAPES, SLIDER, type BoxShape, type PhotoFit } from './manualScene.ts'
 
 // 직접 만들기 (docs/specs/ui.md 화면 배치 3번). 사진 인식(LLM) 없이 쓰는 기본 길.
 // ① 치수로 만들기: 도형 드롭다운 + 치수 슬라이더 → 십자형. ② 전개도 그리기: 칸 위를 끌어 직사각형 면을 그린다 → 그대로 접힌다.
@@ -11,11 +11,12 @@ interface Props {
   scene: ShapeScene | null
   photo: string | null // 올린 학습지 사진 주소
   onScene: (scene: ShapeScene | null, how: 'size' | 'draw') => void // size: 치수만 바뀜(펼침 그대로), draw: 전개도가 바뀜(펼친 상태로)
+  fit: PhotoFit // 사진 위치. 3D 에서도 같은 자리에 깔려고 App 이 들고 있다 (TODO-36)
+  onFit: (fit: PhotoFit) => void
 }
 
-export function ManualInput({ scene, photo, onScene }: Props) {
+export function ManualInput({ scene, photo, onScene, fit, onFit }: Props) {
   const [mode, setMode] = useState<Mode>(photo || scene?.net.layout === 'grid' ? 'draw' : 'size')
-  const [fit, setFit] = useState<PhotoFit>({ x: 0, y: 0, scale: 1, angle: 0 }) // 토글을 오가도 사진 위치는 그대로
   return (
     <section className="manual-input" id="manual-input" aria-label="직접 만들기">
       <h2>직접 만들기</h2>
@@ -27,7 +28,7 @@ export function ManualInput({ scene, photo, onScene }: Props) {
         ))}
       </div>
       {mode === 'size' ? <SizeForm scene={scene} onScene={(s) => onScene(s, 'size')} /> : (
-        <NetDrawer scene={scene} onScene={(s) => onScene(s, 'draw')} photo={photo} fit={fit} onFit={setFit} />
+        <NetDrawer scene={scene} onScene={(s) => onScene(s, 'draw')} photo={photo} fit={fit} onFit={onFit} />
       )}
     </section>
   )
@@ -82,11 +83,7 @@ function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scen
 
 // ② 전개도 그리기: 칸 위를 끌어서 직사각형 면을 그린다. 면을 누르면 지운다. 다른 면과 겹치게는 못 그린다.
 // 칸은 12 × 9부터. 면이 오른쪽·아래 끝 가까이 오면 늘 2칸씩 여유가 남게 늘어난다 (칸이 모자라지 않게)
-const CELL = 20 // SVG 안 칸 크기 (화면에서는 폭에 맞게 늘어난다)
-const PHOTO_W = 12 * CELL // 깐 사진의 처음 폭 (칸이 늘어나도 사진 크기는 그대로)
 
-// 깐 사진 위치: SVG 단위로 옮긴 만큼(x, y), 크기 배율, 돌린 각도(도). 사진 가운데를 기준으로 키우고 돌린다
-type PhotoFit = { x: number; y: number; scale: number; angle: number }
 interface DrawerProps {
   scene: ShapeScene | null
   onScene: (scene: ShapeScene | null) => void

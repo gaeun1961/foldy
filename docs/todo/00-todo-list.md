@@ -21,7 +21,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 | TODO | 이슈 | 담당자 |
 |---|---|---|
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | gaeun1961 |
-| **TODO-36** [따라 그린 사진 위에서 3D 전개도 접기](36-photo-overlay-fold.md) | [#74](https://github.com/gaeun1961/foldy/issues/74) | HandoA01 |
 
 ## 1차 남은 일
 
