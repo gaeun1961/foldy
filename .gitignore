@@ -5,6 +5,6 @@ __pycache__/
 .venv/
 *.pyc
 
-# 학습지 사진은 저작권 때문에 올리지 않는다 (TODO-7 정확도 측정용)
+# 비전 정확도 측정 (TODO-7): 학습지 사진은 저작권 때문에 올리지 않는다. 결과는 리포트로 옮긴다
 backend/evals/photos/
 backend/evals/results/
