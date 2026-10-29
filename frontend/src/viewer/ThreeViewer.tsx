@@ -6,7 +6,7 @@ import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
 import { buildBook, DESK_COLOR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
-import { foldOrderOf, matchingEdges, netCheck, polyhedronOf, type Vec3 } from './polyhedra.ts'
+import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
@@ -49,6 +49,7 @@ function labelTexture(text: string) {
 // 가려진 모서리는 점선 (showHiddenEdges), 맞닿는 모서리 쌍은 같은 색이고 누르면 쌍이 함께 굵어진다 (showMatchingEdges)
 // 꼭짓점은 면마다 표시점·라벨 복사본을 두고, 누르거나 highlightVertices 로 강조하면 복사본이 모두 같은 색이 된다 (showVertexLabels)
 // 면 위 선분(scene.lines)은 면 메시의 자식이라 접힘을 따라간다. 선 긋기 모드(drawLines)에서는 두 점을 눌러 선분을 더한다
+// 면을 누르면 그 면과 마주 보는 면을 연보라로 칠하고 onFacePick 으로 알린다 (마주 보는 면 보기)
 // TODO(3D): 곡면 도형(TODO-17)
 export function ThreeViewer({
   scene,
@@ -65,23 +66,26 @@ export function ThreeViewer({
   onSceneChange,
   onDrawState,
   onRouteChoices,
+  onFacePick,
+  faceMarking = false,
+  onFaceMark,
 }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 도형을 새로 만들 때 지금 값으로 시작하려고
-  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions })
+  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking })
   const applyRef = useRef<(() => void) | null>(null)
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
-  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices })
+  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
 
   // unfold·foldMode·보기 옵션·강조·선 긋기 모드만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions }
+    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking }
     applyRef.current?.()
-  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions])
+  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking])
   useEffect(() => {
-    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices }
-  }, [onSceneChange, onDrawState, onRouteChoices])
+    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark }
+  }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark])
 
   // lines 만 바뀌면 선분만 다시 그린다. 선을 그을 때마다 카메라가 처음 구도로 돌아가지 않게 (viewer.md ViewerProps)
   useEffect(() => {
@@ -126,11 +130,21 @@ export function ThreeViewer({
       faded: look('#f1eee8', '#ebe8e2', '#b9bdc4'),
       filled: look('#cfe3c4', '#cfe3c4', '#3c4048'), // 학습지에서 색칠한 면 (grid fill)
       overlap: look('#ffc9c9', '#ffc9c9', '#3c4048'), // 잘못된 전개도에서 겹친 면 (다 접힌 쪽에서만)
+      opposite: look('#e5dbff', '#d9ccff', '#3c4048'), // 누른 면과 마주 보는 면 (마주 보는 면 보기)
     }
     // 학습지 전개도(grid)면 라벨·면 표시·전개도 위 선이 같이 온다 (viewer.md "전개도 grid")
     const grid = 'cornerLabels' in poly ? (poly as GridPolyhedron) : null
     const filledFaces = new Set(grid?.marks.flatMap((m) => (m.fill ? [m.face] : [])))
     const overlapFaces = new Set(netCheck(scene)?.overlapFaces ?? [])
+    // 마주 보는 면 보기: 누른 면과 마주 보는 면들. 다시 만들면 풀린다
+    let faceSet = new Set<number>()
+    const faceText = (face: number) => grid?.marks.find((m) => m.face === face)?.text ?? null
+    const pickFace = (face: number | null) => {
+      const opposite = face === null ? [] : oppositeFaces(poly, face)
+      faceSet = new Set(face === null ? [] : [face, ...opposite])
+      callbacksRef.current.onFacePick?.(face === null ? null : { face, text: faceText(face), opposite: opposite.map((f) => ({ face: f, text: faceText(f) })) })
+    }
+    callbacksRef.current.onFacePick?.(null)
     const tree = buildFaceTree(poly, looks.normal.faces, looks.normal.edge)
     layOnFloor(tree, poly) // 전개도를 바닥에 눕힌다. 접으면 면이 위로 일어선다 (docs/specs/viewer.md)
     world.add(tree.root)
@@ -379,7 +393,8 @@ export function ThreeViewer({
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
       for (const { n, mesh } of divisionMarkers) mesh.visible = drawLines && n === edgeDivisions
       if (!drawLines) setFirstPick(null)
-      if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍 고르기를 하지 않는다
+      if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍·면 고르기를 하지 않는다
+      if ((drawLines || viewRef.current.faceMarking) && faceSet.size) pickFace(null) // 선 긋기·면 표시 중에는 마주 보는 면 보기를 끈다
       for (const line of [...hiddenEdges, ...hiddenLines]) line.visible = showHiddenEdges
       if (!showMatchingEdges) picked = null
       pairEdges.forEach((pair, k) =>
@@ -418,7 +433,7 @@ export function ThreeViewer({
       }
       for (const n of tree.nodes) {
         // 잘못된 전개도는 다 접힌 쪽(접기 90% 이상)에서 겹친 면을 빨갛게. 색칠한 면은 평소 색 대신 색칠 색
-        const base = overlapFaces.has(n.face) && unfold <= 0.1 ? looks.overlap : filledFaces.has(n.face) ? looks.filled : looks.normal
+        const base = faceSet.has(n.face) ? looks.opposite : overlapFaces.has(n.face) && unfold <= 0.1 ? looks.overlap : filledFaces.has(n.face) ? looks.filled : looks.normal
         const { faces, edge } = active === null ? base : n.face === active ? looks.active : looks.faded
         n.mesh.material = faces
         ;(n.mesh.children[0] as THREE.LineLoop).material = edge
@@ -489,9 +504,17 @@ export function ThreeViewer({
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
       if (viewRef.current.drawLines) return pickLinePoint(e.clientX - rect.left, e.clientY - rect.top, rect)
       const targets = [...faceTargets, ...vertexTargets, ...(viewRef.current.showMatchingEdges ? pairTargets : [])]
-      const { vertex = null, pair = null } = raycaster.intersectObjects(targets, false)[0]?.object.userData ?? {}
+      const { vertex = null, pair = null, face = null } = raycaster.intersectObjects(targets, false)[0]?.object.userData ?? {}
       pickedVertex = vertex === null || vertex === pickedVertex ? null : vertex
       picked = pair === null || pair === picked ? null : pair
+      // 면 가운데(꼭짓점·모서리 쌍이 아닌 곳)를 누르면 마주 보는 면 보기. 같은 면을 다시 누르면 풀린다
+      const onFace = vertex === null && pair === null ? face : null
+      // 면 표시 모드: 누른 면의 전개도 칸을 알린다 (학습지 전개도 grid 만, UI가 표시를 쓴다)
+      if (viewRef.current.faceMarking) {
+        if (onFace !== null && grid) callbacksRef.current.onFaceMark?.(grid.netFaces[onFace])
+        return apply()
+      }
+      pickFace(onFace === null || (faceSet.has(onFace) && [...faceSet][0] === onFace) ? null : onFace)
       apply()
     }
     // 선 긋기: 누른 면에서 가장 가까운 고를 수 있는 점 (도형 크기의 6% 안). 두 점이 같은 면 위면 선분 하나,
@@ -534,7 +557,7 @@ export function ThreeViewer({
       if (same) return onDrawState?.('idle') // 같은 점을 다시 누르면 풀린다
       // 같은 면이면 선분 하나, 다른 면이면 길 후보 중 가장 짧은 길. 후보 목록은 UI의 "다른 길" 버튼이 쓴다
       const sameFace = !!placeLines(poly, [{ from: first.point, to: pick.point }])[0]
-      const routes = sameFace ? [] : surfaceRoutes(poly, first.point, pick.point).map((r) => r.lines)
+      const routes = sameFace ? [] : surfaceRoutes(poly, first.point, pick.point, Infinity).map((r) => r.lines) // 길 후보 전부 (짧은 순)
       const added = sameFace ? [{ from: first.point, to: pick.point }] : routes[0]
       if (!added) return onDrawState?.('no-path')
       const current = sceneRef.current

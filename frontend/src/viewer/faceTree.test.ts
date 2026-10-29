@@ -2,7 +2,7 @@
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
 import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
-import { foldOrderOf, foldStepCount, matchingEdges, netCheck, polyhedronOf, type Polyhedron } from './polyhedra.ts'
+import { foldOrderOf, foldStepCount, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import type { GridNet, Line, NetFace, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 
@@ -210,6 +210,18 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   const wrong = netCheck(scene({ layout: 'grid', faces: [sq(0, 1), sq(1, 1), sq(2, 1), sq(3, 1), sq(0, 0), sq(1, 0)] }))!
   check(!wrong.closed && wrong.overlapFaces.length === 2, `잘못된 전개도는 겹친 면 2개 ${JSON.stringify(wrong)}`)
 
+  // 마주 보는 면: 주사위 숫자 전개도 (위 1, 가운데 줄 2 3 4, 아래 5 6) → 3↔6, 2↔4, 1↔5
+  const dice = polyhedronOf(
+    scene({ layout: 'grid', faces: [sq(1, 0, { text: '1' }), sq(0, 1, { text: '2' }), sq(1, 1, { text: '3' }), sq(2, 1, { text: '4' }), sq(2, 2, { text: '5' }), sq(3, 2, { text: '6' })] }),
+  ) as GridPolyhedron
+  const faceOf = (t: string) => dice.marks.find((m) => m.text === t)!.face
+  const textOf = (f: number) => dice.marks.find((m) => m.face === f)?.text
+  const oppositeText = (t: string) => oppositeFaces(dice, faceOf(t)).map(textOf).join()
+  check(oppositeText('3') === '6' && oppositeText('2') === '4' && oppositeText('1') === '5' && oppositeText('6') === '3', `주사위 마주 보는 면 3↔${oppositeText('3')} 2↔${oppositeText('2')} 1↔${oppositeText('1')}`)
+  // 잘못된 전개도: 겹친 두 면은 서로 마주 보지 않고, 빈 자리(아랫면)와 마주 볼 면은 없다
+  const wrongPoly = polyhedronOf(scene({ layout: 'grid', faces: [sq(0, 1), sq(1, 1), sq(2, 1), sq(3, 1), sq(0, 0), sq(1, 0)] }))!
+  check(wrongPoly.faces.some((_, f) => oppositeFaces(wrongPoly, f).length === 0), '잘못된 전개도에는 마주 보는 면이 없는 면이 있다')
+
   // 전개도 위 선: 왼쪽 면 왼쪽 변 가운데 → 오른쪽 면 오른쪽 변 가운데 (가로로 세 면을 지남). 면마다 잘려 이어진다
   const lined = polyhedronOf({ ...cuboid, net: { ...crossGrid, lines: [{ from: { x: 0, y: 3.5 }, to: { x: 8, y: 3.5 } }] } }) as GridPolyhedron
   const placedNet = placeLines(lined, lined.netLines).map((l) => l!)
@@ -226,4 +238,4 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
 const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }, vertexLabels: [], lines: [], net: { layout: 'default' } }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
-console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보, 학습지 전개도 grid)')
+console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보, 학습지 전개도 grid, 마주 보는 면)')

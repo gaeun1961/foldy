@@ -17,7 +17,13 @@ export interface ViewerProps {
   pageText?: string[] // 책 장면 왼쪽 페이지 글. 첫 줄 제목, 나머지 본문 (UI가 정한다, viewer.md "책 장면")
   onRouteChoices?: (routes: Line<PolyhedronPoint>[][]) => void // 다른 면을 이은 선의 길 후보 (짧은 순, 첫째가 그은 길). 같은 면 선이면 []
   photo?: NetPhoto // 따라 그린 학습지 사진. 전개도 grid 일 때만 책 페이지에 깐다 (viewer.md "책 장면")
+  onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
+  faceMarking?: boolean // 면 표시 모드: 면을 누르면 마주 보는 면 보기 대신 onFaceMark (기본 false)
+  onFaceMark?: (netFace: number) => void // 면 표시 모드에서 누른 면의 scene.net.faces 인덱스 (학습지 전개도 grid 만)
 }
+
+// 누른 면과 다 접었을 때 마주 보는 면. text 는 학습지 전개도 면에 쓰인 글자 (없으면 null)
+export type FacePick = { face: number; text: string | null; opposite: { face: number; text: string | null }[] }
 
 // 전개도 그리기 칸에서 맞춘 사진 위치 (단위: 칸). x, y 가운데, size 사진이 비율대로 들어가는 정사각형 한 변, angle 시계 방향 각도(도)
 export type NetPhoto = { src: string; x: number; y: number; size: number; angle: number }

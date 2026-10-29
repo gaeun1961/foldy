@@ -1,6 +1,7 @@
 // 직접 만들기 검사. 실행: frontend 폴더에서 `npm test`
 import type { ShapeScene } from '../shared/types.ts'
-import { CELL, crossScene, fitToBox, gridScene, overlaps, PHOTO_W, rectOf } from './manualScene.ts'
+import { markFace } from './markFace.ts'
+import { CELL, crossScene, crossToGrid, fitToBox, gridScene, overlaps, PHOTO_W, rectOf } from './manualScene.ts'
 
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
@@ -44,4 +45,15 @@ const near = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]) 
 check(near(at(0.25 * dw, (PHOTO_W - dh) / 2 + 0.5 * dh), [1 * CELL, 2 * CELL]), `네모 왼쪽 위 → 전개도 왼쪽 위 ${JSON.stringify(fit)}`)
 check(near(at(0.75 * dw, (PHOTO_W - dh) / 2 + 0.75 * dh), [9 * CELL, 5 * CELL]), '네모 오른쪽 아래 → 전개도 오른쪽 아래')
 
-console.log('ok: 직접 만들기 (치수로 만들기, 전개도 그리기 → 정육면체·직육면체·잘못된 전개도, 사진 네모에 맞추기)')
+// 면 표시: 쓰기 → 같은 글자 다시 쓰면 지움, 색칠은 켜고 끔, 지우기는 모두
+const plain = { x: 0, y: 0, w: 1, h: 1 }
+const marked = markFace(markFace(plain, '◎'), '색칠')
+check(marked.text === '◎' && marked.fill === true, `면 표시 ${JSON.stringify(marked)}`)
+check(markFace(marked, '◎').text === undefined && markFace(marked, '색칠').fill === undefined, '다시 누르면 지움')
+check(JSON.stringify(markFace(marked, '지우기')) === JSON.stringify(plain) && markFace(marked, '5').text === '5', '지우기, 다른 글자로 바꾸기')
+
+// 십자형 → 같은 모양 grid: 면 6개, 치수는 그대로 (면 표시를 쓰려고)
+const asGrid = crossToGrid(crossScene('cuboid', { width: 4, depth: 2, height: 3 }))
+check(asGrid.net.layout === 'grid' && asGrid.net.faces.length === 6 && JSON.stringify(asGrid.size) === JSON.stringify({ width: 4, depth: 2, height: 3 }), '십자형 → grid')
+
+console.log('ok: 직접 만들기 (치수로 만들기, 전개도 그리기 → 정육면체·직육면체·잘못된 전개도, 사진 네모에 맞추기, 면 표시)')

@@ -82,6 +82,27 @@ export function foldStepCount(scene: ShapeScene) {
 
 // 바른 전개도인지 (viewer.md "전개도 grid"): 다 접었을 때 같은 자리에 겹친 면이 없고, 모든 모서리가 두 면에 하나씩 맞닿으면 닫힌 입체다.
 // overlapFaces 는 같은 자리·같은 방향에 겹친 면들. 면 트리가 없는 도형은 null
+// 다 접었을 때 face 와 마주 보는 면 (viewer.md onFacePick): 평행하고 같은 평면이 아닌 면.
+// 바른 직육면체·정육면체는 하나, 잘못된 전개도는 없거나(그 자리가 빔) 여럿(두 면이 겹침)일 수 있다
+export function oppositeFaces(poly: Polyhedron, face: number): number[] {
+  const plane = (i: number) => {
+    const [a, b, c] = poly.faces[i].vertices.slice(0, 3).map((v) => poly.positions[v])
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
+    const w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]
+    const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]]
+    const len = Math.hypot(n[0], n[1], n[2])
+    return { n: n.map((x) => x / len), a }
+  }
+  const p = plane(face)
+  const dot = (x: number[], y: number[]) => x[0] * y[0] + x[1] * y[1] + x[2] * y[2]
+  return poly.faces.flatMap((_, i) => {
+    if (i === face) return []
+    const q = plane(i)
+    const gap = dot(p.n, [q.a[0] - p.a[0], q.a[1] - p.a[1], q.a[2] - p.a[2]])
+    return Math.abs(dot(p.n, q.n)) > 1 - 1e-6 && Math.abs(gap) > 1e-6 ? [i] : []
+  })
+}
+
 export function netCheck(scene: ShapeScene): { closed: boolean; overlapFaces: number[] } | null {
   const poly = polyhedronOf(scene)
   if (!poly) return null

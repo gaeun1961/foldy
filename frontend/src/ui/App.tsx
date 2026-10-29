@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { foldStepCount, netCheck, Viewer, type DrawState } from '../viewer'
+import { foldStepCount, netCheck, Viewer, type DrawState, type FacePick } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, SHAPE_NAME, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
+import { FaceMarks } from './FaceMarks'
+import { markFace, markHint, type Mark } from './markFace.ts'
 import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
-import { fitToBox, netPhoto, NO_FIT } from './manualScene.ts'
+import { crossToGrid, fitToBox, netPhoto, NO_FIT } from './manualScene.ts'
 import { PhotoUpload } from './PhotoUpload'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 
@@ -15,6 +17,13 @@ const DRAW_HINT: Record<DrawState, string> = {
   idle: '점 두 개를 눌러 선을 그어 보세요',
   picked: '이을 점을 하나 더 눌러 보세요',
   'no-path': '이 두 점은 이을 수 없어요',
+}
+
+// 마주 보는 면 보기 안내 (ui.md 안내 문구)
+function facePickHint({ text, opposite }: FacePick) {
+  if (!opposite.length) return '이 면과 마주 보는 면이 없어요'
+  if (text && opposite.every((o) => o.text)) return `면 ${text} ↔ 면 ${opposite.map((o) => o.text).join(', ')}: 서로 마주 보는 면이에요`
+  return '연보라 두 면이 서로 마주 보는 면이에요'
 }
 
 // 책 장면 왼쪽 페이지 글 (viewer.md "책 장면"): 제목, 치수, 할 일 한 줄
@@ -41,6 +50,10 @@ export default function App() {
   const [foldTarget, setFoldTarget] = useState<{ unfold: number }>()
   const [edgeDivisions, setEdgeDivisions] = useState<2 | 3 | 4>(2)
   const [drawState, setDrawState] = useState<DrawState>('idle')
+  const [facePick, setFacePick] = useState<FacePick | null>(null) // 마주 보는 면 보기: 누른 면
+  const [marking, setMarking] = useState(false) // 면 표시 모드 (선 긋기와 함께 켜지지 않는다)
+  const [mark, setMark] = useState<Mark>('◎')
+  const canMark = scene?.net.layout === 'grid'
   // 한 번 그은 선이 선분 몇 개로 저장됐는지 (면에 걸친 선은 2~3개). 선 지우기는 그은 선 하나를 통째로 지운다
   const [strokes, setStrokes] = useState<number[]>([])
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
@@ -59,7 +72,7 @@ export default function App() {
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
-  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : drawLines ? DRAW_HINT[drawState] : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요' : null
+  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
     <div className="layout">
@@ -81,6 +94,13 @@ export default function App() {
             }}
             onDrawState={setDrawState}
             onRouteChoices={(routes) => setRoute(routes.length > 1 ? { routes, index: 0 } : null)}
+            onFacePick={setFacePick}
+            faceMarking={marking && canMark}
+            onFaceMark={(i) => {
+              if (scene.net.layout !== 'grid') return
+              const faces = scene.net.faces.map((f, k) => (k === i ? markFace(f, mark) : f))
+              setScene({ ...scene, net: { ...scene.net, faces } } as ShapeScene) // 펼침·선은 그대로
+            }}
           />
         )}
         {status && (
@@ -103,6 +123,7 @@ export default function App() {
                 onDrawingChange={(on) => {
                   setDrawLines(on)
                   setDrawState('idle')
+                  if (on) setMarking(false)
                 }}
                 divisions={edgeDivisions}
                 onDivisionsChange={setEdgeDivisions}
@@ -121,6 +142,18 @@ export default function App() {
                   setStrokes(strokes.slice(0, -1))
                   setRoute(null)
                 }}
+              />
+              <FaceMarks
+                on={marking && canMark}
+                enabled={canMark || scene.lines.length === 0}
+                onToggle={(on) => {
+                  setMarking(on)
+                  if (!on) return
+                  setDrawLines(false)
+                  if (!canMark) setScene(crossToGrid(scene)) // 십자형은 면 표시를 못 담아서 같은 모양의 grid 로 바꾼다
+                }}
+                mark={mark}
+                onMark={setMark}
               />
               <details className="view-menu">
                 <summary>보기</summary>
