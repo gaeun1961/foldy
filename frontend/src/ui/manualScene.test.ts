@@ -1,6 +1,6 @@
 // 직접 만들기 검사. 실행: frontend 폴더에서 `npm test`
 import type { ShapeScene } from '../shared/types.ts'
-import { crossScene, gridScene, overlaps, rectOf } from './manualScene.ts'
+import { CELL, crossScene, fitToBox, gridScene, overlaps, PHOTO_W, rectOf } from './manualScene.ts'
 
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
@@ -35,4 +35,13 @@ check(cuboid.shape === 'cuboid' && JSON.stringify(cuboid.size) === JSON.stringif
 // 잘못 그린 전개도도 고치지 않고 그대로 (접히는지·닫히는지는 viewer faceTree.test.ts 가 본다)
 check(gridScene([sq(0, 1), sq(1, 1), sq(2, 1), sq(3, 1), sq(0, 0), sq(1, 0)]).net.layout === 'grid', '잘못 그린 전개도')
 
-console.log('ok: 직접 만들기 (치수로 만들기, 전개도 그리기 → 정육면체·직육면체·잘못된 전개도)')
+// 사진에서 고른 네모 → 사진 위치: 네모 귀퉁이가 전개도 귀퉁이에 온다 (가로로 긴 사진 4:3, 네모와 전개도 비율이 같을 때)
+const fit = fitToBox({ x: 0.25, y: 0.5, w: 0.5, h: 0.25 }, 4 / 3, [{ x: 1, y: 2, w: 8, h: 3 }])
+const c = PHOTO_W / 2
+const at = (u: number, v: number) => [fit.x + c + fit.scale * (u - c), fit.y + c + fit.scale * (v - c)] // 칸의 SVG transform 그대로
+const [dw, dh] = [PHOTO_W, PHOTO_W * 0.75]
+const near = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6
+check(near(at(0.25 * dw, (PHOTO_W - dh) / 2 + 0.5 * dh), [1 * CELL, 2 * CELL]), `네모 왼쪽 위 → 전개도 왼쪽 위 ${JSON.stringify(fit)}`)
+check(near(at(0.75 * dw, (PHOTO_W - dh) / 2 + 0.75 * dh), [9 * CELL, 5 * CELL]), '네모 오른쪽 아래 → 전개도 오른쪽 아래')
+
+console.log('ok: 직접 만들기 (치수로 만들기, 전개도 그리기 → 정육면체·직육면체·잘못된 전개도, 사진 네모에 맞추기)')
