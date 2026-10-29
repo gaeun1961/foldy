@@ -29,7 +29,7 @@ h2 {
   color: #6b7280;
 }
 
-.upload { grid-area: upload; border-right: 1px solid #e5e7eb; }
+.upload { grid-area: upload; border-right: 1px solid #e5e7eb; min-height: 0; overflow-y: auto; }
 .viewer { grid-area: viewer; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 
 /* 3D 뷰 + 상태 배지 + 접기 조작 (docs/specs/ui.md) */
@@ -52,6 +52,29 @@ h2 {
   font-size: 16px;
 }
 .status-badge.done { color: #2e7d4f; font-weight: 700; }
+/* 직접 만들기 (ui.md 화면 배치 3번): 치수로 만들기 · 전개도 그리기 */
+.manual-input { display: grid; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #1f2430; --button-height: 40px; }
+.manual-input h2 { margin: 0; }
+.manual-input .toggle-row button { flex: 1; padding: 0 8px; font-size: 15px; }
+.size-form { display: grid; gap: 10px; }
+.shape-select { display: grid; gap: 6px; font-size: 16px; font-weight: 700; }
+.shape-select select { min-height: 40px; font-size: 16px; }
+.size-form .slider-row { grid-template-columns: 3em 1fr 2.5em; }
+.primary-button, .secondary-button { min-height: 40px; border-radius: 10px; font-size: 16px; cursor: pointer; }
+.primary-button { border: 0; background: #3d6fd9; color: #fff; font-weight: 700; }
+.secondary-button { border: 1px solid #d0d5dd; background: #fff; color: #1f2430; }
+.secondary-button:disabled { opacity: 0.4; cursor: default; }
+.net-drawer { display: grid; gap: 8px; }
+.drawer-help { margin: 0; font-size: 15px; color: #4b5563; }
+.net-drawer svg { width: 100%; height: auto; background: #fff; border: 1px solid #d0d5dd; border-radius: 8px; touch-action: none; cursor: crosshair; }
+.net-drawer .grid-line { stroke: #e4ded4; stroke-width: 1; }
+.net-drawer .net-face { fill: #e3f1fb; stroke: #3c4048; stroke-width: 1.5; }
+.net-drawer .net-face.fill { fill: #cfe3c4; }
+.net-drawer .net-face-text { font-size: 12px; text-anchor: middle; dominant-baseline: central; fill: #3c4048; pointer-events: none; }
+.net-drawer .net-preview { fill: rgb(61 111 217 / 25%); stroke: #3d6fd9; stroke-dasharray: 4 3; }
+.net-drawer .net-preview.blocked { fill: rgb(201 42 42 / 20%); stroke: #c92a2a; }
+.upload-status a { color: inherit; font-weight: 700; }
+
 /* 학습지 사진 올리기 (ui.md 화면 배치 2번) */
 .photo-upload { display: grid; gap: 10px; }
 .upload-button {

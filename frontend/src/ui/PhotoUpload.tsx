@@ -46,7 +46,7 @@ export function PhotoUpload({ onScene }: { onScene: (scene: ShapeScene) => void 
           <>
             {state.message}
             <br />
-            아래에서 도형을 직접 골라 보세요
+            <a href="#manual-input">아래에서 전개도를 직접 만들어 보세요</a>
           </>
         )}
       </p>

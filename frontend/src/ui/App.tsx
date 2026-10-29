@@ -5,6 +5,7 @@ import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { LineControls } from './LineControls'
+import { ManualInput } from './ManualInput'
 import { PhotoUpload } from './PhotoUpload'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 
@@ -47,7 +48,7 @@ export default function App() {
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
-  const hint = !scene ? '학습지 사진을 올리면 도형이 나타나요' : playing ? null : drawLines ? DRAW_HINT[drawState] : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요' : null
+  const hint = !scene ? '학습지 사진을 올리거나 왼쪽에서 직접 만들어 보세요' : playing ? null : drawLines ? DRAW_HINT[drawState] : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요' : null
 
   return (
     <div className="layout">
@@ -55,6 +56,15 @@ export default function App() {
       <section className="upload">
         <h2>학습지 사진</h2>
         <PhotoUpload onScene={loadScene} />
+        <ManualInput
+          scene={scene}
+          onScene={(next, how) => {
+            if (!next) return setScene(null)
+            // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
+            if (how === 'size' && scene) return setScene(next)
+            loadScene(next)
+          }}
+        />
       </section>
       <main className="viewer">
         <div className="viewer-canvas">
