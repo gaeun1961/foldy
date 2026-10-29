@@ -9,6 +9,7 @@
 
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
+- **TODO-14** [전체 화면 디자인 정리](14-screen-design.md) · [#20](https://github.com/gaeun1961/foldy/issues/20) — UI: 업로드·직접 만들기·뷰어·챗봇이 한 화면에서 자연스럽게 이어지게 (책 펼침 화면 방향 검토)
 - **TODO-35** [찍은 사진 위에 3D 전개도를 겹쳐 그 자리에서 접기](35-photo-overlay-fold.md) · [#70](https://github.com/gaeun1961/foldy/issues/70) — 3D/AI: 학습지 사진 위에 3D 전개도를 겹쳐 그 자리에서 접는다
 - **TODO-26** [직육면체 부피 시각화](26-cuboid-volume.md) · [#41](https://github.com/gaeun1961/foldy/issues/41) — 3D: 단위 정육면체를 한 층씩 쌓아 가로×세로×높이를 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-25** [직육면체 겉넓이 시각화](25-cuboid-surface-area.md) · [#40](https://github.com/gaeun1961/foldy/issues/40) — 3D: 마주 보는 면 쌍을 차례로 칠하고 2×(ab+bc+ca)를 보여준다 (1차 다른 TODO보다 뒤)
@@ -21,7 +22,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 담당자 |
 |---|---|---|
-| **TODO-12** [수동 입력: 도형 드롭다운 + 치수 슬라이더 + 전개도 그리기](12-manual-input-form.md) | [#18](https://github.com/gaeun1961/foldy/issues/18) | gaeun1961 |
+| (없음) | | |
 
 ## 1차 남은 일
 
@@ -29,7 +30,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 선행 |
 |---|---|---|
-| **TODO-14** [전체 화면 디자인 정리](14-screen-design.md) | [#20](https://github.com/gaeun1961/foldy/issues/20) | TODO-11, TODO-12, TODO-13 |
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | TODO-8, TODO-10, TODO-14 |
 | **TODO-29** [닮은 직육면체의 겉넓이비·부피비](29-similar-ratio.md) (1차 다른 TODO보다 뒤) | [#45](https://github.com/gaeun1961/foldy/issues/45) | TODO-25, TODO-26 |
 

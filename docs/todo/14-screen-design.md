@@ -5,7 +5,7 @@
 - 에이전트: Claude Code
 - 영역: UI·통합
 - 이슈: [#20](https://github.com/gaeun1961/foldy/issues/20) (작업 전 assignee 지정)
-- 선행 TODO: TODO-11 (완료, [리포트](../reports/T11-upload-analyze.md)), TODO-12 `12-manual-input-form.md` ([#18](https://github.com/gaeun1961/foldy/issues/18)), TODO-13 `13-chat-ui.md` ([#19](https://github.com/gaeun1961/foldy/issues/19))
+- 선행 TODO: TODO-11 (완료, [리포트](../reports/T11-upload-analyze.md)), TODO-12 (완료, [리포트](../reports/T12-manual-input.md)), TODO-13 (완료, [리포트](../reports/T13-chat-ui.md))
 
 > 시작 전에 위 이슈에 자기 자신을 assignee로 지정합니다. 브랜치와 PR은 이 이슈 번호를 씁니다 (`Closes #N`).
 > 완료된 TODO는 이 파일을 삭제하고, `docs/reports/`에 작업 기록을 남깁니다.
