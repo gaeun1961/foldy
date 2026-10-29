@@ -76,13 +76,13 @@ function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scen
 }
 
 // ② 전개도 그리기: 칸 위를 끌어서 직사각형 면을 그린다. 면을 누르면 지운다. 다른 면과 겹치게는 못 그린다.
-// 칸은 12 × 9, 사진 인식 전개도가 더 크면 그만큼 늘린다
+// 칸은 12 × 9부터. 면이 오른쪽·아래 끝 가까이 오면 늘 2칸씩 여유가 남게 늘어난다 (칸이 모자라지 않게)
 const CELL = 20 // SVG 안 칸 크기 (화면에서는 폭에 맞게 늘어난다)
 
 function NetDrawer({ scene, onScene }: { scene: ShapeScene | null; onScene: (scene: ShapeScene | null) => void }) {
   const faces: NetFace[] = scene?.net.layout === 'grid' ? scene.net.faces : []
-  const COLS = Math.max(12, ...faces.map((f) => Math.ceil(f.x + f.w)))
-  const ROWS = Math.max(9, ...faces.map((f) => Math.ceil(f.y + f.h)))
+  const COLS = Math.max(12, ...faces.map((f) => Math.ceil(f.x + f.w) + 2))
+  const ROWS = Math.max(9, ...faces.map((f) => Math.ceil(f.y + f.h) + 2))
   const [drag, setDrag] = useState<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null)
   const svg = useRef<SVGSVGElement>(null)
 
