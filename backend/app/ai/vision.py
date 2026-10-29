@@ -6,6 +6,7 @@ analyze_image(): /analyze 가 부른다. 아직 목 데이터를 돌려준다. r
 
 import os
 
+import httpx
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
@@ -54,8 +55,9 @@ def recognize(image: bytes, content_type: str, model: str = MODEL) -> ShapeScene
             ),
         )
         return ShapeScene.model_validate_json(response.text or "")
-    except (genai.errors.APIError, ValidationError) as e:
-        raise VisionError(str(e)) from e
+    # 시간 초과는 genai 가 httpx 예외 그대로 올린다
+    except (genai.errors.APIError, ValidationError, httpx.TimeoutException) as e:
+        raise VisionError(f"{type(e).__name__}: {e}") from e
 
 
 def analyze_image(image: bytes, content_type: str) -> ShapeScene:
