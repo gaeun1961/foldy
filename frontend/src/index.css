@@ -52,6 +52,10 @@ h2 {
   font-size: 16px;
 }
 .status-badge.done { color: #2e7d4f; font-weight: 700; }
+/* 예시 전개도 고르기 (업로드 영역, 사진 업로드 전까지) */
+.sample-picker { display: grid; gap: 6px; margin-top: 12px; font-size: 16px; color: #1f2430; }
+.sample-picker select { min-height: 40px; font-size: 16px; }
+.status-badge.wrong { color: #c92a2a; font-weight: 700; } /* 잘못 그린 전개도 (ui.md 상태 배지) */
 
 /* 3D 뷰 아래쪽 안내 한 줄 (ui.md 바꿀 것 "안내 문구") */
 .viewer-hint {

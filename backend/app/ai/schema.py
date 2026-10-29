@@ -121,6 +121,37 @@ class CrossNet(BaseModel):
     layout: Literal["cross"]
 
 
+# 학습지 전개도 그대로 (docs/specs/shape-scene.md "전개도 grid"). 평면 좌표: x 오른쪽, y 아래, 단위는 size 와 같음
+class NetPoint(BaseModel):
+    x: float
+    y: float
+
+
+class NetFace(BaseModel):
+    x: float  # 왼쪽 위
+    y: float
+    w: Positive
+    h: Positive
+    text: str | None = None  # 면에 쓴 글자·숫자
+    fill: bool | None = None  # 색칠한 면
+
+
+class CornerLabel(NetPoint):
+    text: str  # 전개도 꼭짓점 라벨, 복사본마다
+
+
+class NetLine(_Line):
+    from_: NetPoint = Field(alias="from")
+    to: NetPoint
+
+
+class GridNet(BaseModel):
+    layout: Literal["grid"]
+    faces: Annotated[list[NetFace], Field(min_length=1)]
+    cornerLabels: list[CornerLabel] = []
+    lines: list[NetLine] = []  # 전개도 위 선. 끝점은 면의 변 위
+
+
 class DefaultNet(BaseModel):
     layout: Literal["default"]
 
@@ -160,9 +191,11 @@ class _Scene(BaseModel):
         if len(self.vertexLabels) != n:
             raise ValueError(f"{self.shape} 의 vertexLabels 는 {n}개여야 한다")
         seam = getattr(self.net, "seam", 0)
+        # grid 전개도의 꼭짓점 번호는 뷰어가 접어서 만든 번호라 0~7 을 넘을 수 있다 (잘못 그린 전개도)
+        grid = getattr(self.net, "layout", None) == "grid"
         for line in self.lines:
             for p in (line.from_, line.to):
-                if any(i >= n for i in _vertices(p)):
+                if not grid and any(i >= n for i in _vertices(p)):
                     raise ValueError(f"{self.shape} 의 꼭짓점 인덱스는 0~{n - 1}")
                 if any(not seam <= a <= seam + 360 for a in _angles(p)):
                     raise ValueError(f"각도는 seam({seam}) ~ seam + 360 사이")
@@ -173,14 +206,14 @@ class CuboidScene(_Scene):
     shape: Literal["cuboid"]
     size: BoxSize
     lines: list[PolyhedronLine]
-    net: CrossNet
+    net: CrossNet | GridNet
 
 
 class CubeScene(_Scene):
     shape: Literal["cube"]
     size: EdgeSize
     lines: list[PolyhedronLine]
-    net: CrossNet
+    net: CrossNet | GridNet
 
 
 class RegularPolyhedronScene(_Scene):

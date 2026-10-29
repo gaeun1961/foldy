@@ -4,7 +4,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes } from './faceTree.ts'
-import { foldOrderOf, matchingEdges, polyhedronOf, type Vec3 } from './polyhedra.ts'
+import type { GridPolyhedron } from './gridNet.ts'
+import { foldOrderOf, matchingEdges, netCheck, polyhedronOf, type Vec3 } from './polyhedra.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
@@ -116,7 +117,13 @@ export function ThreeViewer({
       normal: look('#ffffff', '#e3f1fb', '#3c4048'),
       active: look('#ffe8a8', '#ffd982', '#3c4048'),
       faded: look('#f1eee8', '#ebe8e2', '#b9bdc4'),
+      filled: look('#cfe3c4', '#cfe3c4', '#3c4048'), // 학습지에서 색칠한 면 (grid fill)
+      overlap: look('#ffc9c9', '#ffc9c9', '#3c4048'), // 잘못된 전개도에서 겹친 면 (다 접힌 쪽에서만)
     }
+    // 학습지 전개도(grid)면 라벨·면 표시·전개도 위 선이 같이 온다 (viewer.md "전개도 grid")
+    const grid = 'cornerLabels' in poly ? (poly as GridPolyhedron) : null
+    const filledFaces = new Set(grid?.marks.flatMap((m) => (m.fill ? [m.face] : [])))
+    const overlapFaces = new Set(netCheck(scene)?.overlapFaces ?? [])
     const tree = buildFaceTree(poly, looks.normal.faces, looks.normal.edge)
     layOnFloor(tree, poly) // 전개도를 바닥에 눕힌다. 접으면 면이 위로 일어선다 (docs/specs/viewer.md)
     world.add(tree.root)
@@ -170,8 +177,9 @@ export function ThreeViewer({
       }
       tubes = []
       hiddenLines = []
-      placeLines(poly, lines as Line<PolyhedronPoint>[]).forEach((placed, k) => {
-        if (!placed) return console.warn(`foldy: lines[${k}] 의 두 끝점이 같은 면 위에 없어서 그리지 않습니다`, lines[k])
+      const all = [...(grid?.netLines ?? []), ...(lines as Line<PolyhedronPoint>[])] // 학습지 전개도 위 선 + 선 긋기로 더한 선
+      placeLines(poly, all).forEach((placed, k) => {
+        if (!placed) return console.warn(`foldy: 선분 ${k} 의 두 끝점이 같은 면 위에 없어서 그리지 않습니다`, all[k])
         const [from, to] = [new THREE.Vector3(...placed.from), new THREE.Vector3(...placed.to)]
         // 양 끝을 굵기만큼 줄인다. 꼭짓점·모서리에서 끝나는 선이 접은 입체 밖으로 삐져나오지 않게
         const length = Math.max(0, from.distanceTo(to) - 2 * radius * 0.01)
@@ -304,6 +312,36 @@ export function ThreeViewer({
     }
     let pickedVertex: number | null = null // 누른 꼭짓점. 뷰어 안 상태
 
+    // 학습지 전개도 꼭짓점 라벨: 복사본마다 다른 글자라 (면, 꼭짓점)마다 Sprite 하나. 문제 풀이에 필요해서 한글도 보인다 (ui.md "라벨")
+    const cornerMaterials = (grid?.cornerLabels ?? []).map(({ face, vertex, text }) => {
+      const material = pullTowardCamera(new THREE.SpriteMaterial({ map: labelTexture(text), color: '#3c4048', depthWrite: false }), labelPull)
+      const sprite = new THREE.Sprite(material)
+      sprite.position.set(...poly.positions[vertex])
+      sprite.center.set(-0.1, -0.1)
+      sprite.renderOrder = 3
+      sprite.scale.setScalar(radius * 0.12)
+      tree.nodes[face].mesh.add(sprite)
+      return { material, sprite }
+    })
+    // 면에 쓴 글자: 면 가운데에 글자 판을 바깥·안쪽에 하나씩 (학습지에 인쇄된 쪽은 접으면 안쪽이 되므로 양쪽에서 읽히게)
+    const textMaterials = (grid?.marks ?? []).flatMap(({ face, text }) => {
+      if (!text) return []
+      const pts = poly.faces[face].vertices.map((v) => new THREE.Vector3(...poly.positions[v]))
+      const center = pts.reduce((c, p) => c.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length)
+      const normal = new THREE.Vector3().crossVectors(pts[1].clone().sub(pts[0]), pts[2].clone().sub(pts[0])).normalize()
+      const up = pts[0].clone().sub(pts[3]).normalize() // 전개도에서 위쪽 (왼쪽 아래 → 왼쪽 위)
+      const size = Math.min(pts[0].distanceTo(pts[1]), pts[0].distanceTo(pts[3])) * 0.6
+      const material = new THREE.MeshBasicMaterial({ map: labelTexture(text), color: '#3c4048', transparent: true, depthWrite: false })
+      for (const n of [normal, normal.clone().negate()]) {
+        const plate = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material)
+        plate.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(up.clone().cross(n), up, n))
+        plate.position.copy(center).addScaledVector(n, radius * 0.003)
+        plate.renderOrder = 1
+        tree.nodes[face].mesh.add(plate)
+      }
+      return [material]
+    })
+
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
     let active: number | null = null
     const apply = () => {
@@ -336,6 +374,7 @@ export function ThreeViewer({
           label.scale.setScalar(radius * (big ? 0.15 : 0.12))
         }
       }
+      for (const { sprite } of cornerMaterials) sprite.visible = showVertexLabels
       if (foldMode === 'step') {
         const values = stepUnfold(order, poly.faces.length, unfold)
         applyUnfold(tree, values)
@@ -347,7 +386,9 @@ export function ThreeViewer({
         active = null
       }
       for (const n of tree.nodes) {
-        const { faces, edge } = active === null ? looks.normal : n.face === active ? looks.active : looks.faded
+        // 잘못된 전개도는 다 접힌 쪽(접기 90% 이상)에서 겹친 면을 빨갛게. 색칠한 면은 평소 색 대신 색칠 색
+        const base = overlapFaces.has(n.face) && unfold <= 0.1 ? looks.overlap : filledFaces.has(n.face) ? looks.filled : looks.normal
+        const { faces, edge } = active === null ? base : n.face === active ? looks.active : looks.faded
         n.mesh.material = faces
         ;(n.mesh.children[0] as THREE.LineLoop).material = edge
       }
@@ -370,13 +411,13 @@ export function ThreeViewer({
 
     // 바닥: 옅은 격자 + 그림자만 받는 투명한 판. 전개도와 겹쳐 깜빡이지 않게 아주 조금 아래에 둔다
     const floorY = -radius * 0.002
-    const grid = new THREE.GridHelper(Math.ceil(radius * 8), Math.ceil(radius * 8), '#e4ded4', '#e4ded4')
-    grid.position.set(center.x, floorY, center.z)
+    const floorGrid = new THREE.GridHelper(Math.ceil(radius * 8), Math.ceil(radius * 8), '#e4ded4', '#e4ded4')
+    floorGrid.position.set(center.x, floorY, center.z)
     const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(radius * 8, radius * 8), new THREE.ShadowMaterial({ opacity: 0.12 }))
     shadowFloor.rotation.x = -Math.PI / 2
     shadowFloor.position.set(center.x, floorY, center.z)
     shadowFloor.receiveShadow = true
-    world.add(grid, shadowFloor)
+    world.add(floorGrid, shadowFloor)
 
     // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
@@ -487,14 +528,18 @@ export function ThreeViewer({
       controls.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
-      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial, shadowFloor.material, grid.material]) m.dispose()
+      for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial, shadowFloor.material, floorGrid.material]) m.dispose()
+      for (const m of [...cornerMaterials.map((c) => c.material), ...textMaterials]) {
+        m.map?.dispose()
+        m.dispose()
+      }
       for (const m of labelMaterials) {
         m?.map?.dispose()
         m?.dispose()
       }
       for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry, divisionGeometry, pickMarker.geometry]) g.dispose()
       shadowFloor.geometry.dispose()
-      grid.geometry.dispose()
+      floorGrid.geometry.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
       container.removeChild(renderer.domElement)
