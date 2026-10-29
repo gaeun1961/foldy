@@ -31,5 +31,5 @@ frontend·backend 기술 스택과, 어느 영역에서든 지켜야 하는 공�
 - 비전 LLM은 사진을 ShapeScene JSON으로 바꾸고, 결과는 `ShapeScene.model_validate`로 검증한다. 인식에 실패하면 사용자가 도형·치수를 직접 입력하는 **수동 경로**가 반드시 있어야 한다
 - 비전 LLM 연결 위치는 `backend/app/ai/vision.py`의 `analyze_image`, 챗봇 연결 위치는 `backend/app/ai/chat.py`의 `reply`다. `backend/app/api/`의 라우터는 이 함수들을 부르기만 한다
 - **뷰어는 인터페이스 뒤에 숨긴다**. UI는 `frontend/src/viewer/index.ts`의 `Viewer`와 `ViewerProps`만 사용하고, 구현을 바꿀 때는 이 파일의 export 한 줄만 교체한다
-- AI 기능이 붙기 전에는 목 데이터를 쓴다. frontend는 `frontend/src/shared/mock.ts`, backend는 `backend/app/ai/vision.py`의 `MOCK_SCENE`이며, 둘은 같은 내용을 유지한다
+- frontend에는 목 데이터가 없다 (TODO-11). 도형은 사진 인식(`/analyze`) 결과나 수동 입력(TODO-12)으로만 생긴다. backend `vision.py`의 `MOCK_SCENE`은 검사(`tests/`)와 비전 연결 전(TODO-8)용이다
 - CORS는 Vite 개발 서버(`http://localhost:5173`, `http://127.0.0.1:5173`)만 허용한다

@@ -9,7 +9,6 @@
 
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
-- **TODO-11** [사진 업로드 → /analyze 호출 → 뷰어 반영 (목 데이터 제거)](11-upload-analyze.md) · [#17](https://github.com/gaeun1961/foldy/issues/17) — UI: 사진을 올리면 backend 결과로 뷰어를 그린다
 - **TODO-8** [/analyze에 비전 LLM 연결, 실패 시 에러 응답](08-analyze-vision-llm.md) · [#14](https://github.com/gaeun1961/foldy/issues/14) — AI: 사진을 올리면 Gemini 인식 결과를 돌려주고, 실패하면 수동 입력으로 안내한다
 - **TODO-12** [수동 입력: 도형 드롭다운 + 치수 슬라이더](12-manual-input-form.md) · [#18](https://github.com/gaeun1961/foldy/issues/18) — UI: 인식이 틀렸을 때 도형과 치수를 바로 고친다
 - **TODO-26** [직육면체 부피 시각화](26-cuboid-volume.md) · [#41](https://github.com/gaeun1961/foldy/issues/41) — 3D: 단위 정육면체를 한 층씩 쌓아 가로×세로×높이를 보여준다 (1차 다른 TODO보다 뒤)

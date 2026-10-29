@@ -27,3 +27,16 @@ export async function chat(message: string, scene: ShapeScene): Promise<ChatAnsw
   if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : '답변을 가져오지 못했어요')
   return body
 }
+
+// 학습지 사진 → ShapeScene (api.md /analyze). 실패하면 backend 의 안내 문구(detail)를 담은 Error 를 던진다
+export async function analyze(photo: File): Promise<ShapeScene> {
+  const form = new FormData()
+  form.append('file', photo)
+  const res = await fetch(`${API_URL}/analyze`, { method: 'POST', body: form }).catch((e) => {
+    console.error('backend 연결 실패', API_URL, e) // 개발자용. 학생에게는 아래 문구
+    throw new Error('사진을 보내지 못했어요. 잠시 뒤 다시 올려 주세요')
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : '사진에서 도형을 찾지 못했어요')
+  return body
+}
