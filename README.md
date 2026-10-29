@@ -35,6 +35,7 @@ ruff check .
 ruff format --check .
 python -m tests.test_schema
 python -m tests.test_chat
+python -m tests.test_vision_eval
 ```
 
 ## 일하는 방식

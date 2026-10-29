@@ -30,7 +30,8 @@ foldy
 │  │  ├─ main.py                     # FastAPI 앱, CORS, 라우터 등록
 │  │  ├─ api                         # 라우터
 │  │  └─ ai                          # 사진 인식, 챗봇, ShapeScene 스키마
-│  └─ tests                          # 검사 스크립트 (python -m tests.test_schema, test_chat)
+│  ├─ tests                          # 검사 스크립트 (python -m tests.test_schema, test_chat, test_vision_eval)
+│  └─ evals                          # 비전 LLM 정확도 측정 (사진은 git 에 안 올림)
 └─ docs                              # 기준 문서
    ├─ 01-folder-architecture.md
    ├─ 02-specs.md                    # specs 목차 ("이런 작업이면 이 파일")
@@ -64,9 +65,10 @@ foldy
 | `frontend/lab/` | 실험용 페이지. 서비스 화면과 분리된 HTML + TS 파일로, `npm run dev` 중 `http://localhost:5173/lab/{파일}.html`로 연다. `npm run build`에는 들어가지 않는다. `src/`의 코드를 import할 수 있지만 `src/`는 `lab/`을 import하지 않는다. 지금은 `geogebra.html`(TODO-1 GeoGebra 실험 기록. **실험용이며 서비스에 쓰지 않음**, 3D는 three.js로 결정) |
 | `frontend/src/ui/` | 화면 구성과 backend 연결. `App.tsx`(업로드 / 뷰어 / 챗봇 배치), `api.ts`(backend 주소와 호출, `/chat`), `ChatPanel.tsx`(챗봇 아이콘·대화창). 사진 업로드, 수동 입력 폼 |
 | `frontend/src/shared/` | 공용 코드. `types.ts`(ShapeScene 타입), `mock.ts`(목 데이터, 학습지 전개도 예시 `sampleScenes`). ShapeScene 변경은 이슈로 합의 |
-| `backend/app/ai/` | LLM 관련 코드. `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `chat.py`(챗봇 답변), 프롬프트 |
+| `backend/app/ai/` | LLM 관련 코드. `schema.py`(ShapeScene Pydantic), `vision.py`(사진 → ShapeScene), `vision_prompt.py`(비전 프롬프트), `chat.py`(챗봇 답변과 프롬프트) |
+| `backend/evals/` | 비전 LLM 정확도 측정 (TODO-7). `vision_eval.py`(`python -m evals.vision_eval [--model 이름]`, LLM을 실제로 부름), `answers.json`(사진별 정답 ShapeScene). `photos/`(학습지 사진)와 `results/`는 저작권·용량 때문에 git에 올리지 않는다 |
 | `backend/app/api/` | 라우터. `routes.py`(`/health`, `/analyze`, `/chat`). `ai/` 함수를 부르기만 한다 |
-| `backend/tests/` | 테스트 프레임워크 없이 돌리는 검사 스크립트. `test_schema.py`(ShapeScene 도형별 검증), `test_chat.py`(챗봇 화면 조작 값 거르기, LLM 호출 없음) |
+| `backend/tests/` | 테스트 프레임워크 없이 돌리는 검사 스크립트. `test_schema.py`(ShapeScene 도형별 검증), `test_chat.py`(챗봇 화면 조작 값 거르기, LLM 호출 없음), `test_vision_eval.py`(비전 정확도 비교 함수, LLM 호출 없음) |
 | `docs/` | 기준 문서(01·02·03, `specs/`), 디자인 참고(`design/`), 작업 기록(`reports/`), TODO(`todo/`) |
 | `.github/` | GitHub 설정. `pull_request_template.md`(커밋·PR 본문 형식) |
 
