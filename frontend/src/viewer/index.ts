@@ -16,7 +16,11 @@ export interface ViewerProps {
   onDrawState?: (state: DrawState) => void // 선 긋기 진행 상태 (안내 문구용)
   pageText?: string[] // 책 장면 왼쪽 페이지 글. 첫 줄 제목, 나머지 본문 (UI가 정한다, viewer.md "책 장면")
   onRouteChoices?: (routes: Line<PolyhedronPoint>[][]) => void // 다른 면을 이은 선의 길 후보 (짧은 순, 첫째가 그은 길). 같은 면 선이면 []
+  photo?: NetPhoto // 따라 그린 학습지 사진. 전개도 grid 일 때만 책 페이지에 깐다 (viewer.md "책 장면")
 }
+
+// 전개도 그리기 칸에서 맞춘 사진 위치 (단위: 칸). x, y 가운데, size 사진이 비율대로 들어가는 정사각형 한 변, angle 시계 방향 각도(도)
+export type NetPhoto = { src: string; x: number; y: number; size: number; angle: number }
 
 // idle: 첫 점을 기다림 / picked: 첫 점을 고름 / no-path: 겉면으로 이을 길을 찾지 못해 긋지 않음 (드묾)
 export type DrawState = 'idle' | 'picked' | 'no-path'

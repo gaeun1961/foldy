@@ -60,6 +60,7 @@ export function ThreeViewer({
   highlightVertices = [],
   drawLines = false,
   pageText = [],
+  photo,
   edgeDivisions = 2,
   onSceneChange,
   onDrawState,
@@ -87,11 +88,11 @@ export function ThreeViewer({
     sceneRef.current = scene
     drawSceneLinesRef.current?.(scene.lines)
   }, [scene])
-  const shapeKey = JSON.stringify({ ...scene, lines: undefined, pageText }) // lines 를 뺀 도형과 책 페이지 글. 이것이 바뀔 때만 다시 만든다
-  const pageTextRef = useRef(pageText)
+  const shapeKey = JSON.stringify({ ...scene, lines: undefined, pageText, photo }) // lines 를 뺀 도형과 책 페이지(글·사진). 이것이 바뀔 때만 다시 만든다
+  const pageRef = useRef({ pageText, photo })
   useEffect(() => {
-    pageTextRef.current = pageText // 아래 다시 만들기 effect 보다 먼저 돈다
-  }, [pageText])
+    pageRef.current = { pageText, photo } // 아래 다시 만들기 effect 보다 먼저 돈다
+  }, [pageText, photo])
 
   useEffect(() => {
     const scene = sceneRef.current
@@ -150,7 +151,29 @@ export function ThreeViewer({
     const center = bounds.getCenter(new THREE.Vector3())
     const radius = bounds.getBoundingSphere(new THREE.Sphere()).radius
     applyUnfold(tree, 1)
-    const flatNet = new THREE.Box3().setFromObject(tree.root) // 다 펼친 전개도 범위. 책 페이지 크기를 정한다
+    const flatNet = new THREE.Box3().setFromObject(tree.root) // 다 펼친 전개도 범위(+ 사진). 책 페이지 크기를 정한다
+
+    // 학습지 사진 (viewer.md "책 장면"): 전개도 grid 좌표 (x, y) = tree.root 안의 (x, −y, 0). 루트의 자식이라 접혀도 바닥에 남는다.
+    // 사진은 정사각형 안에 비율대로 들어간다 (전개도 그리기 칸의 SVG image 와 같게). 페이지는 그 정사각형까지 담게 늘린다
+    const pic = grid ? pageRef.current.photo : undefined
+    const photoMesh = pic ? new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })) : null
+    if (pic && photoMesh) {
+      photoMesh.position.set(pic.x, -pic.y, 0)
+      photoMesh.rotation.set(0, 0, -THREE.MathUtils.degToRad(pic.angle)) // 칸에서 시계 방향 = 위에서 볼 때 시계 방향
+      photoMesh.scale.setScalar(pic.size)
+      photoMesh.receiveShadow = true
+      tree.root.add(photoMesh)
+      tree.root.updateMatrixWorld(true)
+      for (const [x, y] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) flatNet.expandByPoint(photoMesh.localToWorld(new THREE.Vector3(x, y, 0)))
+      new THREE.TextureLoader().load(pic.src, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace
+        texture.anisotropy = 8
+        const aspect = texture.image.width / texture.image.height
+        photoMesh.scale.set(pic.size * Math.min(1, aspect), pic.size * Math.min(1, 1 / aspect), 1)
+        photoMesh.material.map = texture
+        photoMesh.material.needsUpdate = true
+      })
+    }
 
     // 회전축 모서리를 굵게: 붙는 모서리를 따라 가는 원기둥. pivot 에 붙이면 축 위에 있어서 회전해도 그 자리다
     const barMaterial = new THREE.MeshBasicMaterial({ color: '#3c4048' })
@@ -406,7 +429,8 @@ export function ThreeViewer({
     applyRef.current = apply
 
     // 책 장면: 바닥(y = 0)이 펼친 책의 오른쪽 페이지다 (viewer.md "책 장면")
-    const book = buildBook(flatNet, radius, pageTextRef.current)
+    const book = buildBook(flatNet, radius, pageRef.current.pageText)
+    photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
     world.add(book.group)
     world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22) // 멀리 있는 책상은 흐리게
 
@@ -547,6 +571,8 @@ export function ThreeViewer({
       }
       for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry, divisionGeometry, pickMarker.geometry]) g.dispose()
       book.dispose()
+      photoMesh?.material.map?.dispose()
+      photoMesh?.material.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
       container.removeChild(renderer.domElement)

@@ -1,5 +1,6 @@
 // 직접 만들기 (docs/specs/ui.md 화면 배치 3번): 치수로 만들기 · 전개도 그리기 → ShapeScene. 사진 인식(LLM) 없이 쓰는 기본 길
 import type { BoxSize, EdgeSize, NetFace, ShapeScene } from '../shared/types.ts'
+import type { NetPhoto } from '../viewer'
 
 // 도형 드롭다운과 슬라이더 목록 (1차는 직육면체·정육면체. 다른 도형은 여기에 한 줄씩 더한다)
 // 슬라이더 범위: 1 ~ 10 (학습지 cm 그대로), 0.5 단위
@@ -46,3 +47,20 @@ export function rectOf(a: { x: number; y: number }, b: { x: number; y: number })
 
 // 두 면이 넓이가 있게 겹치는가 (변만 맞닿는 것은 겹침이 아니다)
 export const overlaps = (a: NetFace, b: NetFace) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+// 전개도 그리기 칸 (ManualInput.tsx)
+export const CELL = 20 // SVG 안 칸 크기 (화면에서는 폭에 맞게 늘어난다)
+export const PHOTO_W = 12 * CELL // 깐 사진의 처음 폭 (칸이 늘어나도 사진 크기는 그대로)
+
+// 깐 사진 위치: SVG 단위로 옮긴 만큼(x, y), 크기 배율, 돌린 각도(도). 사진 가운데를 기준으로 키우고 돌린다
+export type PhotoFit = { x: number; y: number; scale: number; angle: number }
+export const NO_FIT: PhotoFit = { x: 0, y: 0, scale: 1, angle: 0 }
+
+// 3D 뷰어에 넘길 사진 위치 (viewer.md ViewerProps photo): SVG 단위 → 칸 단위, 사진 가운데 기준
+export const netPhoto = (src: string, fit: PhotoFit): NetPhoto => ({
+  src,
+  x: (PHOTO_W / 2 + fit.x) / CELL,
+  y: (PHOTO_W / 2 + fit.y) / CELL,
+  size: (PHOTO_W * fit.scale) / CELL,
+  angle: fit.angle,
+})
