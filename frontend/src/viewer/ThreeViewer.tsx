@@ -456,7 +456,7 @@ export function ThreeViewer({
       const { lesson } = viewRef.current
       if ((lesson?.kind ?? null) !== lessonKind) {
         lessonObject?.dispose()
-        lessonObject = lesson ? buildLesson(scene, poly, lesson.kind, radius) : null
+        lessonObject = lesson ? buildLesson(scene, poly, tree, lesson.kind, radius) : null
         lessonKind = lesson?.kind ?? null
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세

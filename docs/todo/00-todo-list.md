@@ -20,7 +20,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 |---|---|---|
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | gaeun1961 |
 | **TODO-35** 공용 렌더러로 뷰어 여러 개 띄우기 + 예시 도형 갤러리 (PR [#56](https://github.com/gaeun1961/foldy/pull/56)) | [#54](https://github.com/gaeun1961/foldy/issues/54) | kimdaeone |
-| **TODO-30** [피타고라스: 직육면체 대각선, 겉면 위 최단 거리](30-pythagoras.md) (PR [#93](https://github.com/gaeun1961/foldy/pull/93)) | [#46](https://github.com/gaeun1961/foldy/issues/46) | kimdaeone |
 | **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) | [#44](https://github.com/gaeun1961/foldy/issues/44) | kimdaeone |
 
 ## 1차 남은 일

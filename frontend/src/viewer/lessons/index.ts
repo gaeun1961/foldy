@@ -1,7 +1,9 @@
 import type * as THREE from 'three'
 import type { ShapeScene } from '../../shared/types.ts'
+import type { FaceTree } from '../faceTree.ts'
 import type { Polyhedron } from '../polyhedra.ts'
 import { boxSizeOf, type LessonKind } from './data.ts'
+import { buildDiagonalLesson, buildShortestPathLesson } from './pythagoras.ts'
 import { buildSurfaceAreaLesson } from './surfaceArea.ts'
 import { buildVolumeLesson } from './volume.ts'
 
@@ -15,11 +17,14 @@ export interface LessonObject {
   dispose(): void
 }
 
-export function buildLesson(scene: ShapeScene, poly: Polyhedron, kind: LessonKind, radius: number): LessonObject | null {
+// tree: 면 메시에 직접 붙이는 설명(최단 거리)이 쓴다. 그런 물체는 dispose 에서 스스로 뗀다
+export function buildLesson(scene: ShapeScene, poly: Polyhedron, tree: FaceTree, kind: LessonKind, radius: number): LessonObject | null {
   const box = boxSizeOf(scene)
   if (!box) return null
   if (kind === 'volume') return buildVolumeLesson(box, radius)
   if (kind === 'surface-area') return buildSurfaceAreaLesson(poly)
+  if (kind === 'diagonal') return buildDiagonalLesson(box, radius)
+  if (kind === 'shortest-path') return buildShortestPathLesson(poly, tree, radius)
   return null
 }
 
