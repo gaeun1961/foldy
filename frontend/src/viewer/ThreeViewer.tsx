@@ -7,7 +7,7 @@ import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, far
 import { buildBook, DESK_COLOR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
-import { buildLesson, LESSON_POSE, type LessonKind, type LessonObject } from './lessons/index.ts'
+import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
 
 // 처음 카메라가 보는 점에서 카메라 쪽 방향 (비스듬히 위, 오른쪽 앞). 정다면체는 이 방향에서 먼 면부터 접는다
 const VIEW_DIR = new THREE.Vector3(0.5, 0.9, 1)
@@ -451,16 +451,24 @@ export function ThreeViewer({
     // 자세는 종류마다 다르다 (LESSON_POSE): 'solid' 는 바로 세운 입체에 면을 반투명으로, 'net' 은 바닥에 펼친 전개도 그대로
     let refit: (() => void) | null = null // 카메라 범위를 다시 맞춘다 (아래 resize). 카메라를 만든 뒤에 채워진다
     let lessonObject: LessonObject | null = null
-    let lessonKind: LessonKind | null = null
+    let lessonKey: string | null = null // 종류(+ 닮음비). 바뀌면 설명 물체를 새로 만든다
+    let lessonFit: { center: THREE.Vector3; radius: number } | null = null // 설명이 bounds 를 주면 그 범위
     const applyLesson = () => {
       const { lesson } = viewRef.current
-      if ((lesson?.kind ?? null) !== lessonKind) {
+      const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}` : null
+      if (key !== lessonKey) {
         lessonObject?.dispose()
-        lessonObject = lesson ? buildLesson(scene, poly, tree, lesson.kind, radius) : null
-        lessonKind = lesson?.kind ?? null
+        lessonObject = lesson ? buildLesson(scene, poly, tree, lesson.kind, radius, lesson.scale) : null
+        lessonKey = key
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
         else layOnFloor(tree, poly, yaw)
+        lessonFit = null
+        if (lessonObject?.bounds) {
+          tree.root.updateMatrixWorld(true)
+          const box = lessonObject.bounds.clone().applyMatrix4(tree.root.matrixWorld)
+          lessonFit = { center: box.getCenter(new THREE.Vector3()), radius: box.getBoundingSphere(new THREE.Sphere()).radius * 1.6 } // solidFit 과 같이 아래 바에 가리지 않게 넉넉히
+        }
       }
       lessonObject?.apply(lesson?.progress ?? 0)
       return { on: lessonObject !== null, ghost: lessonObject !== null && LESSON_POSE[lesson!.kind] === 'solid' }
@@ -471,7 +479,7 @@ export function ThreeViewer({
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
       const { on: lessonOn, ghost } = applyLesson()
       // 입체 설명은 입체 범위로, 전개도 설명은 펼친 전개도 범위로 카메라를 당긴다. 설명 중에는 설명과 상관없는 표시(꼭짓점·모서리 색·점선)를 잠시 숨긴다
-      const nextFit = ghost ? solidFit : lessonOn ? netFit : floorFit
+      const nextFit = lessonFit ?? (ghost ? solidFit : lessonOn ? netFit : floorFit)
       if (nextFit !== fit) {
         fit = nextFit
         refit?.()

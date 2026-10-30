@@ -39,3 +39,4 @@ export { EmptyBook } from './EmptyBook' // 도형이 없을 때 빈 책 + 차례
 export type { BookContent } from './bookScene'
 export { foldStepCount, netCheck } from './polyhedra'
 export { LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonHint, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'
+export { SIMILAR_SCALES } from './lessons/similarLayout'
