@@ -10,7 +10,7 @@ import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
 
 // 처음 카메라가 보는 점에서 카메라 쪽 방향 (비스듬히 위, 오른쪽 앞). 정다면체는 이 방향에서 먼 면부터 접는다
-const VIEW_DIR = new THREE.Vector3(0.5, 0.9, 1)
+const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1) // 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
 // 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다
@@ -65,6 +65,9 @@ export function ThreeViewer({
   lesson = null,
   drawLines = false,
   pageText = [],
+  pageResult,
+  pageMenu,
+  onPageMenu,
   pageNumbers,
   photo,
   edgeDivisions = 2,
@@ -80,7 +83,7 @@ export function ThreeViewer({
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson })
   const applyRef = useRef<(() => void) | null>(null)
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
-  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark })
+  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
   const drawMarksRef = useRef<((scene: ShapeScene) => void) | null>(null)
 
@@ -90,8 +93,8 @@ export function ThreeViewer({
     applyRef.current?.()
   }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson])
   useEffect(() => {
-    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark }
-  }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark])
+    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu }
+  }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu])
 
   // lines 만 바뀌면 선분만 다시 그린다. 선을 그을 때마다 카메라가 처음 구도로 돌아가지 않게 (viewer.md ViewerProps)
   useEffect(() => {
@@ -101,11 +104,17 @@ export function ThreeViewer({
   }, [scene])
   // lines 와 면 표시(글자·색칠)를 뺀 도형과 책 페이지(글·사진). 이것이 바뀔 때만 다시 만든다 (선·면 표시는 카메라 각도를 지키며 그것만 다시 그린다)
   const net = scene.net.layout === 'grid' ? { ...scene.net, faces: scene.net.faces.map(({ x, y, w, h }) => ({ x, y, w, h })) } : scene.net
-  const shapeKey = JSON.stringify({ ...scene, lines: undefined, net, pageText, pageNumbers, photo })
-  const pageRef = useRef({ pageText, pageNumbers, photo })
+  const shapeKey = JSON.stringify({ ...scene, lines: undefined, net, pageNumbers, photo })
+  const pageRef = useRef({ pageText, pageResult, pageMenu, pageNumbers, photo })
+  const rebuildBookRef = useRef<(() => void) | null>(null)
   useEffect(() => {
-    pageRef.current = { pageText, pageNumbers, photo } // 아래 다시 만들기 effect 보다 먼저 돈다
-  }, [pageText, pageNumbers, photo])
+    pageRef.current = { pageText, pageResult, pageMenu, pageNumbers, photo } // 아래 다시 만들기 effect 보다 먼저 돈다
+  }, [pageText, pageResult, pageMenu, pageNumbers, photo])
+  // 왼쪽 쪽 글·공식 결과만 바뀌면 책 그림만 다시 그린다. 카메라와 설명 진행은 그대로 (viewer.md ViewerProps)
+  const pageKey = JSON.stringify({ pageText, pageResult, pageMenu })
+  useEffect(() => {
+    rebuildBookRef.current?.()
+  }, [pageKey])
 
   useEffect(() => {
     const scene = sceneRef.current
@@ -453,6 +462,9 @@ export function ThreeViewer({
     let lessonObject: LessonObject | null = null
     let lessonKey: string | null = null // 종류(+ 닮음비). 바뀌면 설명 물체를 새로 만든다
     let lessonFit: { center: THREE.Vector3; radius: number } | null = null // 설명이 bounds 를 주면 그 범위
+    // 입체로 보는 설명은 책을 그 범위에 맞춰 다시 만든다 (전개도 크기의 책에서는 도형이 작아 보이고, 닮음의 큰 도형은 책 밖으로 나간다). null 이면 전개도 범위
+    let bookRange: THREE.Box3 | null = null
+    let rebuildBook: (() => void) | null = null // 책을 만든 뒤에 채워진다
     const applyLesson = () => {
       const { lesson } = viewRef.current
       const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}` : null
@@ -468,7 +480,9 @@ export function ThreeViewer({
           tree.root.updateMatrixWorld(true)
           const box = lessonObject.bounds.clone().applyMatrix4(tree.root.matrixWorld)
           lessonFit = { center: box.getCenter(new THREE.Vector3()), radius: box.getBoundingSphere(new THREE.Sphere()).radius * 1.6 } // solidFit 과 같이 아래 바에 가리지 않게 넉넉히
-        }
+          bookRange = box
+        } else bookRange = lesson && LESSON_POSE[lesson.kind] === 'solid' ? solidBounds : null
+        rebuildBook?.()
       }
       lessonObject?.apply(lesson?.progress ?? 0)
       return { on: lessonObject !== null, ghost: lessonObject !== null && LESSON_POSE[lesson!.kind] === 'solid' }
@@ -543,7 +557,18 @@ export function ThreeViewer({
     // 책 장면: 바닥(y = 0)이 펼친 책의 오른쪽 페이지다 (viewer.md "책 장면")
     flatNet.getCenter(netFit.center)
     netFit.radius = flatNet.getBoundingSphere(new THREE.Sphere()).radius * 1.1 // 접는 중간 모양까지 담는 평소 범위보다 가깝다
-    const book = buildBook(flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers)
+    let book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
+    rebuildBook = () => {
+      world.remove(book.group)
+      book.dispose()
+      book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
+      world.add(book.group)
+    }
+    rebuildBookRef.current = rebuildBook
+    // 전개도로 보는 설명은 결과가 왼쪽 쪽에 나오므로, 카메라가 왼쪽 쪽 글까지 담는다
+    const netRange = flatNet.clone().expandByPoint(book.textCorner)
+    netRange.getCenter(netFit.center)
+    netFit.radius = netRange.getBoundingSphere(new THREE.Sphere()).radius * 1.1
     photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
     world.add(book.group)
     world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22) // 멀리 있는 책상은 흐리게
@@ -564,8 +589,11 @@ export function ThreeViewer({
     // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다.
     // 도형 가운데를 보되 책등 쪽으로 조금 옮겨 왼쪽 페이지가 살짝 보이게 한다
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
-    const target = center.clone().lerp(new THREE.Vector3(book.center.x, center.y, center.z), 0.3)
-    floorFit.center.copy(target)
+    // 왼쪽 쪽에 메뉴·결과가 있으므로 평소에도 왼쪽 쪽 글까지 담는다
+    const floorRange = bounds.clone().expandByPoint(book.textCorner)
+    floorRange.getCenter(floorFit.center)
+    floorFit.radius = floorRange.getBoundingSphere(new THREE.Sphere()).radius
+    const target = floorFit.center.clone()
     camera.position.copy(target).add(VIEW_DIR)
 
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -600,10 +628,23 @@ export function ThreeViewer({
     const raycaster = new THREE.Raycaster()
     let down: { x: number; y: number } | null = null
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
+    const menuHit = () => {
+      const page = book.leftPage()
+      return page ? book.menuAt(raycaster.intersectObjects([...faceTargets, page], false)[0]) : null
+    }
+    // 메뉴 줄 위에서는 손가락 커서
+    const onMove = (e: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect()
+      raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
+      renderer.domElement.style.cursor = menuHit() ? 'pointer' : ''
+    }
     const onUp = (e: PointerEvent) => {
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
+      // 왼쪽 쪽 메뉴: 도형에 가려지지 않았을 때만 (도형이 앞에 있으면 도형을 누른 것)
+      const menuId = menuHit()
+      if (menuId) return callbacksRef.current.onPageMenu?.(menuId)
       // 설명이 누를 것을 가지고 있으면 먼저 (위치 관계: 기준 모서리 바꾸기)
       const lessonHit = lessonObject?.pickTargets && raycaster.intersectObjects(lessonObject.pickTargets, false)[0]
       if (lessonHit) {
@@ -678,6 +719,7 @@ export function ThreeViewer({
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
     renderer.domElement.addEventListener('pointerup', onUp)
+    renderer.domElement.addEventListener('pointermove', onMove)
 
     renderer.setAnimationLoop(() => {
       controls.update()
@@ -686,6 +728,7 @@ export function ThreeViewer({
 
     return () => {
       applyRef.current = null
+      rebuildBookRef.current = null
       drawSceneLinesRef.current = null
       drawMarksRef.current = null
       clearMarks()
@@ -693,6 +736,7 @@ export function ThreeViewer({
       observer.disconnect()
       renderer.domElement.removeEventListener('pointerdown', onDown)
       renderer.domElement.removeEventListener('pointerup', onUp)
+      renderer.domElement.removeEventListener('pointermove', onMove)
       controls.dispose()
       lessonObject?.dispose()
       disposeFaceTree(tree)

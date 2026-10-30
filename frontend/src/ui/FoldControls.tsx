@@ -1,29 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { ViewerProps } from '../viewer'
 import { foldPercent, stepTargets, unfoldOf } from './foldStatus.ts'
 import { animate, SPEEDS, type Speed } from './player.ts'
 
-// 접기 슬라이더 + 펼치기·접기 버튼 + 단계별/한 번에 + 속도 (docs/specs/ui.md). 값은 뷰어의 펼침 값 s (0 = 입체, 1 = 전개도).
+// 접기 슬라이더 + 이전·다음 단계 + 접기(펼치기) 버튼 (docs/specs/ui.md 화면 배치 4번, 방식·속도는 보기 메뉴). 값은 뷰어의 펼침 값 s (0 = 입체, 1 = 전개도).
 // 단계별은 면을 하나씩 접고 단계 사이에 잠깐 멈춘다 (ui.md 친절한 설명 원칙)
 export type FoldMode = NonNullable<ViewerProps['foldMode']>
 interface Props {
   unfold: number
   onChange: (unfold: number) => void
   mode: FoldMode
-  onModeChange: (mode: FoldMode) => void
+  speed: Speed
   steps: number // 단계 수 (0 이면 단계별 접기 없음)
   onPlayingChange: (playing: boolean) => void // 애니메이션 시작·끝 (상태 배지가 숫자를 숨기려고)
   target?: { unfold: number } // 이 값까지 부드럽게 움직인다 (챗봇 화면 조작). 새 객체가 올 때마다 한 번
 }
 
-export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPlayingChange, target }: Props) {
-  const [speed, setSpeed] = useState<Speed>('normal')
+export function FoldControls({ unfold, onChange, mode, speed, steps, onPlayingChange, target }: Props) {
   const cancel = useRef(() => {})
   const stop = () => {
     cancel.current()
     onPlayingChange(false)
   }
   useEffect(() => () => cancel.current(), [])
+  useEffect(stop, [mode]) // eslint-disable-line react-hooks/exhaustive-deps -- 보기 메뉴에서 방식을 바꾸면 멈춘다
 
   // targets 를 차례로 지나간다 (player.ts: 구간마다 이징, 구간 사이에 pauseMs 멈춤, 시간은 거리에 비례)
   const play = (targets: number[], msPerUnit: number, pauseMs: number) => {
@@ -48,34 +48,8 @@ export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPl
 
   const percent = foldPercent(unfold)
   return (
-    // 세 줄: 방식·속도 / 슬라이더 / 버튼 (ui.md 눈높이)
+    // 두 줄: 슬라이더 / 버튼 (ui.md 눈높이)
     <div className="fold-controls">
-      <div className="option-row">
-        {steps > 0 && (
-          <div className="toggle-row" role="group" aria-label="접는 방식">
-            {(['step', 'all'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={mode === m}
-                onClick={() => {
-                  stop()
-                  onModeChange(m)
-                }}
-              >
-                {m === 'step' ? '단계별' : '한 번에'}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="toggle-row" role="group" aria-label="속도">
-          {(Object.keys(SPEEDS) as Speed[]).map((s) => (
-            <button key={s} type="button" aria-pressed={speed === s} onClick={() => setSpeed(s)}>
-              {SPEEDS[s].label}
-            </button>
-          ))}
-        </div>
-      </div>
       <label className="slider-row">
         <span>접기</span>
         <input
@@ -93,9 +67,6 @@ export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPl
         <output>{percent}%</output>
       </label>
       <div className="fold-buttons">
-        <button type="button" className="secondary" disabled={percent <= 0} onClick={() => go('unfold')}>
-          ◀ 펼치기
-        </button>
         {stepMode && (
           <>
             <button type="button" className="secondary" disabled={percent <= 0} onClick={() => go('unfold', true)}>
@@ -106,8 +77,9 @@ export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPl
             </button>
           </>
         )}
-        <button type="button" className="primary" disabled={percent >= 100} onClick={() => go('fold')}>
-          접기 ▶
+        {/* 주요 버튼 하나: 끝까지 접었으면 펼치기 */}
+        <button type="button" className="primary" onClick={() => go(percent >= 100 ? 'unfold' : 'fold')}>
+          {percent >= 100 ? '◀ 펼치기' : '접기 ▶'}
         </button>
       </div>
     </div>

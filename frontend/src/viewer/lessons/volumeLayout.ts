@@ -13,7 +13,7 @@ export interface UnitCube {
 }
 
 // 치수가 정수가 아닐 때: 1 짜리 조각으로 채우고 남는 길이는 그만큼 얇은 조각 하나로 둔다 (2.5 → 1, 1, 0.5)
-function pieces(length: number) {
+export function pieces(length: number) {
   const out: number[] = []
   for (let used = 0; used < length - 1e-9; used += 1) out.push(Math.min(1, length - used))
   return out

@@ -24,6 +24,18 @@ export function faceArea(poly: Polyhedron, face: number) {
   return area
 }
 
+// 같은 모양 면끼리 묶기 (겉넓이 설명): 변 길이를 정렬해 같으면 같은 모양. 직육면체는 3묶음(2장씩), 정육면체는 6장 한 묶음,
+// 각기둥은 밑면 2장 + 옆면 n 장, 각뿔은 밑면 1장 + 옆면 n 장. 넓은 묶음부터
+export function surfaceGroups(poly: Polyhedron): number[][] {
+  const key = (f: number) => {
+    const vs = poly.faces[f].vertices
+    return vs.map((v, i) => Math.hypot(...sub(poly.positions[v], poly.positions[vs[(i + 1) % vs.length]])).toFixed(6)).sort().join()
+  }
+  const groups = new Map<string, number[]>()
+  poly.faces.forEach((_, f) => groups.set(key(f), [...(groups.get(key(f)) ?? []), f]))
+  return [...groups.values()].sort((a, b) => faceArea(poly, b[0]) - faceArea(poly, a[0]))
+}
+
 // 마주 보는 면 쌍. 면 인덱스가 작은 쪽부터 (직육면체: [앞 0, 뒤 5], [왼 1, 오 2], [위 3, 아래 4])
 export function oppositeFacePairs(poly: Polyhedron): [number, number][] {
   const normals = poly.faces.map((_, f) => faceNormal(poly, f))

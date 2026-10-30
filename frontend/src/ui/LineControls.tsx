@@ -1,4 +1,4 @@
-// 선 긋기 한 줄 (docs/specs/ui.md 화면 배치 5번): "선 긋기" 토글 + 모서리 나누기(켜져 있을 때) + 다른 길(있을 때) + 선 지우기
+// 선 긋기 묶음 (docs/specs/ui.md 화면 배치 5번): "선 긋기" 토글 + 선 지우기. 모서리 나누기·다른 길은 켜졌을 때 그 아래 줄에
 type Divisions = 2 | 3 | 4
 
 interface Props {
@@ -18,6 +18,9 @@ export function LineControls({ drawing, onDrawingChange, divisions, onDivisionsC
       <button type="button" className="toggle-button" aria-pressed={drawing} onClick={() => onDrawingChange(!drawing)}>
         선 긋기
       </button>
+      <button type="button" className="secondary" disabled={lineCount === 0} onClick={onEraseLast}>
+        선 지우기
+      </button>
       {drawing && (
         <div className="toggle-row" role="group" aria-label="모서리 나누기">
           {([2, 3, 4] as const).map((n) => (
@@ -32,9 +35,6 @@ export function LineControls({ drawing, onDrawingChange, divisions, onDivisionsC
           다른 길 ({route.index + 1}/{route.count})
         </button>
       )}
-      <button type="button" className="secondary" disabled={lineCount === 0} onClick={onEraseLast}>
-        선 지우기
-      </button>
     </div>
   )
 }
