@@ -142,10 +142,10 @@ function NetDrawer({ scene, onScene, photo, fit, onFit }: DrawerProps) {
       {photo && (
         <div className="toggle-row" role="group" aria-label="사진 위에서 할 일">
           <button type="button" aria-pressed={moving} onClick={() => setMoving(true)}>
-            ✋ 사진 맞추기
+            사진 맞추기
           </button>
           <button type="button" aria-pressed={!moving} onClick={() => setMoving(false)}>
-            ✏️ 면 그리기
+            면 그리기
           </button>
         </div>
       )}

@@ -74,7 +74,7 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
   return (
     <div className="photo-upload">
       <label className={`upload-button${loading ? ' disabled' : ''}`}>
-        📷 {photo ? '다른 사진 올리기' : '학습지 사진 올리기'}
+        {photo ? '다른 사진 올리기' : '학습지 사진 올리기'}
         <input
           type="file"
           accept="image/*"

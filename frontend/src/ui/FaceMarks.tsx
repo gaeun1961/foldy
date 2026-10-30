@@ -21,7 +21,7 @@ export function FaceMarks({ on, onToggle, enabled, mark, onMark }: Props) {
         title={enabled ? undefined : '직육면체·정육면체에서, 선을 지운 뒤에 쓸 수 있어요'}
         onClick={() => onToggle(!on)}
       >
-        🔤 면 표시
+        면 표시
       </button>
       {on && (
         <div className="toggle-row mark-picker" role="group" aria-label="쓸 표시">
