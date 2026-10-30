@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import type { BoxSize } from '../../shared/types.ts'
 import type { FaceTree } from '../faceTree.ts'
-import type { Polyhedron, Vec3 } from '../polyhedra.ts'
+import type { Polyhedron } from '../polyhedra.ts'
+import { clamp01, DONE, growingTube, rightAngleMark, v3 } from './draw.ts'
 import type { LessonObject } from './index.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 
@@ -11,42 +12,6 @@ const DIAGONAL = '#f08c00' // 밑면 대각선 (2단계에서도 같은 색)
 const SPACE = '#1c7ed6' // 입체 대각선
 const LEG = '#495057' // 직각삼각형의 다른 변 (모서리)
 const ROUTE_COLORS = ['#e8590c', '#1c7ed6'] // 최단 거리 후보: 긴 길, 짧은 길
-
-const v3 = (p: Vec3) => new THREE.Vector3(...p)
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
-const DONE = 1 - 1e-6 // 단계 경계의 부동소수 오차 (1/3 × 3 이 1 보다 조금 작게 나온다)
-
-// from 에서 to 로 자라는 막대. grow(q) 로 0~1 만큼 보인다
-function growingTube(from: THREE.Vector3, to: THREE.Vector3, r: number, material: THREE.Material) {
-  const geometry = new THREE.CylinderGeometry(r, r, 1, 12).translate(0, 0.5, 0) // 밑이 원점이라 y 로 늘리면 from 에서 자란다
-  const mesh = new THREE.Mesh(geometry, material)
-  mesh.position.copy(from)
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize())
-  const length = from.distanceTo(to)
-  const grow = (q: number) => {
-    mesh.visible = q > 0
-    mesh.scale.set(1, Math.max(q, 1e-3) * length, 1)
-  }
-  grow(0)
-  return { mesh, length, grow }
-}
-
-// 직각 표시: 꼭짓점에서 두 변 방향으로 size 만큼 간 작은 ㄱ자
-function rightAngleMark(at: THREE.Vector3, dirA: THREE.Vector3, dirB: THREE.Vector3, size: number, r: number, material: THREE.Material) {
-  const a = at.clone().addScaledVector(dirA.clone().normalize(), size)
-  const b = at.clone().addScaledVector(dirB.clone().normalize(), size)
-  const c = a.clone().add(b).sub(at)
-  const group = new THREE.Group()
-  for (const [p, q] of [
-    [a, c],
-    [c, b],
-  ]) {
-    const t = growingTube(p, q, r, material)
-    t.grow(1)
-    group.add(t.mesh)
-  }
-  return group
-}
 
 function triangle(points: THREE.Vector3[], material: THREE.Material) {
   return new THREE.Mesh(new THREE.BufferGeometry().setFromPoints(points), material)

@@ -1,7 +1,8 @@
 // 설명 모드 검사: 부피 조각 배치와 단계 수, 공식. 실행: `npm test` (= node src/viewer/lessons/lessons.test.ts)
 import type { ShapeScene } from '../../shared/types.ts'
 import { polyhedronOf } from '../polyhedra.ts'
-import { lessonStepCount, lessonSummary } from './data.ts'
+import { lessonHint, lessonStepCount, lessonSummary } from './data.ts'
+import { defaultEdge, edgeRelations, edgesOf, meetPoint } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { faceArea, faceNormal, oppositeFacePairs } from './surfaceLayout.ts'
 import { layerProgress, volumeLayout } from './volumeLayout.ts'
@@ -93,4 +94,30 @@ const check = (ok: boolean, msg: string) => {
   check(c.formula === '√((2 + 2)² + 2²) = √20 = √((2 + 2)² + 2²)' && c.value === '√20', `정육면체는 두 길이 같다, 실제 ${c.formula} = ${c.value}`)
 }
 
-console.log('ok: 설명 모드 (부피 조각 배치, 층 진행률, 겉넓이 면 쌍·넓이, 피타고라스 대각선·최단 거리, 단계 수, 공식)')
+// 위치 관계 (TODO-28): 모서리 12개, 어느 모서리를 기준으로 해도 평행 3 · 수직으로 만남 4 · 꼬인 위치 4
+{
+  const cuboid: ShapeScene = { shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' } }
+  const poly = polyhedronOf(cuboid)!
+  const edges = edgesOf(poly)
+  check(edges.length === 12, `직육면체 모서리 12개, 실제 ${edges.length}`)
+  check(JSON.stringify(defaultEdge(poly)) === '[0,1]', '처음 기준 모서리는 앞면 첫 모서리 0-1')
+  for (const ref of edges) {
+    const r = edgeRelations(poly, ref)
+    check(r.parallel.length === 3 && r.meet.length === 4 && r.skew.length === 4, `기준 ${ref}: 평행 ${r.parallel.length}, 만남 ${r.meet.length}, 꼬인 위치 ${r.skew.length}`)
+    check(r.perpendicular.length === 4, `기준 ${ref}: 만나는 모서리는 모두 수직`)
+    for (const e of r.meet) {
+      const shared = e.find((v) => ref.includes(v))
+      const at = meetPoint(poly, ref, e)
+      check(shared !== undefined && at.every((x, k) => Math.abs(x - poly.positions[shared][k]) < EPS), `기준 ${ref} 와 ${e} 는 같은 꼭짓점에서 만남`)
+    }
+  }
+  const r01 = edgeRelations(poly, [0, 1])
+  check(JSON.stringify(r01.parallel) === '[[2,3],[4,5],[6,7]]', `0-1 과 평행: ${JSON.stringify(r01.parallel)}`)
+  check(lessonStepCount(cuboid, 'edge-relations') === 3, '위치 관계 단계 = 3')
+  const s = lessonSummary(cuboid, 'edge-relations')!
+  check(s.formula === '평행 3 + 수직으로 만남 4 + 꼬인 위치 4' && s.value === '나머지 모서리 11개', `위치 관계 공식, 실제 ${s.formula} = ${s.value}`)
+  check(lessonHint({ kind: 'edge-relations', progress: 2 / 3 })!.includes('평행일까요'), '꼬인 위치 직전에 평행인지 묻는다')
+  check(lessonHint({ kind: 'edge-relations', progress: 0.5 }) === null && lessonHint({ kind: 'volume', progress: 2 / 3 }) === null, '그 밖의 멈춤에는 안내 없음')
+}
+
+console.log('ok: 설명 모드 (부피 조각 배치, 층 진행률, 겉넓이 면 쌍·넓이, 피타고라스 대각선·최단 거리, 위치 관계, 단계 수, 공식, 안내)')
