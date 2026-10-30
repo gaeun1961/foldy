@@ -1,22 +1,23 @@
 // 설명 모드(공식 시각화)의 데이터 쪽: 종류, 자세, 단계 수, 멈춘 뒤 보여줄 공식. 화면 물체는 만들지 않는다 (docs/specs/viewer.md "설명 모드").
-// 새 설명(위치 관계 TODO-28, 닮음 TODO-29)은 LessonKind 와 아래 표들에 한 줄씩 더한다
+// 새 설명(닮음 TODO-29)은 LessonKind 와 아래 표들에 한 줄씩 더한다
 import type { ShapeScene } from '../../shared/types.ts'
 import { polyhedronOf } from '../polyhedra.ts'
+import { defaultEdge, edgeRelations } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { faceArea, oppositeFacePairs } from './surfaceLayout.ts'
 import { volumeLayout } from './volumeLayout.ts'
 
-export type LessonKind = 'volume' | 'surface-area' | 'diagonal' | 'shortest-path'
+export type LessonKind = 'volume' | 'surface-area' | 'diagonal' | 'shortest-path' | 'edge-relations'
 
 export interface Lesson {
   kind: LessonKind
   progress: number // 0 = 시작 전, 1 = 다 보여줌. 단계·속도·멈춤은 UI 가 이 값을 바꿔서 만든다 (접기의 unfold 와 같은 방식)
 }
 
-export const LESSON_LABEL: Record<LessonKind, string> = { volume: '부피', 'surface-area': '겉넓이', diagonal: '대각선', 'shortest-path': '최단 거리' }
+export const LESSON_LABEL: Record<LessonKind, string> = { volume: '부피', 'surface-area': '겉넓이', diagonal: '대각선', 'shortest-path': '최단 거리', 'edge-relations': '위치 관계' }
 
 // 어느 자세에서 보여주는지: 'solid' 는 바로 세운 입체(unfold 0), 'net' 은 바닥에 펼친 전개도(unfold 1)
-export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'net', diagonal: 'solid', 'shortest-path': 'net' }
+export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'net', diagonal: 'solid', 'shortest-path': 'net', 'edge-relations': 'solid' }
 
 // 시작 전 3D 뷰 아래 안내 한 줄 (ui.md 안내 문구). 피타고라스는 보기 전에 먼저 어림해 보게 묻는다 (리포트 T30 참고 자료)
 export const LESSON_HINT: Record<LessonKind, string> = {
@@ -24,6 +25,15 @@ export const LESSON_HINT: Record<LessonKind, string> = {
   'surface-area': '마주 보는 면을 한 쌍씩 칠해 볼까요',
   diagonal: '밑면 대각선과 입체 대각선, 어느 쪽이 더 길까요?',
   'shortest-path': '꼭짓점에서 반대쪽 꼭짓점까지, 어느 길이 더 짧을까요?',
+  'edge-relations': '빨간 모서리와 다른 모서리는 어떤 사이일까요? 다른 모서리를 눌러 바꿀 수 있어요',
+}
+
+// 멈춰 있을 때 3D 뷰 아래 안내. 시작 전에는 LESSON_HINT, 위치 관계는 꼬인 위치를 보기 직전(만남까지 보고 멈춤)에
+// "만나지 않으면 평행일까?"를 물어 평면에서 배운 정의와 부딪히게 한다 (리포트 T28 참고 자료). 그 밖에는 없음
+export function lessonHint(lesson: Lesson): string | null {
+  if (lesson.progress <= 0) return LESSON_HINT[lesson.kind]
+  if (lesson.kind === 'edge-relations' && Math.abs(lesson.progress - 2 / 3) < 1e-6) return '남은 모서리는 빨간 모서리와 만나지 않아요. 그럼 평행일까요?'
+  return null
 }
 
 // 설명을 보여줄 수 있는 도형의 가로·세로·높이. 지금은 직육면체·정육면체만
@@ -41,6 +51,7 @@ export function lessonStepCount(scene: ShapeScene, kind: LessonKind) {
   if (kind === 'surface-area') return oppositeFacePairs(polyhedronOf(scene)!).length
   if (kind === 'diagonal') return 3 // 밑면 삼각형, 세운 삼각형, 입체 대각선
   if (kind === 'shortest-path') return shortestRoutes(polyhedronOf(scene)!).length * 2 // 길마다 선, 직각삼각형
+  if (kind === 'edge-relations') return 3 // 평행, 만남, 꼬인 위치
   return 0
 }
 
@@ -70,6 +81,12 @@ export function lessonSummary(scene: ShapeScene, kind: LessonKind): { formula: s
   if (kind === 'diagonal') {
     const space = diagonalLayout(box).space
     return { formula: `√(${num(w)}² + ${num(d)}² + ${num(h)}²) = ${root(w * w + d * d + h * h)}`, value: `약 ${num(space)}` }
+  }
+  if (kind === 'edge-relations') {
+    // 직육면체·정육면체는 어느 모서리를 기준으로 해도 개수가 같다 (평행 3, 수직으로 만남 4, 꼬인 위치 4)
+    const { parallel, meet, skew, perpendicular } = edgeRelations(polyhedronOf(scene)!, defaultEdge(polyhedronOf(scene)!))
+    const meetWord = perpendicular.length === meet.length ? '수직으로 만남' : '만남'
+    return { formula: `평행 ${parallel.length} + ${meetWord} ${meet.length} + 꼬인 위치 ${skew.length}`, value: `나머지 모서리 ${parallel.length + meet.length + skew.length}개` }
   }
   if (kind === 'shortest-path') {
     // 후보마다 √(변² + 변²)를 긴 길부터 > 로 잇고, 마지막(가장 짧은 길)의 값을 강조한다. 길이가 같으면 =
