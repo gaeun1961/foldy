@@ -36,7 +36,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | 단계 | TODO | 이슈 | 선행 |
 |---|---|---|---|
-| 2차 | **TODO-16** [정다면체 4종 면 트리 데이터 추가](16-regular-polyhedra-data.md) | [#24](https://github.com/gaeun1961/foldy/issues/24) | TODO-3 |
 | 2차 | **TODO-31** [각기둥·각뿔 면 트리 데이터와 전개도](31-prism-pyramid.md) | [#47](https://github.com/gaeun1961/foldy/issues/47) | TODO-3 |
 | 3차 | **TODO-17** [원기둥 말기 애니메이션](17-cylinder-roll.md) | [#25](https://github.com/gaeun1961/foldy/issues/25) | TODO-2 |
 | 3차 | **TODO-18** [원뿔 말기 애니메이션](18-cone-roll.md) | [#26](https://github.com/gaeun1961/foldy/issues/26) | TODO-17 |

@@ -2,7 +2,7 @@
 import type { BoxSize, EdgeSize, NetFace, ShapeScene } from '../shared/types.ts'
 import type { NetPhoto } from '../viewer'
 
-// 도형 드롭다운과 슬라이더 목록 (1차는 직육면체·정육면체. 다른 도형은 여기에 한 줄씩 더한다)
+// 도형 드롭다운과 슬라이더 목록 (직육면체·정육면체, 정다면체 4종. 다른 도형은 여기에 한 줄씩 더한다). 순서가 빈 책 차례 순서다
 // 슬라이더 범위: 1 ~ 10 (학습지 cm 그대로), 0.5 단위
 export const SLIDER = { min: 1, max: 10, step: 0.5 }
 export const SHAPES = [
@@ -17,13 +17,26 @@ export const SHAPES = [
     size: { width: 4, depth: 2, height: 3 } as BoxSize,
   },
   { shape: 'cube', name: '정육면체', sliders: [{ key: 'edge', label: '한 변' }], size: { edge: 3 } as EdgeSize },
+  { shape: 'regular-tetrahedron', name: '정사면체', sliders: [{ key: 'edge', label: '한 변' }], size: { edge: 3 } as EdgeSize },
+  { shape: 'regular-octahedron', name: '정팔면체', sliders: [{ key: 'edge', label: '한 변' }], size: { edge: 3 } as EdgeSize },
+  { shape: 'regular-dodecahedron', name: '정십이면체', sliders: [{ key: 'edge', label: '한 변' }], size: { edge: 2 } as EdgeSize },
+  { shape: 'regular-icosahedron', name: '정이십면체', sliders: [{ key: 'edge', label: '한 변' }], size: { edge: 2 } as EdgeSize },
 ] as const
 export type BoxShape = (typeof SHAPES)[number]['shape']
 
 const DEFAULT_LABELS = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ'] // 라벨이 없으면 채운다 (TODO-12)
 
-// 치수로 만들기: 십자형 전개도. 선은 그대로 둔다(꼭짓점 번호는 치수와 상관없음). 라벨이 하나도 없으면 ㄱ~ㅇ
+// 정다면체 꼭짓점 수 (shape-scene.md). 정다면체는 기본 전개도(default), 라벨 없음
+const REGULAR_VERTICES: Partial<Record<BoxShape, number>> = { 'regular-tetrahedron': 4, 'regular-octahedron': 6, 'regular-dodecahedron': 20, 'regular-icosahedron': 12 }
+
+// 치수로 만들기: 직육면체·정육면체는 십자형 전개도, 정다면체는 기본 전개도. 선은 그대로 둔다(꼭짓점 번호는 치수와 상관없음,
+// 같은 꼭짓점 번호를 쓰는 도형끼리만). 직육면체·정육면체는 라벨이 하나도 없으면 ㄱ~ㅇ
 export function crossScene(shape: BoxShape, size: BoxSize | EdgeSize, keep?: ShapeScene | null): ShapeScene {
+  const n = REGULAR_VERTICES[shape]
+  if (n) {
+    const lines = keep?.shape === shape && keep.net.layout === 'default' ? keep.lines : []
+    return { shape, size, vertexLabels: Array(n).fill(null), lines, net: { layout: 'default' } } as ShapeScene
+  }
   const labels = keep?.vertexLabels.some(Boolean) ? keep.vertexLabels : DEFAULT_LABELS
   const lines = keep && keep.net.layout === 'cross' ? keep.lines : []
   return { shape, size, vertexLabels: labels, lines, net: { layout: 'cross' } } as ShapeScene

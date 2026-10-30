@@ -68,9 +68,10 @@ export function buildFaceTree(
       // 회전 방향: 다 펼쳤을 때 이 면의 바깥 법선이 부모 면의 바깥 법선과 같아지는 쪽
       const axis = b.clone().sub(a).normalize()
       const angle = THREE.MathUtils.degToRad(180 - def.dihedral!)
+      // 두 방향으로 돌려 보고 부모 법선에 더 가까운 쪽 (이면각이 135°보다 크면 반대쪽도 내적이 양수라 "> 0" 으로는 못 가른다)
       const parentNormal = normalOf(poly.faces[def.parent].vertices.map((i) => v3(poly.positions[i])))
-      const turned = normalOf(points).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(axis, angle))
-      Object.assign(node, { pivot, axis, unfoldAngle: turned.dot(parentNormal) > 0 ? angle : -angle })
+      const turned = (a: number) => normalOf(points).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(axis, a)).dot(parentNormal)
+      Object.assign(node, { pivot, axis, unfoldAngle: turned(angle) >= turned(-angle) ? angle : -angle })
     }
     inner[f] = group
     nodes.push(node)
@@ -253,10 +254,40 @@ export function facePoints(poly: Polyhedron, face: number, n: number): { point: 
 
 // 화면에 놓기: 트리 전체를 돌려 루트 면의 바깥 법선이 아래(−y)를 향하고 루트 면이 바닥(y = 0)에 닿게 한다.
 // 면 트리 좌표와 applyUnfold 는 그대로라서, 펼치면 전개도가 바닥에 눕고 접으면 면이 위로 일어선다
-export function layOnFloor(tree: FaceTree, poly: Polyhedron) {
+// yaw: 바닥에 눕힌 뒤 세로축(y)으로 더 돌리는 각도 (라디안, facingYaw)
+export function layOnFloor(tree: FaceTree, poly: Polyhedron, yaw = 0) {
   const points = poly.faces.find((f) => f.parent === undefined)!.vertices.map((i) => v3(poly.positions[i]))
-  tree.root.quaternion.setFromUnitVectors(normalOf(points), new THREE.Vector3(0, -1, 0))
+  tree.root.quaternion
+    .setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+    .multiply(new THREE.Quaternion().setFromUnitVectors(normalOf(points), new THREE.Vector3(0, -1, 0)))
   tree.root.position.set(0, -points[0].applyQuaternion(tree.root.quaternion).y, 0)
+}
+
+// 접는 순서가 정해지지 않은 도형(정다면체)을 바닥에 눕힐 방향 (viewer.md "단계별 접기"): 펼친 전개도의 가운데가
+// 루트 면보다 카메라(toward 의 수평 방향)에서 먼 쪽에 오게 돌리는 각도. 루트 쪽은 카메라 앞 바닥에 남고 먼 쪽이 일어선다
+export function facingYaw(tree: FaceTree, poly: Polyhedron, toward: THREE.Vector3) {
+  layOnFloor(tree, poly)
+  applyUnfold(tree, 1)
+  tree.root.updateMatrixWorld(true)
+  const centers = tree.nodes.map((n) => new THREE.Box3().setFromObject(n.mesh).getCenter(new THREE.Vector3()))
+  const root = centers[poly.faces.findIndex((f) => f.parent === undefined)]
+  const v = centers.reduce((s, c) => s.add(c), new THREE.Vector3()).multiplyScalar(1 / centers.length).sub(root)
+  if (Math.hypot(v.x, v.z) < 1e-6) return 0 // 루트가 가운데면 그대로
+  return Math.atan2(-toward.x, -toward.z) - Math.atan2(v.x, v.z) // y 축으로 θ 돌리면 atan2(x, z) 가 θ 늘어난다
+}
+
+// 접는 순서가 정해지지 않은 도형(정다면체)의 단계별 접기 순서 (viewer.md "단계별 접기"): 다 펼쳐 바닥에 눕힌 모양에서
+// 카메라 쪽(toward 의 수평 방향)으로 먼 면부터. 먼 쪽이 먼저 일어서야 가까운 면이 접히는 모습을 가리지 않는다. layOnFloor 뒤에 부른다
+export function farFirstOrder(tree: FaceTree, toward: THREE.Vector3): number[] {
+  const dir = toward.clone().setY(0).normalize()
+  applyUnfold(tree, 1)
+  tree.root.updateMatrixWorld(true)
+  const near = (n: FaceNode) => new THREE.Box3().setFromObject(n.mesh).getCenter(new THREE.Vector3()).dot(dir)
+  return tree.nodes
+    .filter((n) => n.pivot)
+    .map((n) => ({ face: n.face, d: near(n) }))
+    .sort((a, b) => a.d - b.d)
+    .map((n) => n.face)
 }
 
 export function disposeFaceTree(tree: FaceTree) {
