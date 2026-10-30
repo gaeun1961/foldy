@@ -1,6 +1,8 @@
 // 설명 모드 검사: 부피 조각 배치와 단계 수, 공식. 실행: `npm test` (= node src/viewer/lessons/lessons.test.ts)
 import type { ShapeScene } from '../../shared/types.ts'
+import { polyhedronOf } from '../polyhedra.ts'
 import { lessonStepCount, lessonSummary } from './data.ts'
+import { faceArea, faceNormal, oppositeFacePairs } from './surfaceLayout.ts'
 import { layerProgress, volumeLayout } from './volumeLayout.ts'
 
 const EPS = 1e-9
@@ -45,4 +47,21 @@ const check = (ok: boolean, msg: string) => {
   check(lessonSummary(cube, 'volume')!.value === '15.63', '소수는 둘째 자리까지')
 }
 
-console.log('ok: 설명 모드 (부피 조각 배치, 층 진행률, 단계 수, 공식)')
+// 겉넓이: 마주 보는 면 쌍 3개 (앞·뒤, 왼·오, 위·아래), 면 넓이, 공식
+{
+  const cuboid: ShapeScene = { shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' } }
+  const poly = polyhedronOf(cuboid)!
+  const pairs = oppositeFacePairs(poly)
+  check(JSON.stringify(pairs) === '[[0,5],[1,2],[3,4]]', `마주 보는 면 쌍, 실제 ${JSON.stringify(pairs)}`)
+  for (const [f, g] of pairs) {
+    const [a, b] = [faceNormal(poly, f), faceNormal(poly, g)]
+    check(Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + 1) < EPS, `면 ${f}·${g} 의 법선이 반대`)
+    check(Math.abs(faceArea(poly, f) - faceArea(poly, g)) < EPS, `면 ${f}·${g} 의 넓이가 같음`)
+  }
+  check(Math.abs(faceArea(poly, 0) - 12) < EPS && Math.abs(faceArea(poly, 1) - 6) < EPS && Math.abs(faceArea(poly, 3) - 8) < EPS, '앞면 4×3, 왼쪽 2×3, 윗면 4×2')
+  check(lessonStepCount(cuboid, 'surface-area') === 3, '겉넓이 단계 = 쌍 3개')
+  const s = lessonSummary(cuboid, 'surface-area')!
+  check(s.formula === '2 × (12 + 6 + 8) = 2 × 26' && s.value === '52', `겉넓이 공식, 실제 ${s.formula} = ${s.value}`)
+}
+
+console.log('ok: 설명 모드 (부피 조각 배치, 층 진행률, 겉넓이 면 쌍·넓이, 단계 수, 공식)')

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { EmptyBook, foldStepCount, netCheck, Viewer, type DrawState, type FacePick, type Lesson } from '../viewer'
+import { EmptyBook, foldStepCount, LESSON_HINT, LESSON_POSE, netCheck, Viewer, type DrawState, type FacePick, type Lesson } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, SHAPE_NAME, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
@@ -71,11 +71,11 @@ export default function App() {
   const [strokes, setStrokes] = useState<number[]>([])
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
   const [route, setRoute] = useState<{ routes: Line<PolyhedronPoint>[][]; index: number } | null>(null)
-  const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 입체로 접고 접기 패널 대신 설명 조작을 보인다
+  const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
   const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true))
   const changeLesson = (next: Lesson | null) => {
-    if (next && !lesson) setUnfold(0) // 설명은 입체에서 본다
+    if (next && next.kind !== lesson?.kind) setUnfold(LESSON_POSE[next.kind] === 'net' ? 1 : 0)
     setLesson(next)
   }
 
@@ -91,7 +91,7 @@ export default function App() {
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
-  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : lesson ? (lesson.progress <= 0 ? '한 층씩 쌓아 볼까요' : null) : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
+  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : lesson ? (lesson.progress <= 0 ? LESSON_HINT[lesson.kind] : null) : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
     <div className="layout">

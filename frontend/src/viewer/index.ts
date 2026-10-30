@@ -38,4 +38,4 @@ export { ThreeViewer as Viewer } from './ThreeViewer'
 export { EmptyBook } from './EmptyBook' // 도형이 없을 때 빈 책 + 차례 (viewer.md "빈 책")
 export type { BookContent } from './bookScene'
 export { foldStepCount, netCheck } from './polyhedra'
-export { LESSON_LABEL, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'
+export { LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'

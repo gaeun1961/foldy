@@ -10,9 +10,9 @@
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
 - **TODO-38** [다양한 전개도 모양 고르기](38-net-variants.md) · [#91](https://github.com/gaeun1961/foldy/issues/91) — UI: "다른 전개도 보기"로 정육면체 11가지·직육면체 여러 모양을 바꿔 보며 접는다
-- **TODO-25** [직육면체 겉넓이 시각화](25-cuboid-surface-area.md) · [#40](https://github.com/gaeun1961/foldy/issues/40) — 3D: 마주 보는 면 쌍을 차례로 칠하고 2×(ab+bc+ca)를 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) · [#44](https://github.com/gaeun1961/foldy/issues/44) — 3D: 모서리를 누르면 평행·수직·꼬인 위치 모서리를 색으로 구분한다 (1차 다른 TODO보다 뒤)
 - **TODO-30** [피타고라스: 직육면체 대각선, 겉면 위 최단 거리](30-pythagoras.md) · [#46](https://github.com/gaeun1961/foldy/issues/46) — 3D: 대각선 길이와 전개도 위 최단 거리를 직각삼각형으로 보여준다 (1차 다른 TODO보다 뒤)
+- **TODO-29** [닮은 직육면체의 겉넓이비·부피비](29-similar-ratio.md) · [#45](https://github.com/gaeun1961/foldy/issues/45) — 3D: 닮은 직육면체의 겉넓이비·부피비를 보여준다 (1차 다른 TODO보다 뒤)
 
 ## 진행 중
 
@@ -28,7 +28,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 선행 |
 |---|---|---|
-| **TODO-29** [닮은 직육면체의 겉넓이비·부피비](29-similar-ratio.md) (1차 다른 TODO보다 뒤) | [#45](https://github.com/gaeun1961/foldy/issues/45) | TODO-25, TODO-26 |
+| (없음) | | |
 
 ## 나중에 (2차·3차)
 

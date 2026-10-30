@@ -7,7 +7,7 @@ import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, pl
 import { buildBook, DESK_COLOR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
-import { buildLesson, type LessonKind, type LessonObject } from './lessons/index.ts'
+import { buildLesson, LESSON_POSE, type LessonKind, type LessonObject } from './lessons/index.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
@@ -188,6 +188,7 @@ export function ThreeViewer({
     // 카메라가 담는 범위: 보통은 접고 펼치는 전체(가운데는 아래 카메라에서 책등 쪽으로 옮긴다), 설명 모드는 바로 세운 입체
     const floorFit = { center: center.clone(), radius }
     const solidFit = { center: solidCenter, radius: solidRadius * 1.6 } // 아래 바가 설명 조작으로 높아져도 입체가 가리지 않게 넉넉히
+    const netFit = { center: new THREE.Vector3(), radius } // 전개도 설명('net')은 바닥에 펼친 전개도 범위. 아래에서 flatNet 으로 채운다
     let fit = floorFit
     applyUnfold(tree, 1)
     const flatNet = new THREE.Box3().setFromObject(tree.root) // 다 펼친 전개도 범위(+ 사진). 책 페이지 크기를 정한다
@@ -432,7 +433,8 @@ export function ThreeViewer({
     drawMarks(scene)
 
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
-    // 설명 모드 (viewer.md "설명 모드"): 종류가 바뀌면 새로 만들어 면 트리 루트(접힌 입체 좌표)에 붙이고, progress 만 바뀌면 apply 만
+    // 설명 모드 (viewer.md "설명 모드"): 종류가 바뀌면 새로 만들어 면 트리 루트(접힌 입체 좌표)에 붙이고, progress 만 바뀌면 apply 만.
+    // 자세는 종류마다 다르다 (LESSON_POSE): 'solid' 는 바로 세운 입체에 면을 반투명으로, 'net' 은 바닥에 펼친 전개도 그대로
     let refit: (() => void) | null = null // 카메라 범위를 다시 맞춘다 (아래 resize). 카메라를 만든 뒤에 채워진다
     let lessonObject: LessonObject | null = null
     let lessonKind: LessonKind | null = null
@@ -440,22 +442,22 @@ export function ThreeViewer({
       const { lesson } = viewRef.current
       if ((lesson?.kind ?? null) !== lessonKind) {
         lessonObject?.dispose()
-        lessonObject = lesson ? buildLesson(scene, lesson.kind, radius) : null
+        lessonObject = lesson ? buildLesson(scene, poly, lesson.kind, radius) : null
         lessonKind = lesson?.kind ?? null
         if (lessonObject) tree.root.add(lessonObject.group)
-        if (lesson) standUp() // 설명 중에는 바로 세운 입체. 끄면 다시 바닥에 눕힌 전개도 자세
+        if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
         else layOnFloor(tree, poly)
       }
       lessonObject?.apply(lesson?.progress ?? 0)
-      return lessonObject !== null
+      return { on: lessonObject !== null, ghost: lessonObject !== null && LESSON_POSE[lesson!.kind] === 'solid' }
     }
 
     let active: number | null = null
     const apply = () => {
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
-      const ghost = applyLesson()
-      // 설명 모드에서는 입체 범위로 카메라를 당기고, 설명과 상관없는 표시(꼭짓점·모서리 색·점선)는 잠시 숨긴다
-      const nextFit = ghost ? solidFit : floorFit
+      const { on: lessonOn, ghost } = applyLesson()
+      // 입체 설명은 입체 범위로, 전개도 설명은 펼친 전개도 범위로 카메라를 당긴다. 설명 중에는 설명과 상관없는 표시(꼭짓점·모서리 색·점선)를 잠시 숨긴다
+      const nextFit = ghost ? solidFit : lessonOn ? netFit : floorFit
       if (nextFit !== fit) {
         fit = nextFit
         refit?.()
@@ -465,11 +467,11 @@ export function ThreeViewer({
       if (!drawLines) setFirstPick(null)
       if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍·면 고르기를 하지 않는다
       if ((drawLines || viewRef.current.faceMarking) && faceSet.size) pickFace(null) // 선 긋기·면 표시 중에는 마주 보는 면 보기를 끈다
-      for (const line of [...hiddenEdges, ...hiddenLines]) line.visible = showHiddenEdges && !ghost
+      for (const line of [...hiddenEdges, ...hiddenLines]) line.visible = showHiddenEdges && !lessonOn
       if (!showMatchingEdges) picked = null
       pairEdges.forEach((pair, k) =>
         pair.forEach((mesh) => {
-          mesh.visible = showMatchingEdges && !ghost
+          mesh.visible = showMatchingEdges && !lessonOn
           mesh.scale.x = mesh.scale.z = k === picked ? 2.5 : 1 // 고른 쌍은 함께 굵게 (색만으로 구분하지 않기)
         }),
       )
@@ -485,9 +487,9 @@ export function ThreeViewer({
       for (const { vertex, mesh, label } of markers) {
         const big = highlight.includes(vertex) // 색만으로 구분하지 않게 크게
         mesh.scale.setScalar(big ? 1.8 : 1)
-        mesh.visible = !ghost
+        mesh.visible = !lessonOn
         if (label) {
-          label.visible = showVertexLabels && !ghost
+          label.visible = showVertexLabels && !lessonOn
           label.scale.setScalar(radius * (big ? 0.15 : 0.12))
         }
       }
@@ -506,7 +508,7 @@ export function ThreeViewer({
         // 잘못된 전개도는 다 접힌 쪽(접기 90% 이상)에서 겹친 면을 빨갛게. 색칠한 면은 평소 색 대신 색칠 색
         const base = faceSet.has(n.face) ? looks.opposite : overlapFaces.has(n.face) && unfold <= 0.1 ? looks.overlap : filledFaces.has(n.face) ? looks.filled : looks.normal
         const { faces, edge } = ghost ? looks.ghost : active === null ? base : n.face === active ? looks.active : looks.faded
-        n.mesh.material = faces
+        n.mesh.material = (lessonOn && lessonObject?.faceMaterials?.(n.face)) || faces // 면을 칠하는 설명(겉넓이)은 자기 재질로
         ;(n.mesh.children[0] as THREE.LineLoop).material = edge
       }
       for (const [face, bar] of bars) bar.visible = face === active
@@ -516,6 +518,8 @@ export function ThreeViewer({
     drawMarksRef.current = drawMarks
 
     // 책 장면: 바닥(y = 0)이 펼친 책의 오른쪽 페이지다 (viewer.md "책 장면")
+    flatNet.getCenter(netFit.center)
+    netFit.radius = flatNet.getBoundingSphere(new THREE.Sphere()).radius * 1.1 // 접는 중간 모양까지 담는 평소 범위보다 가깝다
     const book = buildBook(flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers)
     photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
     world.add(book.group)
