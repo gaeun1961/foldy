@@ -72,7 +72,7 @@ h2 {
   gap: 4px;
   padding: 10px 0 6px;
 }
-.dock:not(:has(.fold-controls)) { padding: 0; } /* 도형이 없으면 안내 한 줄만 */
+.dock:not(:has(.fold-controls, .lesson-controls)) { padding: 0; } /* 도형이 없으면 안내 한 줄만 */
 .dock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 6px; }
 .dock-row .line-controls { flex: 1; padding: 0; background: none; }
 
@@ -319,6 +319,26 @@ h2 {
   margin: 0;
   accent-color: #3d6fd9;
 }
+
+/* 설명 모드 (ui.md 화면 배치 8번): 접기 패널과 같은 줄 구성. 공식은 멈춘 뒤 한 줄 */
+.lesson-controls {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px 6px; /* 아래 바 안에서 접기 패널과 같은 여백, 배경은 바 것을 쓴다 */
+  --button-height: 40px;
+}
+@media (pointer: coarse) {
+  .lesson-controls { --button-height: 44px; }
+}
+.lesson-summary {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff6d6;
+  font-size: 18px;
+  text-align: center;
+}
+.lesson-summary strong { font-size: 22px; color: #3d6fd9; }
 
 /* 3D 뷰 오른쪽 위 단계 표시 (글 없이 점만) */
 .step-dots {

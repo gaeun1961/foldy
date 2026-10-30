@@ -7,6 +7,7 @@ import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, pl
 import { buildBook, DESK_COLOR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
+import { buildLesson, type LessonKind, type LessonObject } from './lessons/index.ts'
 
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
@@ -59,6 +60,7 @@ export function ThreeViewer({
   showMatchingEdges = true,
   showVertexLabels = true,
   highlightVertices = [],
+  lesson = null,
   drawLines = false,
   pageText = [],
   pageNumbers,
@@ -73,18 +75,18 @@ export function ThreeViewer({
 }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 도형을 새로 만들 때 지금 값으로 시작하려고
-  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking })
+  const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson })
   const applyRef = useRef<(() => void) | null>(null)
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
   const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
   const drawMarksRef = useRef<((scene: ShapeScene) => void) | null>(null)
 
-  // unfold·foldMode·보기 옵션·강조·선 긋기 모드만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
+  // unfold·foldMode·보기 옵션·강조·선 긋기 모드·설명만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
-    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking }
+    viewRef.current = { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson }
     applyRef.current?.()
-  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking])
+  }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson])
   useEffect(() => {
     callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark }
   }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark])
@@ -121,10 +123,11 @@ export function ThreeViewer({
     const faceStyle = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } // 모서리 선이 면에 묻혀 깜빡이지 않게
     const pull = { value: 0 } // 모서리 선을 카메라 쪽으로 당기는 거리. 도형 크기를 안 뒤에 정한다 (pullTowardCamera)
     // 단계별 접기에서는 지금 접히는 면을 연한 노랑, 나머지를 배경에 가까운 색으로 (ui.md 색 기준)
-    const look = (outside: string, inside: string, edge: string) => ({
+    // opacity 가 1 보다 작으면 반투명 (설명 모드에서 안에 쌓이는 조각이 보이게)
+    const look = (outside: string, inside: string, edge: string, opacity = 1) => ({
       faces: [
-        new THREE.MeshStandardMaterial({ ...faceStyle, color: outside, side: THREE.FrontSide }),
-        new THREE.MeshStandardMaterial({ ...faceStyle, color: inside, side: THREE.BackSide }),
+        new THREE.MeshStandardMaterial({ ...faceStyle, color: outside, side: THREE.FrontSide, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }),
+        new THREE.MeshStandardMaterial({ ...faceStyle, color: inside, side: THREE.BackSide, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }),
       ] as [THREE.Material, THREE.Material],
       // 실선은 깊이를 쓰지 않는다. 쓰면 같은 자리의 점선이 실선 깊이와 미세하게 달라 보이는 모서리에서도 깜빡인다
       edge: pullTowardCamera(new THREE.LineBasicMaterial({ color: edge, depthWrite: false }), pull),
@@ -133,6 +136,7 @@ export function ThreeViewer({
       normal: look('#ffffff', '#e3f1fb', '#3c4048'),
       active: look('#ffe8a8', '#ffd982', '#3c4048'),
       faded: look('#f1eee8', '#ebe8e2', '#b9bdc4'),
+      ghost: look('#ffffff', '#e3f1fb', '#3c4048', 0.12), // 설명 모드: 면을 거의 투명하게
       filled: look('#cfe3c4', '#cfe3c4', '#3c4048'), // 학습지에서 색칠한 면 (grid fill)
       overlap: look('#ffc9c9', '#ffc9c9', '#3c4048'), // 잘못된 전개도에서 겹친 면 (다 접힌 쪽에서만)
       opposite: look('#e5dbff', '#d9ccff', '#3c4048'), // 누른 면과 마주 보는 면 (마주 보는 면 보기)
@@ -169,6 +173,22 @@ export function ThreeViewer({
     }
     const center = bounds.getCenter(new THREE.Vector3())
     const radius = bounds.getBoundingSphere(new THREE.Sphere()).radius
+    // 설명 모드는 입체만 보므로 바닥에 눕힌 자세 대신 입체를 바로 세우고(밑면이 바닥, 원래 좌표 그대로) 그 범위에 맞춰 카메라를 당긴다 (viewer.md "설명 모드")
+    const standUp = () => {
+      tree.root.quaternion.identity()
+      tree.root.position.set(0, -Math.min(...poly.positions.map((p) => p[1])), 0)
+    }
+    applyUnfold(tree, 0)
+    standUp()
+    tree.root.updateMatrixWorld(true)
+    const solidBounds = new THREE.Box3().expandByObject(tree.root)
+    const solidCenter = solidBounds.getCenter(new THREE.Vector3())
+    const solidRadius = solidBounds.getBoundingSphere(new THREE.Sphere()).radius
+    layOnFloor(tree, poly)
+    // 카메라가 담는 범위: 보통은 접고 펼치는 전체(가운데는 아래 카메라에서 책등 쪽으로 옮긴다), 설명 모드는 바로 세운 입체
+    const floorFit = { center: center.clone(), radius }
+    const solidFit = { center: solidCenter, radius: solidRadius * 1.6 } // 아래 바가 설명 조작으로 높아져도 입체가 가리지 않게 넉넉히
+    let fit = floorFit
     applyUnfold(tree, 1)
     const flatNet = new THREE.Box3().setFromObject(tree.root) // 다 펼친 전개도 범위(+ 사진). 책 페이지 크기를 정한다
 
@@ -412,18 +432,44 @@ export function ThreeViewer({
     drawMarks(scene)
 
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
+    // 설명 모드 (viewer.md "설명 모드"): 종류가 바뀌면 새로 만들어 면 트리 루트(접힌 입체 좌표)에 붙이고, progress 만 바뀌면 apply 만
+    let refit: (() => void) | null = null // 카메라 범위를 다시 맞춘다 (아래 resize). 카메라를 만든 뒤에 채워진다
+    let lessonObject: LessonObject | null = null
+    let lessonKind: LessonKind | null = null
+    const applyLesson = () => {
+      const { lesson } = viewRef.current
+      if ((lesson?.kind ?? null) !== lessonKind) {
+        lessonObject?.dispose()
+        lessonObject = lesson ? buildLesson(scene, lesson.kind, radius) : null
+        lessonKind = lesson?.kind ?? null
+        if (lessonObject) tree.root.add(lessonObject.group)
+        if (lesson) standUp() // 설명 중에는 바로 세운 입체. 끄면 다시 바닥에 눕힌 전개도 자세
+        else layOnFloor(tree, poly)
+      }
+      lessonObject?.apply(lesson?.progress ?? 0)
+      return lessonObject !== null
+    }
+
     let active: number | null = null
     const apply = () => {
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
+      const ghost = applyLesson()
+      // 설명 모드에서는 입체 범위로 카메라를 당기고, 설명과 상관없는 표시(꼭짓점·모서리 색·점선)는 잠시 숨긴다
+      const nextFit = ghost ? solidFit : floorFit
+      if (nextFit !== fit) {
+        fit = nextFit
+        refit?.()
+      }
+      if (photoMesh) photoMesh.visible = !ghost // 사진은 루트에 붙어 있어서 입체를 세우면 같이 선다
       for (const { n, mesh } of divisionMarkers) mesh.visible = drawLines && n === edgeDivisions
       if (!drawLines) setFirstPick(null)
       if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍·면 고르기를 하지 않는다
       if ((drawLines || viewRef.current.faceMarking) && faceSet.size) pickFace(null) // 선 긋기·면 표시 중에는 마주 보는 면 보기를 끈다
-      for (const line of [...hiddenEdges, ...hiddenLines]) line.visible = showHiddenEdges
+      for (const line of [...hiddenEdges, ...hiddenLines]) line.visible = showHiddenEdges && !ghost
       if (!showMatchingEdges) picked = null
       pairEdges.forEach((pair, k) =>
         pair.forEach((mesh) => {
-          mesh.visible = showMatchingEdges
+          mesh.visible = showMatchingEdges && !ghost
           mesh.scale.x = mesh.scale.z = k === picked ? 2.5 : 1 // 고른 쌍은 함께 굵게 (색만으로 구분하지 않기)
         }),
       )
@@ -439,8 +485,9 @@ export function ThreeViewer({
       for (const { vertex, mesh, label } of markers) {
         const big = highlight.includes(vertex) // 색만으로 구분하지 않게 크게
         mesh.scale.setScalar(big ? 1.8 : 1)
+        mesh.visible = !ghost
         if (label) {
-          label.visible = showVertexLabels
+          label.visible = showVertexLabels && !ghost
           label.scale.setScalar(radius * (big ? 0.15 : 0.12))
         }
       }
@@ -458,7 +505,7 @@ export function ThreeViewer({
       for (const n of tree.nodes) {
         // 잘못된 전개도는 다 접힌 쪽(접기 90% 이상)에서 겹친 면을 빨갛게. 색칠한 면은 평소 색 대신 색칠 색
         const base = faceSet.has(n.face) ? looks.opposite : overlapFaces.has(n.face) && unfold <= 0.1 ? looks.overlap : filledFaces.has(n.face) ? looks.filled : looks.normal
-        const { faces, edge } = active === null ? base : n.face === active ? looks.active : looks.faded
+        const { faces, edge } = ghost ? looks.ghost : active === null ? base : n.face === active ? looks.active : looks.faded
         n.mesh.material = faces
         ;(n.mesh.children[0] as THREE.LineLoop).material = edge
       }
@@ -491,6 +538,7 @@ export function ThreeViewer({
     // 도형 가운데를 보되 책등 쪽으로 조금 옮겨 왼쪽 페이지가 살짝 보이게 한다
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
     const target = center.clone().lerp(new THREE.Vector3(book.center.x, center.y, center.z), 0.3)
+    floorFit.center.copy(target)
     camera.position.copy(target).add(new THREE.Vector3(0.5, 0.9, 1))
 
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -500,6 +548,7 @@ export function ThreeViewer({
 
     // 화면 비율이 바뀌면(휴대폰 세로 등) 가로·세로 중 좁은 시야에 맞춰 거리를 다시 잡는다. 보는 방향은 유지.
     // 가로로 긴 화면은 아래 바(ui.md 화면 배치)가 3D 위에 떠 있어서, 보는 점을 앞쪽으로 옮겨 도형을 화면 위쪽에 둔다
+    // 설명 모드를 켜고 끌 때도 같은 식으로 범위(fit)만 바꿔 다시 맞춘다
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
@@ -508,9 +557,10 @@ export function ThreeViewer({
       const vfov = THREE.MathUtils.degToRad(camera.fov)
       const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect))
       const dir = camera.position.clone().sub(controls.target).normalize()
-      controls.target.copy(target).add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? radius * 0.45 : 0))
-      camera.position.copy(controls.target).addScaledVector(dir, (radius / Math.sin(fov / 2)) * 1.15)
+      controls.target.copy(fit.center).add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? fit.radius * 0.45 : 0))
+      camera.position.copy(controls.target).addScaledVector(dir, (fit.radius / Math.sin(fov / 2)) * 1.15)
     }
+    refit = resize
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
@@ -611,6 +661,7 @@ export function ThreeViewer({
       renderer.domElement.removeEventListener('pointerdown', onDown)
       renderer.domElement.removeEventListener('pointerup', onUp)
       controls.dispose()
+      lessonObject?.dispose()
       disposeFaceTree(tree)
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
       for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial]) m.dispose()

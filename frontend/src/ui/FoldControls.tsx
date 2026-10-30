@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ViewerProps } from '../viewer'
 import { foldPercent, stepTargets, unfoldOf } from './foldStatus.ts'
+import { animate, SPEEDS, type Speed } from './player.ts'
 
 // 접기 슬라이더 + 펼치기·접기 버튼 + 단계별/한 번에 + 속도 (docs/specs/ui.md). 값은 뷰어의 펼침 값 s (0 = 입체, 1 = 전개도).
 // 단계별은 면을 하나씩 접고 단계 사이에 잠깐 멈춘다 (ui.md 친절한 설명 원칙)
@@ -15,47 +16,21 @@ interface Props {
   target?: { unfold: number } // 이 값까지 부드럽게 움직인다 (챗봇 화면 조작). 새 객체가 올 때마다 한 번
 }
 
-// 속도별 시간. 보통도 TODO-3 처음 버전(끝까지 1.5초)보다 느리다
-const SPEEDS = {
-  slow: { label: '느리게', allMs: 5000, stepMs: 1800, pauseMs: 700 },
-  normal: { label: '보통', allMs: 3000, stepMs: 1200, pauseMs: 500 },
-  fast: { label: '빠르게', allMs: 1500, stepMs: 700, pauseMs: 300 },
-}
-type Speed = keyof typeof SPEEDS
-
-const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2) // ease-in-out
-
 export function FoldControls({ unfold, onChange, mode, onModeChange, steps, onPlayingChange, target }: Props) {
   const [speed, setSpeed] = useState<Speed>('normal')
-  const frame = useRef(0)
+  const cancel = useRef(() => {})
   const stop = () => {
-    cancelAnimationFrame(frame.current)
+    cancel.current()
     onPlayingChange(false)
   }
-  useEffect(() => () => cancelAnimationFrame(frame.current), [])
+  useEffect(() => () => cancel.current(), [])
 
-  // targets 를 차례로 지나간다. 구간마다 이징, 구간 사이에 pauseMs 멈춤. 시간은 거리에 비례 (펼침 값 1 당 msPerUnit)
+  // targets 를 차례로 지나간다 (player.ts: 구간마다 이징, 구간 사이에 pauseMs 멈춤, 시간은 거리에 비례)
   const play = (targets: number[], msPerUnit: number, pauseMs: number) => {
     stop()
     if (targets.length === 0) return
     onPlayingChange(true)
-    let from = unfold
-    let i = 0
-    let t0 = -1 // 첫 프레임 시각에서 시작
-    const step = (now: number) => {
-      if (t0 < 0) t0 = now
-      const to = targets[i]
-      const ms = Math.abs(to - from) * msPerUnit
-      const t = ms > 0 ? Math.min(1, Math.max(0, (now - t0) / ms)) : 1
-      onChange(t < 1 ? from + (to - from) * ease(t) : to)
-      if (t >= 1) {
-        if (++i >= targets.length) return onPlayingChange(false)
-        from = to
-        t0 = now + pauseMs
-      }
-      frame.current = requestAnimationFrame(step)
-    }
-    frame.current = requestAnimationFrame(step)
+    cancel.current = animate(unfold, targets, msPerUnit, pauseMs, onChange, () => onPlayingChange(false))
   }
 
   const stepMode = mode === 'step' && steps > 0

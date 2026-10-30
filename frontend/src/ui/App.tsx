@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { EmptyBook, foldStepCount, netCheck, Viewer, type DrawState, type FacePick } from '../viewer'
+import { EmptyBook, foldStepCount, netCheck, Viewer, type DrawState, type FacePick, type Lesson } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, SHAPE_NAME, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { FaceMarks } from './FaceMarks'
 import { markFace, markHint, type Mark } from './markFace.ts'
+import { LessonControls, LessonDots } from './LessonControls'
+import { lessonStatus } from './lessonStatus.ts'
 import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
 import { crossScene, crossToGrid, fitToBox, netPhoto, NO_FIT, SHAPES } from './manualScene.ts'
@@ -69,8 +71,13 @@ export default function App() {
   const [strokes, setStrokes] = useState<number[]>([])
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
   const [route, setRoute] = useState<{ routes: Line<PolyhedronPoint>[][]; index: number } | null>(null)
+  const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 입체로 접고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
-  const status = scene && foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true)
+  const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true))
+  const changeLesson = (next: Lesson | null) => {
+    if (next && !lesson) setUnfold(0) // 설명은 입체에서 본다
+    setLesson(next)
+  }
 
   // 새 도형(사진 인식 결과 등): 펼친 전개도에서 새로 시작한다
   const loadScene = (next: ShapeScene) => {
@@ -80,10 +87,11 @@ export default function App() {
     setRoute(null)
     setHighlight([])
     setDrawState('idle')
+    setLesson(null)
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
-  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
+  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : lesson ? (lesson.progress <= 0 ? '한 층씩 쌓아 볼까요' : null) : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
     <div className="layout">
@@ -96,6 +104,7 @@ export default function App() {
             foldMode={foldMode}
             {...view}
             highlightVertices={highlight}
+            lesson={lesson}
             drawLines={drawLines}
             edgeDivisions={edgeDivisions}
             pageText={pageTextOf(scene)}
@@ -123,13 +132,14 @@ export default function App() {
             {status.text}
           </div>
         )}
-        {foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
+        {scene && lesson ? <LessonDots scene={scene} lesson={lesson} /> : foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
       </main>
       <section className="dock" aria-label="접기">
         {hint && <p className="viewer-hint">{hint}</p>}
         {scene && (
           <>
-            <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />
+            {!lesson && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
+            <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} />
             <div className="dock-row">
               <LineControls
                 drawing={drawLines}
@@ -178,6 +188,7 @@ export default function App() {
                 onClick={() => {
                   // 차례로: 도형을 내리고 빈 책으로 (사진·사진 위치는 그대로, ui.md 화면 배치 6번)
                   setScene(null)
+                  setLesson(null)
                   setMarking(false)
                   setDrawLines(false)
                   setFacePick(null)
