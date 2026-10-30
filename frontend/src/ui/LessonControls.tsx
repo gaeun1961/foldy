@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types'
-import { LESSON_LABEL, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from '../viewer'
+import { LESSON_LABEL, lessonStepCount, lessonSummary, SIMILAR_SCALES, type Lesson, type LessonKind } from '../viewer'
 import { StepDots } from './FoldControls'
 import { stepTargets } from './foldStatus.ts'
 import { animate, SPEEDS, type Speed } from './player'
@@ -27,7 +27,7 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
   }
   useEffect(() => () => cancel.current(), [])
 
-  const steps = lesson ? lessonStepCount(scene, lesson.kind) : 0
+  const steps = lesson ? lessonStepCount(scene, lesson.kind, lesson.scale) : 0
   const progress = lesson?.progress ?? 0
   const set = (p: number) => lesson && onChange({ ...lesson, progress: p })
 
@@ -47,12 +47,18 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
     })
   }
 
+  // 닮음비를 바꾸면 처음부터 다시 본다
+  const pickScale = (k: number) => {
+    stop()
+    if (lesson) onChange({ ...lesson, scale: k, progress: 0 })
+  }
+
   const pick = (kind: LessonKind) => {
     stop()
     onChange(lesson?.kind === kind ? null : { kind, progress: 0 })
   }
 
-  const summary = lesson && progress >= 1 && !playing ? lessonSummary(scene, lesson.kind) : null
+  const summary = lesson && progress >= 1 && !playing ? lessonSummary(scene, lesson.kind, lesson.scale) : null
   const available = KINDS.filter((k) => lessonStepCount(scene, k) > 0)
   if (available.length === 0) return null
 
@@ -66,6 +72,15 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
             </button>
           ))}
         </div>
+        {lesson?.kind === 'similar' && (
+          <div className="toggle-row" role="group" aria-label="닮음비">
+            {SIMILAR_SCALES.map((k) => (
+              <button key={k} type="button" aria-pressed={(lesson.scale ?? 2) === k} onClick={() => pickScale(k)}>
+                {k}배
+              </button>
+            ))}
+          </div>
+        )}
         {lesson && (
           <div className="toggle-row" role="group" aria-label="속도">
             {(Object.keys(SPEEDS) as Speed[]).map((s) => (
@@ -106,6 +121,6 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
 
 // 3D 뷰 오른쪽 위 단계 표시를 설명 모드에서도 쓴다 (progress → unfold 방향으로 바꿔서)
 export function LessonDots({ scene, lesson }: { scene: ShapeScene; lesson: Lesson }) {
-  const steps = lessonStepCount(scene, lesson.kind)
+  const steps = lessonStepCount(scene, lesson.kind, lesson.scale)
   return steps > 0 ? <StepDots unfold={1 - lesson.progress} steps={steps} /> : null
 }

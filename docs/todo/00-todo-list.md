@@ -10,7 +10,6 @@
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
 - **TODO-38** [다양한 전개도 모양 고르기](38-net-variants.md) · [#91](https://github.com/gaeun1961/foldy/issues/91) — UI: "다른 전개도 보기"로 정육면체 11가지·직육면체 여러 모양을 바꿔 보며 접는다
-- **TODO-29** [닮은 직육면체의 겉넓이비·부피비](29-similar-ratio.md) · [#45](https://github.com/gaeun1961/foldy/issues/45) — 3D: 닮은 직육면체의 겉넓이비·부피비를 보여준다 (1차 다른 TODO보다 뒤)
 
 ## 진행 중
 
