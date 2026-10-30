@@ -76,4 +76,31 @@ if __name__ == "__main__":
     bad({**CYLINDER, "vertexLabels": ["ㄱ"]})
     bad({**CONE, "net": {"layout": "cross"}})
     bad({**CONE, "shape": "sphere"})
+
+    # 학습지 전개도 grid (직육면체·정육면체만, 이슈 #67)
+    GRID = {
+        "shape": "cube",
+        "size": {"edge": 1},
+        "vertexLabels": [None] * 8,
+        "lines": [
+            {"from": {"vertex": 9}, "to": {"vertex": 2}}
+        ],  # 접어서 만든 번호는 8 이상도 된다
+        "net": {
+            "layout": "grid",
+            "faces": [{"x": 0, "y": 0, "w": 1, "h": 1, "text": "가", "fill": True}],
+            "cornerLabels": [{"x": 0, "y": 0, "text": "ㄱ"}],
+            "lines": [{"from": {"x": 0, "y": 0}, "to": {"x": 1, "y": 1}}],
+        },
+    }
+    assert ok(GRID)["net"]["lines"][0]["from"] == {"x": 0, "y": 0}
+    ok({**GRID, "net": {"layout": "grid", "faces": GRID["net"]["faces"]}})
+    bad({**GRID, "net": {"layout": "grid", "faces": []}})  # 면이 하나도 없음
+    bad(
+        {
+            **GRID,
+            "lines": [{"from": {"vertex": 9}, "to": {"vertex": 2}}],
+            "net": {"layout": "cross"},
+        }
+    )
+    bad({**TETRA, "net": GRID["net"]})  # 정다면체는 grid 없음
     print("ok")

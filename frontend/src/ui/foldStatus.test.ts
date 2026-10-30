@@ -35,4 +35,7 @@ near(stepTargets(unfoldOf(40), 5, 'fold'), [0.4, 0.2, 0]) // 경계(접기 40%) 
 near(stepTargets(unfoldOf(40), 5, 'unfold'), [0.8, 1])
 near(stepTargets(0.5, 5, 'fold'), [0.4, 0.2, 0]) // 단계 중간(슬라이더로 옮김): 가까운 경계부터
 near(stepTargets(0.5, 5, 'unfold'), [0.6, 0.8, 1])
+// 잘못 그린 전개도: 다 접었을 때만 "전개도가 아니에요"
+eq(foldStatus('cube', 0, false, false), { done: false, wrong: true, text: '정육면체 전개도가 아니에요 · 면이 겹치거나 비어요' })
+eq(foldStatus('cube', 0.5, false, false).text, '정육면체 · 접는 중 50%')
 console.log('ok: 접기 % 방향, 상태 배지 문구, 조사, 단계 경계')

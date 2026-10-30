@@ -1,4 +1,6 @@
 fastapi
 uvicorn[standard]
 python-multipart
+google-genai
+httpx  # google-genai 가 같이 설치한다. 시간 초과 예외를 잡으려고 직접 쓴다 (vision.py)
 ruff

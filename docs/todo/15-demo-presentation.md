@@ -5,7 +5,7 @@
 - 에이전트: Claude Code
 - 영역: 발표
 - 이슈: [#21](https://github.com/gaeun1961/foldy/issues/21) (작업 전 assignee 지정)
-- 선행 TODO: TODO-8 `08-analyze-vision-llm.md` ([#14](https://github.com/gaeun1961/foldy/issues/14)), TODO-10 `10-chatbot-view-commands.md` ([#16](https://github.com/gaeun1961/foldy/issues/16)), TODO-14 `14-screen-design.md` ([#20](https://github.com/gaeun1961/foldy/issues/20))
+- 선행 TODO: TODO-8 (완료, [리포트](../reports/T08-analyze-vision-llm.md)), TODO-10 `10-chatbot-view-commands.md` ([#16](https://github.com/gaeun1961/foldy/issues/16)), TODO-14 `14-screen-design.md` ([#20](https://github.com/gaeun1961/foldy/issues/20))
 
 > 시작 전에 위 이슈에 자기 자신을 assignee로 지정합니다. 브랜치와 PR은 이 이슈 번호를 씁니다 (`Closes #N`).
 > 완료된 TODO는 이 파일을 삭제하고, `docs/reports/`에 작업 기록을 남깁니다.

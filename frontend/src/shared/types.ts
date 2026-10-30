@@ -65,11 +65,30 @@ interface SceneOf<S extends ShapeKind, Z, P, N> {
   net: N
 }
 type CrossNet = { layout: 'cross' }
+// 학습지 전개도 그대로 (docs/specs/shape-scene.md "전개도 grid"). 평면 좌표: x 오른쪽, y 아래, 단위는 size 와 같음
+export interface NetPoint {
+  x: number
+  y: number
+}
+export interface NetFace {
+  x: number // 왼쪽 위
+  y: number
+  w: number
+  h: number
+  text?: string // 면에 쓴 글자·숫자
+  fill?: boolean // 색칠한 면
+}
+export type GridNet = {
+  layout: 'grid'
+  faces: NetFace[]
+  cornerLabels?: (NetPoint & { text: string })[] // 전개도 꼭짓점 라벨, 복사본마다
+  lines?: Line<NetPoint>[] // 전개도 위 선. 끝점은 면의 변 위
+}
 type DefaultNet = { layout: 'default' }
 type CurvedNet = { layout: 'default'; seam?: number } // seam: 옆면을 자르는 각도, 기본 0
 
-export type CuboidScene = SceneOf<'cuboid', BoxSize, PolyhedronPoint, CrossNet>
-export type CubeScene = SceneOf<'cube', EdgeSize, PolyhedronPoint, CrossNet>
+export type CuboidScene = SceneOf<'cuboid', BoxSize, PolyhedronPoint, CrossNet | GridNet>
+export type CubeScene = SceneOf<'cube', EdgeSize, PolyhedronPoint, CrossNet | GridNet>
 export type RegularPolyhedronScene = SceneOf<RegularPolyhedronShape, EdgeSize, PolyhedronPoint, DefaultNet>
 export type CylinderScene = SceneOf<'cylinder', RoundSize, CylinderPoint, CurvedNet>
 export type ConeScene = SceneOf<'cone', RoundSize, ConePoint, CurvedNet>

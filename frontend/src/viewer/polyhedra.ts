@@ -2,6 +2,7 @@
 // 새 다면체는 이 파일에 데이터만 추가한다. 렌더링 코드(faceTree.ts)는 도형 이름으로 분기하지 않는다.
 // 라이브러리 독립: three.js 타입 없이 숫자만 쓴다.
 import type { BoxSize, EdgeSize, RoundSize, ShapeKind, ShapeScene } from '../shared/types.ts'
+import { gridPolyhedron } from './gridNet.ts'
 
 export type Vec3 = [number, number, number]
 
@@ -34,7 +35,8 @@ export function matchingEdges(poly: Polyhedron): [FaceEdge, FaceEdge][] {
       if (!hinges.has(key(edge))) cut.set(key(edge), [...(cut.get(key(edge)) ?? []), [face, edge]])
     }),
   )
-  return [...cut.values()].map(([x, y]) => [x, y])
+  // 잘못 그린 전개도(grid)에서는 짝이 없는 모서리가 있다. 짝이 있는 것만
+  return [...cut.values()].flatMap((pair) => (pair.length === 2 ? [[pair[0], pair[1]] as [FaceEdge, FaceEdge]] : []))
 }
 
 // 직육면체·정육면체 (docs/specs/shape-scene.md 꼭짓점 규칙, viewer.md 면 트리 표)
@@ -64,8 +66,10 @@ const POLYHEDRA: { [S in ShapeKind]?: (size: SizeOf<S>) => Polyhedron } = {
   // TODO-16: 정다면체 4종을 여기에 추가
 }
 
-// 면 트리로 그릴 수 있는 도형이면 데이터를, 아니면(곡면 도형, 아직 없는 도형) null
+// 면 트리로 그릴 수 있는 도형이면 데이터를, 아니면(곡면 도형, 아직 없는 도형) null.
+// 학습지 전개도(net.layout = "grid")는 그 전개도를 접어서 만든다 (gridNet.ts)
 export function polyhedronOf(scene: ShapeScene): Polyhedron | null {
+  if (scene.net.layout === 'grid') return gridPolyhedron(scene.net)
   const make = POLYHEDRA[scene.shape] as ((size: ShapeScene['size']) => Polyhedron) | undefined
   return make ? make(scene.size) : null
 }
@@ -74,4 +78,42 @@ export function polyhedronOf(scene: ShapeScene): Polyhedron | null {
 export function foldStepCount(scene: ShapeScene) {
   const poly = polyhedronOf(scene)
   return poly ? foldOrderOf(poly).length : 0
+}
+
+// 바른 전개도인지 (viewer.md "전개도 grid"): 다 접었을 때 같은 자리에 겹친 면이 없고, 모든 모서리가 두 면에 하나씩 맞닿으면 닫힌 입체다.
+// overlapFaces 는 같은 자리·같은 방향에 겹친 면들. 면 트리가 없는 도형은 null
+// 다 접었을 때 face 와 마주 보는 면 (viewer.md onFacePick): 평행하고 같은 평면이 아닌 면.
+// 바른 직육면체·정육면체는 하나, 잘못된 전개도는 없거나(그 자리가 빔) 여럿(두 면이 겹침)일 수 있다
+export function oppositeFaces(poly: Polyhedron, face: number): number[] {
+  const plane = (i: number) => {
+    const [a, b, c] = poly.faces[i].vertices.slice(0, 3).map((v) => poly.positions[v])
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
+    const w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]
+    const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]]
+    const len = Math.hypot(n[0], n[1], n[2])
+    return { n: n.map((x) => x / len), a }
+  }
+  const p = plane(face)
+  const dot = (x: number[], y: number[]) => x[0] * y[0] + x[1] * y[1] + x[2] * y[2]
+  return poly.faces.flatMap((_, i) => {
+    if (i === face) return []
+    const q = plane(i)
+    const gap = dot(p.n, [q.a[0] - p.a[0], q.a[1] - p.a[1], q.a[2] - p.a[2]])
+    return Math.abs(dot(p.n, q.n)) > 1 - 1e-6 && Math.abs(gap) > 1e-6 ? [i] : []
+  })
+}
+
+export function netCheck(scene: ShapeScene): { closed: boolean; overlapFaces: number[] } | null {
+  const poly = polyhedronOf(scene)
+  if (!poly) return null
+  const centers = poly.faces.map((f) => [0, 1, 2].map((k) => f.vertices.reduce((sum, v) => sum + poly.positions[v][k], 0) / f.vertices.length))
+  const overlapFaces = centers.flatMap((c, i) => (centers.some((d, j) => j !== i && Math.hypot(c[0] - d[0], c[1] - d[1], c[2] - d[2]) < 1e-4) ? [i] : []))
+  const count = new Map<string, number>()
+  for (const f of poly.faces)
+    f.vertices.forEach((a, k) => {
+      const b = f.vertices[(k + 1) % f.vertices.length]
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`
+      count.set(key, (count.get(key) ?? 0) + 1)
+    })
+  return { closed: overlapFaces.length === 0 && [...count.values()].every((n) => n === 2), overlapFaces }
 }
