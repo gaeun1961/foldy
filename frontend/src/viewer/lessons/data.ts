@@ -1,7 +1,7 @@
 // 설명 모드(공식 시각화)의 데이터 쪽: 종류, 자세, 단계 수, 멈춘 뒤 보여줄 공식. 화면 물체는 만들지 않는다 (docs/specs/viewer.md "설명 모드").
 // 새 설명은 LessonKind 와 아래 표들에 한 줄씩 더한다
 import type { ShapeScene } from '../../shared/types.ts'
-import { polyhedronOf } from '../polyhedra.ts'
+import { netCheck, polyhedronOf } from '../polyhedra.ts'
 import { defaultEdge, edgeRelations } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { similarSteps } from './similarLayout.ts'
@@ -51,10 +51,32 @@ export function lessonHint(lesson: Lesson): string | null {
 }
 
 // 설명을 보여줄 수 있는 도형의 가로·세로·높이. 지금은 직육면체·정육면체만
+// 전개도(grid)로 접은 입체는 바닥 면 기준으로 접혀서 가운데가 원점이 아니고 가로·세로·높이 방향도 달라질 수 있다.
+// 그래서 실제 꼭짓점에서 구한다. 닫히지 않는 잘못된 전개도는 상자가 아니므로 null
 export function boxSizeOf(scene: ShapeScene) {
+  if (scene.shape !== 'cuboid' && scene.shape !== 'cube') return null
+  if (scene.net.layout === 'grid') {
+    if (!netCheck(scene)?.closed) return null
+    const { lo, hi } = extent(scene)
+    const len = (k: number) => Math.round((hi[k] - lo[k]) * 1e6) / 1e6 // 접을 때 생긴 소수 오차 (조각 수가 늘지 않게)
+    return { width: len(0), height: len(1), depth: len(2) }
+  }
   if (scene.shape === 'cuboid') return scene.size
-  if (scene.shape === 'cube') return { width: scene.size.edge, depth: scene.size.edge, height: scene.size.edge }
-  return null
+  return { width: scene.size.edge, depth: scene.size.edge, height: scene.size.edge }
+}
+
+// 꼭짓점 좌표의 범위
+function extent(scene: ShapeScene) {
+  const pts = polyhedronOf(scene)!.positions
+  const axis = (f: (...v: number[]) => number) => [0, 1, 2].map((k) => f(...pts.map((p) => p[k])))
+  return { lo: axis(Math.min), hi: axis(Math.max) }
+}
+
+// 입체 가운데 (접힌 좌표). 상자 치수로 그리는 설명(부피·대각선·닮음)을 이 자리에 놓는다. 치수로 만든 도형은 원점
+export function boxCenterOf(scene: ShapeScene): [number, number, number] {
+  if (scene.net.layout !== 'grid') return [0, 0, 0]
+  const { lo, hi } = extent(scene)
+  return [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2]
 }
 
 // 단계 수. 설명할 수 없는 도형이면 0

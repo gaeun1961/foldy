@@ -1,11 +1,13 @@
 // 설명 모드 검사: 부피 조각 배치와 단계 수, 공식. 실행: `npm test` (= node src/viewer/lessons/lessons.test.ts)
 import type { ShapeScene } from '../../shared/types.ts'
+import { NET_VARIANTS, netVariant } from '../gridNet.ts'
 import { polyhedronOf } from '../polyhedra.ts'
-import { lessonHint, lessonStepCount, lessonSummary } from './data.ts'
+import { boxCenterOf, boxSizeOf, lessonHint, lessonStepCount, lessonSummary } from './data.ts'
 import { defaultEdge, edgeRelations, edgesOf, meetPoint } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { similarLayout, similarSteps } from './similarLayout.ts'
 import { faceArea, faceNormal, oppositeFacePairs } from './surfaceLayout.ts'
+import { boxLengthLabels, faceLengthLabels } from './lengthLabels.ts'
 import { layerProgress, volumeLayout } from './volumeLayout.ts'
 
 const EPS = 1e-9
@@ -143,4 +145,32 @@ const check = (ok: boolean, msg: string) => {
   check(lessonHint({ kind: 'similar', progress: 1 })!.includes('모서리 길이'), '끝나면 모서리 길이의 합을 묻는다')
 }
 
-console.log('ok: 설명 모드 (부피 조각 배치, 층 진행률, 겉넓이 면 쌍·넓이, 피타고라스 대각선·최단 거리, 위치 관계, 닮음, 단계 수, 공식, 안내)')
+// 다른 전개도(grid)로 접은 입체: 부피 조각이 실제 입체 안에 들어가고, 치수·부피가 맞는다 (허공에 뜨지 않게)
+for (let k = 0; k < NET_VARIANTS.length; k++) {
+  const scene = { shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'grid', faces: netVariant(k, [4, 2, 3]) } } as ShapeScene
+  const box = boxSizeOf(scene)!
+  check([box.width, box.depth, box.height].sort().join() === '2,3,4', `전개도 ${k} 치수 ${JSON.stringify(box)}`)
+  check(lessonSummary(scene, 'volume')!.value === '24', `전개도 ${k} 부피`)
+  const pts = polyhedronOf(scene)!.positions
+  const [cx, cy, cz] = boxCenterOf(scene)
+  const inside = (v: number, a: number) => Math.min(...pts.map((p) => p[a])) - 1e-6 <= v && v <= Math.max(...pts.map((p) => p[a])) + 1e-6
+  const { cubes } = volumeLayout(box.width, box.depth, box.height)
+  check(cubes.length === 24, `전개도 ${k} 조각 수 ${cubes.length}`)
+  check(cubes.every((c) => inside(c.x + cx - c.sx / 2, 0) && inside(c.x + cx + c.sx / 2, 0) && inside(c.y + cy - c.sy / 2, 1) && inside(c.y + cy + c.sy / 2, 1) && inside(c.z + cz - c.sz / 2, 2) && inside(c.z + cz + c.sz / 2, 2)), `전개도 ${k}: 부피 조각이 입체 밖`)
+}
+// 닫히지 않는 잘못된 전개도는 설명이 없다
+{
+  const sq = (x: number, y: number) => ({ x, y, w: 1, h: 1 })
+  const wrong = { shape: 'cube', size: { edge: 1 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'grid', faces: [sq(0, 1), sq(1, 1), sq(2, 1), sq(3, 1), sq(0, 0), sq(1, 0)] } } as ShapeScene
+  check(lessonStepCount(wrong, 'volume') === 0 && lessonSummary(wrong, 'volume') === null, '잘못된 전개도에는 설명 없음')
+}
+
+// 모서리 길이 글자: 입체는 가로·세로·높이, 전개도 면은 그 면의 이웃한 두 변
+{
+  check(boxLengthLabels({ width: 4, depth: 2, height: 3.5 }).map((l) => l.text).join() === '4 cm,2 cm,3.5 cm', '입체 길이 글자')
+  const poly = polyhedronOf({ shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' } } as ShapeScene)!
+  check(poly.faces.every((_, f) => faceLengthLabels(poly, f).length === 2), '면마다 글자 둘')
+  check(faceLengthLabels(poly, 0).map((l) => l.text).sort().join() === '3 cm,4 cm', `앞면 글자 ${faceLengthLabels(poly, 0).map((l) => l.text)}`)
+}
+
+console.log('ok: 설명 모드 (다른 전개도로 접은 입체 포함, 모서리 길이 글자, 부피 조각 배치, 층 진행률, 겉넓이 면 쌍·넓이, 피타고라스 대각선·최단 거리, 위치 관계, 닮음, 단계 수, 공식, 안내)')

@@ -41,3 +41,4 @@ export { foldStepCount, netCheck } from './polyhedra'
 export { NET_VARIANTS, netVariant } from './gridNet' // 정육면체 전개도 11가지 → 치수에 맞춘 grid 면 (viewer.md "전개도 grid")
 export { LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonHint, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'
 export { SIMILAR_SCALES } from './lessons/similarLayout'
+export { RELATION_COLORS } from './lessons/edgeRelationsLayout'

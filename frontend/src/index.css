@@ -378,6 +378,10 @@ h2 {
   font-size: 18px;
   text-align: center;
 }
+/* 위치 관계 색 설명 (ui.md 화면 배치 4-1) */
+.relation-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 15px; }
+.relation-legend li { display: flex; align-items: center; gap: 6px; }
+.relation-legend span { width: 22px; height: 6px; border-radius: 3px; }
 .lesson-summary strong { font-size: 22px; color: var(--accent); }
 
 /* 3D 뷰 오른쪽 위 단계 표시 (글 없이 점만) */
