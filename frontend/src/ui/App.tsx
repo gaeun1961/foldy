@@ -4,6 +4,7 @@ import { EmptyBook, foldStepCount, LESSON_POSE, lessonHint, NET_VARIANTS, netChe
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
+import { DragHandle } from './DragHandle'
 import { FaceMarks } from './FaceMarks'
 import { markFace, markHint, type Mark } from './markFace.ts'
 import { LessonControls, LessonDots } from './LessonControls'
@@ -86,6 +87,7 @@ export default function App() {
   const [route, setRoute] = useState<{ routes: Line<PolyhedronPoint>[][]; index: number } | null>(null)
   // 지금 전개도가 정육면체 전개도 11가지 중 몇 번째인지 (십자형은 0, 그리기 칸에서 고쳤거나 학습지 전개도면 null)
   const [variant, setVariant] = useState<number | null>(null)
+  const [dockOffset, setDockOffset] = useState({ x: 0, y: 0 }) // 손잡이로 옮긴 아래 바 위치 (넓은 화면)
   const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
   const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true, shapeName(scene)))
@@ -150,7 +152,8 @@ export default function App() {
         )}
         {scene && lesson ? <LessonDots scene={scene} lesson={lesson} /> : foldMode === 'step' && steps > 0 && <StepDots unfold={unfold} steps={steps} />}
       </main>
-      <section className="dock" aria-label="접기">
+      <section className="dock" aria-label="접기" style={{ translate: `${dockOffset.x}px ${dockOffset.y}px` }}>
+        <DragHandle offset={dockOffset} onMove={setDockOffset} />
         {hint && <p className="viewer-hint">{hint}</p>}
         {scene && (
           <>

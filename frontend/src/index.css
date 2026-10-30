@@ -81,9 +81,14 @@ h2 {
   margin-inline: auto;
   display: grid;
   gap: 4px;
-  padding: 12px 4px 8px;
+  padding: 2px 4px 8px; /* 맨 위는 손잡이 */
 }
 .dock:not(:has(.fold-controls, .lesson-controls)) { padding: 0; } /* 도형이 없으면 안내 한 줄만 */
+/* 바 옮기기 손잡이: 바 맨 위 작은 막대 (ui.md 화면 배치) */
+.drag-handle { display: grid; place-items: center; height: 16px; cursor: grab; touch-action: none; }
+.drag-handle:active { cursor: grabbing; }
+.drag-handle::before { content: ''; width: 48px; height: 6px; border-radius: 999px; background: #dccfbd; box-shadow: var(--pressed); }
+.drag-handle:hover::before { background: #c9b9a2; }
 .dock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 6px; }
 .dock-row .line-controls { flex: 1; padding: 0; background: none; }
 
@@ -412,6 +417,8 @@ h2 {
     backdrop-filter: none;
   }
   .dock { padding-top: 6px; border-bottom: 1px solid var(--line); }
+  .dock { translate: none !important; } /* 좁은 화면은 고정 (style 로 준 위치를 무시) */
+  .drag-handle { display: none; }
   .make-card > summary { position: static; border-radius: 0; background: none; }
   .status-badge { left: 12px; top: 12px; transform: none; }
 }
