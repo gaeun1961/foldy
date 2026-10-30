@@ -36,7 +36,8 @@ export function ManualInput({ scene, photo, onScene, fit, onFit }: Props) {
 
 // ① 치수로 만들기. 지금 도형이 십자형이면 그 값으로 채운다. 도형이 없으면 "이 치수로 만들기"
 function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scene: ShapeScene) => void }) {
-  const current = scene && scene.net.layout === 'cross' && (scene.shape === 'cuboid' || scene.shape === 'cube') ? scene : null
+  // 지금 도형이 치수로 만든 것(십자형·정다면체 기본 전개도)이면 그 값으로 채운다
+  const current = scene && scene.net.layout !== 'grid' && SHAPES.some((s) => s.shape === scene.shape) ? scene : null
   const [draft, setDraft] = useState<{ shape: BoxShape; size: Record<string, number> }>({ shape: 'cuboid', size: { ...SHAPES[0].size } })
   const shape = current ? (current.shape as BoxShape) : draft.shape
   const size = (current ? current.size : draft.size) as Record<string, number>

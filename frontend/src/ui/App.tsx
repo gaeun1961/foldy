@@ -32,7 +32,7 @@ function facePickHint({ text, opposite }: FacePick) {
 // 지금 고를 수 있는 것은 치수로 만들기의 도형(SHAPES)이고, 나머지는 나중에 넣을 도형 (2·3차).
 // 쪽 번호: 차례는 2·3쪽, 차례 k번째 도형은 (2k+4)·(2k+5)쪽 (k 는 0부터)
 const INTRO = ['foldy', '전개도를 접어 보는 책이에요.', '① 학습지 사진을 올리거나 직접 만들어요.', '② 접어 보며 만나는 모서리를 찾아요.', '③ 선을 긋고 면에 표시해 봐요.']
-const CONTENTS = [...SHAPES.map((s, k) => ({ title: s.name, page: 2 * k + 4 })), ...['각기둥·각뿔', '정다면체', '원기둥·원뿔·구'].map((title) => ({ title, page: null }))]
+const CONTENTS = [...SHAPES.map((s, k) => ({ title: s.name, page: 2 * k + 4 })), ...['각기둥·각뿔', '원기둥·원뿔·구'].map((title) => ({ title, page: null }))]
 const CONTENTS_PAGES: [number, number] = [2, 3]
 function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
   const k = SHAPES.findIndex((s) => s.shape === scene.shape)
@@ -168,7 +168,7 @@ export default function App() {
               />
               <FaceMarks
                 on={marking && canMark}
-                enabled={canMark || scene.lines.length === 0}
+                enabled={canMark || (scene.net.layout === 'cross' && scene.lines.length === 0)}
                 onToggle={(on) => {
                   setMarking(on)
                   if (!on) return

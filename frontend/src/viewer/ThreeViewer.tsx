@@ -3,12 +3,14 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
-import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
 import { buildBook, DESK_COLOR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonKind, type LessonObject } from './lessons/index.ts'
 
+// 처음 카메라가 보는 점에서 카메라 쪽 방향 (비스듬히 위, 오른쪽 앞). 정다면체는 이 방향에서 먼 면부터 접는다
+const VIEW_DIR = new THREE.Vector3(0.5, 0.9, 1)
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
 // 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다
@@ -155,9 +157,21 @@ export function ThreeViewer({
     }
     callbacksRef.current.onFacePick?.(null)
     const tree = buildFaceTree(poly, looks.normal.faces, looks.normal.edge)
-    layOnFloor(tree, poly) // 전개도를 바닥에 눕힌다. 접으면 면이 위로 일어선다 (docs/specs/viewer.md)
+    // 마주 보는 면 보기: 고른 두 면 위에 반투명 연보라 판. 깊이 검사를 꺼서 다 접어 바닥·뒤쪽에 가려져도 비쳐 보인다
+    const throughMaterial = new THREE.MeshBasicMaterial({ color: '#9b7bff', transparent: true, opacity: 0.35, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
+    const throughPlates = tree.nodes.map((n) => {
+      const plate = new THREE.Mesh(n.mesh.geometry, throughMaterial) // 면 메시와 같은 모양 (geometry 는 면 트리가 정리)
+      plate.visible = false
+      plate.renderOrder = 3
+      plate.raycast = () => {} // 누르기에는 걸리지 않게
+      n.mesh.add(plate)
+      return plate
+    })
+    // 전개도를 바닥에 눕힌다. 접으면 면이 위로 일어선다 (docs/specs/viewer.md). 순서가 없는 도형은 루트 쪽이 카메라 앞에 오게 돌려 눕힌다
+    const yaw = poly.foldOrder ? 0 : facingYaw(tree, poly, VIEW_DIR)
+    layOnFloor(tree, poly, yaw)
     world.add(tree.root)
-    const order = foldOrderOf(poly)
+    const order = poly.foldOrder ? foldOrderOf(poly) : farFirstOrder(tree, VIEW_DIR) // 순서가 없는 도형은 카메라에서 먼 면부터
 
     // 다 접은 모양, 다 펼친 모양, 두 방식의 중간 모양을 모두 담는 범위의 가운데를 보고, 전체가 화면에 들어오는 거리에 둔다.
     // 그래서 펼치고 접는 동안 카메라를 옮기지 않아도 화면 밖으로 나가지 않는다 (단계별 중간 모양은 더 높이 솟을 수 있다)
@@ -184,7 +198,7 @@ export function ThreeViewer({
     const solidBounds = new THREE.Box3().expandByObject(tree.root)
     const solidCenter = solidBounds.getCenter(new THREE.Vector3())
     const solidRadius = solidBounds.getBoundingSphere(new THREE.Sphere()).radius
-    layOnFloor(tree, poly)
+    layOnFloor(tree, poly, yaw)
     // 카메라가 담는 범위: 보통은 접고 펼치는 전체(가운데는 아래 카메라에서 책등 쪽으로 옮긴다), 설명 모드는 바로 세운 입체
     const floorFit = { center: center.clone(), radius }
     const solidFit = { center: solidCenter, radius: solidRadius * 1.6 } // 아래 바가 설명 조작으로 높아져도 입체가 가리지 않게 넉넉히
@@ -446,7 +460,7 @@ export function ThreeViewer({
         lessonKind = lesson?.kind ?? null
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
-        else layOnFloor(tree, poly)
+        else layOnFloor(tree, poly, yaw)
       }
       lessonObject?.apply(lesson?.progress ?? 0)
       return { on: lessonObject !== null, ghost: lessonObject !== null && LESSON_POSE[lesson!.kind] === 'solid' }
@@ -512,6 +526,7 @@ export function ThreeViewer({
         ;(n.mesh.children[0] as THREE.LineLoop).material = edge
       }
       for (const [face, bar] of bars) bar.visible = face === active
+      throughPlates.forEach((plate, f) => (plate.visible = faceSet.has(f)))
     }
     apply()
     applyRef.current = apply
@@ -543,7 +558,7 @@ export function ThreeViewer({
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
     const target = center.clone().lerp(new THREE.Vector3(book.center.x, center.y, center.z), 0.3)
     floorFit.center.copy(target)
-    camera.position.copy(target).add(new THREE.Vector3(0.5, 0.9, 1))
+    camera.position.copy(target).add(VIEW_DIR)
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.copy(target)
@@ -667,6 +682,7 @@ export function ThreeViewer({
       controls.dispose()
       lessonObject?.dispose()
       disposeFaceTree(tree)
+      throughMaterial.dispose()
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
       for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial]) m.dispose()
       for (const m of cornerMaterials.map((c) => c.material)) {
