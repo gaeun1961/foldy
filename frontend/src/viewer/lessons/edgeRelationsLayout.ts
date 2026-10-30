@@ -2,6 +2,9 @@
 // 도형 이름으로 분기하지 않고 좌표로 가른다: 방향이 나란하면 평행, 같은 평면 위면(나란하지 않고) 만남, 아니면 꼬인 위치
 import type { Polyhedron, Vec3 } from '../polyhedra.ts'
 
+// 위치 관계 색. 화면 색 설명(ui.md)과 3D 가 같이 쓴다
+export const RELATION_COLORS = { ref: '#e03131', kinds: ['#2f9e44', '#f08c00', '#7048e8'] } // 기준, [평행, 만남, 꼬인 위치]
+
 export type Edge = [number, number]
 
 const EPS = 1e-9

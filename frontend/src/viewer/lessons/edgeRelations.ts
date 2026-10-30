@@ -1,15 +1,14 @@
 import * as THREE from 'three'
 import type { Polyhedron } from '../polyhedra.ts'
 import { clamp01, DONE, growingTube, rightAngleMark, v3 } from './draw.ts'
-import { defaultEdge, edgeRelations, edgesOf, meetPoint, type Edge } from './edgeRelationsLayout.ts'
+import { defaultEdge, edgeRelations, edgesOf, meetPoint, RELATION_COLORS, type Edge } from './edgeRelationsLayout.ts'
 import type { LessonObject } from './index.ts'
 
 // 위치 관계 설명 (TODO-28, 바로 세운 입체). 기준 모서리(빨강)와 나머지 모서리를 평행 → 만남 → 꼬인 위치 순서로 한 종류씩,
 // 종류 안에서는 모서리를 하나씩 보인다. 색만으로 구분하지 않는다 (ui.md): 평행은 두 모서리를 품는 반투명 평면,
 // 만남은 만나는 점(+ 수직이면 직각 표시), 꼬인 위치는 점선 모서리와 양쪽으로 늘린 점선 직선(끝까지 만나지 않음)을 함께 보인다.
 // 지난 종류는 연하게 남기고 평면·점·직선은 지금 종류만 보인다. 다른 모서리를 누르면 그 모서리가 기준이 된다
-const REF = '#e03131'
-const KIND_COLORS = ['#2f9e44', '#f08c00', '#7048e8'] // 평행, 만남, 꼬인 위치
+const { ref: REF, kinds: KIND_COLORS } = RELATION_COLORS
 
 export function buildEdgeRelationsLesson(poly: Polyhedron, radius: number): LessonObject {
   const p = poly.positions

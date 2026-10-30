@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types'
-import { LESSON_LABEL, lessonStepCount, lessonSummary, SIMILAR_SCALES, type Lesson, type LessonKind } from '../viewer'
+import { LESSON_LABEL, lessonStepCount, lessonSummary, RELATION_COLORS, SIMILAR_SCALES, type Lesson, type LessonKind } from '../viewer'
 import { StepDots } from './FoldControls'
 import { stepTargets } from './foldStatus.ts'
 import { animate, SPEEDS, type Speed } from './player'
@@ -107,6 +107,24 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
               {LESSON_LABEL[lesson.kind]} 보기 ▶
             </button>
           </div>
+          {/* 위치 관계 색 설명: 기준 + 지금까지 나온 종류만 (뒤에 나올 답을 미리 보이지 않게, ui.md) */}
+          {lesson.kind === 'edge-relations' && (
+            <ul className="relation-legend" aria-label="색 설명">
+              <li>
+                <span style={{ background: RELATION_COLORS.ref }} />
+                기준 모서리
+              </li>
+              {['평행', '만남', '꼬인 위치'].map(
+                (name, k) =>
+                  progress > k / 3 + 1e-6 && (
+                    <li key={name}>
+                      <span style={{ background: RELATION_COLORS.kinds[k] }} />
+                      {name}
+                    </li>
+                  ),
+              )}
+            </ul>
+          )}
           {/* 공식은 애니메이션이 끝나고 멈춘 뒤에만 (ui.md 친절한 설명 원칙) */}
           {summary && (
             <p className="lesson-summary" role="status">
