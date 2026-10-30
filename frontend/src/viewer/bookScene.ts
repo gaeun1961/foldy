@@ -54,6 +54,7 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
     ctx.fillStyle = '#cfc6b6'
     ctx.fillRect(x, y, right - x, 3)
     y += 110
+    const step = Math.min(104, (h * 0.9 - y) / contents.length) // 줄이 많아도 쪽 번호 위에서 끝나게
     contents.forEach(({ title, page }, k) => {
       const ready = page !== null
       ctx.textAlign = 'left'
@@ -77,8 +78,8 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
         ctx.fillStyle = '#c9c0b0'
         ctx.fillText('곧 나와요', right, y)
       }
-      rows.push({ top: (y - 62) / h, bottom: (y + 34) / h })
-      y += 104
+      rows.push({ top: (y - step * 0.6) / h, bottom: (y + step * 0.33) / h })
+      y += step
     })
     return finish(canvas)
   }

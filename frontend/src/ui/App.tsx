@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import { EmptyBook, foldStepCount, LESSON_HINT, LESSON_POSE, netCheck, Viewer, type DrawState, type FacePick, type Lesson } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
-import { foldStatus, SHAPE_NAME, unfoldOf } from './foldStatus.ts'
+import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { FaceMarks } from './FaceMarks'
 import { markFace, markHint, type Mark } from './markFace.ts'
@@ -32,7 +32,7 @@ function facePickHint({ text, opposite }: FacePick) {
 // 지금 고를 수 있는 것은 치수로 만들기의 도형(SHAPES)이고, 나머지는 나중에 넣을 도형 (2·3차).
 // 쪽 번호: 차례는 2·3쪽, 차례 k번째 도형은 (2k+4)·(2k+5)쪽 (k 는 0부터)
 const INTRO = ['foldy', '전개도를 접어 보는 책이에요.', '① 학습지 사진을 올리거나 직접 만들어요.', '② 접어 보며 만나는 모서리를 찾아요.', '③ 선을 긋고 면에 표시해 봐요.']
-const CONTENTS = [...SHAPES.map((s, k) => ({ title: s.name, page: 2 * k + 4 })), ...['각기둥·각뿔', '정다면체', '원기둥·원뿔·구'].map((title) => ({ title, page: null }))]
+const CONTENTS = [...SHAPES.map((s, k) => ({ title: s.name, page: 2 * k + 4 })), ...['원기둥·원뿔·구'].map((title) => ({ title, page: null }))]
 const CONTENTS_PAGES: [number, number] = [2, 3]
 function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
   const k = SHAPES.findIndex((s) => s.shape === scene.shape)
@@ -41,9 +41,15 @@ function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
 
 // 책 장면 왼쪽 페이지 글 (viewer.md "책 장면"): 제목, 치수, 할 일 한 줄
 function pageTextOf(scene: ShapeScene) {
-  const size = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge', number>>
-  const dims = size.width ? `가로 ${size.width} · 세로 ${size.depth} · 높이 ${size.height}` : size.edge ? `한 모서리 ${size.edge}` : ''
-  return [`${SHAPE_NAME[scene.shape]}의 전개도`, dims, '전개도를 접어 보며 어떤 모서리끼리 만나는지 찾아보세요.'].filter(Boolean)
+  const size = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge' | 'sides', number>>
+  const dims = size.width
+    ? `가로 ${size.width} · 세로 ${size.depth} · 높이 ${size.height}`
+    : size.sides
+      ? `밑면 ${polygonName(size.sides)} · 한 변 ${size.edge} · 높이 ${size.height}`
+      : size.edge
+        ? `한 모서리 ${size.edge}`
+        : ''
+  return [`${shapeName(scene)}의 전개도`, dims, '전개도를 접어 보며 어떤 모서리끼리 만나는지 찾아보세요.'].filter(Boolean)
 }
 
 // 화면 (docs/specs/ui.md 화면 배치): 3D 책 장면(stage) + 아래 바(dock: 안내·접기·선 긋기·보기) + 만들기 카드(사진·직접 만들기) + 챗봇.
@@ -73,7 +79,7 @@ export default function App() {
   const [route, setRoute] = useState<{ routes: Line<PolyhedronPoint>[][]; index: number } | null>(null)
   const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
-  const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true))
+  const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true, shapeName(scene)))
   const changeLesson = (next: Lesson | null) => {
     if (next && next.kind !== lesson?.kind) setUnfold(LESSON_POSE[next.kind] === 'net' ? 1 : 0)
     setLesson(next)
@@ -168,7 +174,7 @@ export default function App() {
               />
               <FaceMarks
                 on={marking && canMark}
-                enabled={canMark || scene.lines.length === 0}
+                enabled={canMark || (scene.net.layout === 'cross' && scene.lines.length === 0)}
                 onToggle={(on) => {
                   setMarking(on)
                   if (!on) return

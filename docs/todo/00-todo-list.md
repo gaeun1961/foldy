@@ -10,7 +10,6 @@
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
 - **TODO-38** [다양한 전개도 모양 고르기](38-net-variants.md) · [#91](https://github.com/gaeun1961/foldy/issues/91) — UI: "다른 전개도 보기"로 정육면체 11가지·직육면체 여러 모양을 바꿔 보며 접는다
-- **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) · [#44](https://github.com/gaeun1961/foldy/issues/44) — 3D: 모서리를 누르면 평행·수직·꼬인 위치 모서리를 색으로 구분한다 (1차 다른 TODO보다 뒤)
 - **TODO-29** [닮은 직육면체의 겉넓이비·부피비](29-similar-ratio.md) · [#45](https://github.com/gaeun1961/foldy/issues/45) — 3D: 닮은 직육면체의 겉넓이비·부피비를 보여준다 (1차 다른 TODO보다 뒤)
 
 ## 진행 중
@@ -20,6 +19,8 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 | TODO | 이슈 | 담당자 |
 |---|---|---|
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | gaeun1961 |
+| **TODO-35** 공용 렌더러로 뷰어 여러 개 띄우기 + 예시 도형 갤러리 (PR [#56](https://github.com/gaeun1961/foldy/pull/56)) | [#54](https://github.com/gaeun1961/foldy/issues/54) | kimdaeone |
+| **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) | [#44](https://github.com/gaeun1961/foldy/issues/44) | kimdaeone |
 
 ## 1차 남은 일
 
@@ -29,14 +30,12 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 |---|---|---|
 | (없음) | | |
 
-## 나중에 (2차·3차)
+## 나중에 (3차)
 
-**1차가 끝나기 전에는 가져가지 않는다.** 이슈는 "not planned"로 닫혀 있고, 1차 마일스톤이 끝나면 다시 연다.
+2차(정다면체 TODO-16, 각기둥·각뿔 TODO-31)는 시연을 위해 1차보다 먼저 끝냈다(사용자 결정, 리포트 T16·T31). 3차는 아직 가져가지 않는다. 이슈는 "not planned"로 닫혀 있고, 시작할 때 다시 연다.
 
 | 단계 | TODO | 이슈 | 선행 |
 |---|---|---|---|
-| 2차 | **TODO-16** [정다면체 4종 면 트리 데이터 추가](16-regular-polyhedra-data.md) | [#24](https://github.com/gaeun1961/foldy/issues/24) | TODO-3 |
-| 2차 | **TODO-31** [각기둥·각뿔 면 트리 데이터와 전개도](31-prism-pyramid.md) | [#47](https://github.com/gaeun1961/foldy/issues/47) | TODO-3 |
 | 3차 | **TODO-17** [원기둥 말기 애니메이션](17-cylinder-roll.md) | [#25](https://github.com/gaeun1961/foldy/issues/25) | TODO-2 |
 | 3차 | **TODO-18** [원뿔 말기 애니메이션](18-cone-roll.md) | [#26](https://github.com/gaeun1961/foldy/issues/26) | TODO-17 |
 | 3차 | **TODO-19** [곡면 도형 위 선 그리기 (전개도 직선이 곡면을 따라 감기게)](19-curved-lines.md) | [#27](https://github.com/gaeun1961/foldy/issues/27) | TODO-18 |

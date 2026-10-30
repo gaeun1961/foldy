@@ -21,10 +21,12 @@ AI(사진 인식)는 ShapeScene JSON을 **만들고**, 뷰어·UI는 그것을 *
 | `regular-octahedron` | 정팔면체 | `{ edge }` | 6 | 다면체형 | `{ layout: "default" }` |
 | `regular-dodecahedron` | 정십이면체 | `{ edge }` | 20 | 다면체형 | `{ layout: "default" }` |
 | `regular-icosahedron` | 정이십면체 | `{ edge }` | 12 | 다면체형 | `{ layout: "default" }` |
+| `prism` | 각기둥 (밑면 정다각형) | `{ sides, edge, height }` | 2 × `sides` | 다면체형 | `{ layout: "default" }` |
+| `pyramid` | 각뿔 (밑면 정다각형) | `{ sides, edge, height }` | `sides` + 1 | 다면체형 | `{ layout: "default" }` |
 | `cylinder` | 원기둥 | `{ radius, height }` | 0 (빈 배열) | 원기둥형 | `{ layout: "default", seam? }` |
 | `cone` | 원뿔 | `{ radius, height }` | 1 (꼭짓점) | 원뿔형 | `{ layout: "default", seam? }` |
 
-- `size`의 값은 모두 0보다 크고, 단위는 학습지 그대로(cm 등)다. `width` = 가로(x), `depth` = 깊이(z), `height` = 높이(y), `edge` = 한 모서리 길이, `radius` = 밑면 반지름
+- `size`의 값은 모두 0보다 크고, 단위는 학습지 그대로(cm 등)다. `width` = 가로(x), `depth` = 깊이(z), `height` = 높이(y), `edge` = 한 모서리 길이(각기둥·각뿔은 밑면 한 변), `radius` = 밑면 반지름, `sides` = 각기둥·각뿔 밑면 정다각형의 변 수(정수 3~12, 삼각기둥 3, 오각뿔 5)
 - `vertexLabels`: 꼭짓점마다 라벨(예: "ㄱ"), 없으면 `null`. 인덱스는 아래 꼭짓점 규칙을 따른다
 - `lines`: `{ from, to }` 목록. 다면체는 두 끝점이 같은 면 위, 곡면 도형은 옆면(곡면) 위의 선만 다룬다 (밑면 원 위의 선은 지원하지 않음)
 - `net.layout`: `cross`는 아래 십자형, `grid`는 학습지 전개도 그대로(아래 "전개도 grid", 직육면체·정육면체만), `default`는 도형별 기본 전개도(다면체는 `frontend/src/viewer/polyhedra.ts`의 면 트리, 곡면 도형은 아래 곡면 전개도 규칙)
@@ -54,6 +56,10 @@ AI(사진 인식)는 ShapeScene JSON을 **만들고**, 뷰어·UI는 그것을 *
 **정이십면체 (12)**: 0 꼭대기, 1~5 위 고리(1이 앞), 6~10 아래 고리(위 고리에서 36° 더 돈 위치부터, 6은 1과 2 사이 아래), 11 바닥.
 
 **정십이면체 (20)**: 윗면이 수평인 자세. 0~4 윗면 정오각형(0이 앞), 5~9 위 고리(각각 0~4와 같은 방향, 바로 아래), 10~14 아래 고리(36° 더 돈 위치부터, 10은 5와 6 사이), 15~19 아랫면 정오각형(각각 10~14와 같은 방향, 바로 아래).
+
+**각기둥 (2 × sides)**: 밑면 정다각형 0 ~ sides−1 (0 앞왼쪽, 1 앞오른쪽, 앞 모서리가 0-1. 그다음은 위에서 볼 때 앞 → 오른쪽 → 뒤 → 왼쪽), 윗면 sides ~ 2·sides−1 은 각각 밑면 꼭짓점 바로 위 (sides = 4 이고 밑면이 정사각형이면 직육면체 규칙과 같은 번호).
+
+**각뿔 (sides + 1)**: 밑면 0 ~ sides−1 은 각기둥과 같고, sides 번이 꼭대기(밑면 가운데 바로 위).
 
 **원뿔 (1)**: 0 꼭짓점(apex). **원기둥**: 꼭짓점 없음.
 

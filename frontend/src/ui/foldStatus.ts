@@ -1,5 +1,5 @@
 // 접기 슬라이더 값과 상단 상태 배지 문구 (docs/specs/ui.md)
-import type { ShapeKind } from '../shared/types.ts'
+import type { ShapeKind, ShapeScene } from '../shared/types.ts'
 
 export const SHAPE_NAME: Record<ShapeKind, string> = {
   cuboid: '직육면체',
@@ -8,8 +8,19 @@ export const SHAPE_NAME: Record<ShapeKind, string> = {
   'regular-octahedron': '정팔면체',
   'regular-dodecahedron': '정십이면체',
   'regular-icosahedron': '정이십면체',
+  prism: '각기둥',
+  pyramid: '각뿔',
   cylinder: '원기둥',
   cone: '원뿔',
+}
+
+// 화면에 쓰는 도형 이름. 각기둥·각뿔은 밑면 변 수로 (오각기둥, 사각뿔)
+const POLYGON = ['', '', '', '삼각', '사각', '오각', '육각', '칠각', '팔각', '구각', '십각', '십일각', '십이각']
+export const polygonName = (sides: number) => `${POLYGON[sides]}형` // 밑면 이름 (오각형)
+export function shapeName(scene: ShapeScene) {
+  if (scene.shape === 'prism') return `${POLYGON[scene.size.sides]}기둥`
+  if (scene.shape === 'pyramid') return `${POLYGON[scene.size.sides]}뿔`
+  return SHAPE_NAME[scene.shape]
 }
 
 // 접기 % = (1 − s) × 100. 0% = 전개도, 100% = 입체 (뷰어의 펼침 값 s 와 방향이 반대)
@@ -34,8 +45,8 @@ function subjectParticle(word: string) {
 
 // playing: 애니메이션 중이면 숫자를 숨긴다 (ui.md 친절한 설명 원칙: 숫자는 멈춘 뒤에)
 // closed: 바른 전개도인지 (viewer netCheck). 학습지에 잘못 그린 전개도면 다 접었을 때 "전개도가 아니에요" (ui.md 상태 배지)
-export function foldStatus(shape: ShapeKind, unfold: number, playing = false, closed = true) {
-  const name = SHAPE_NAME[shape]
+// name: 화면에 쓸 이름 (각기둥·각뿔은 shapeName 으로 넘긴다)
+export function foldStatus(shape: ShapeKind, unfold: number, playing = false, closed = true, name = SHAPE_NAME[shape]) {
   const percent = foldPercent(unfold)
   if (playing && percent > 0 && percent < 100) return { done: false, text: `${name} · 접는 중` }
   if (percent >= 100 && !closed) return { done: false, wrong: true, text: `${name} 전개도가 아니에요 · 면이 겹치거나 비어요` }

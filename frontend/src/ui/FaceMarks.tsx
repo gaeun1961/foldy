@@ -5,7 +5,7 @@ import { MARKS, type Mark } from './markFace.ts'
 interface Props {
   on: boolean
   onToggle: (on: boolean) => void
-  enabled: boolean // 십자형에 선이 있으면 false (grid 로 바꾸면 선이 사라져서)
+  enabled: boolean // grid 이거나 선 없는 십자형만 (정다면체는 면 표시를 담을 수 없음)
   mark: Mark
   onMark: (mark: Mark) => void
 }
@@ -18,7 +18,7 @@ export function FaceMarks({ on, onToggle, enabled, mark, onMark }: Props) {
         className="toggle-button"
         aria-pressed={on}
         disabled={!enabled}
-        title={enabled ? undefined : '선을 지운 뒤에 쓸 수 있어요'}
+        title={enabled ? undefined : '직육면체·정육면체에서, 선을 지운 뒤에 쓸 수 있어요'}
         onClick={() => onToggle(!on)}
       >
         🔤 면 표시

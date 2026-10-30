@@ -1,7 +1,7 @@
 // 면 트리 검사: 접힌 상태(s = 0)는 원래 입체, 다 펼친 상태(s = 1)는 viewer.md 의 cross 배치인지 확인.
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/faceTree.test.ts)
 import * as THREE from 'three'
-import { applyUnfold, buildFaceTree, facePoints, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
+import { applyUnfold, buildFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Polyhedron } from './polyhedra.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import type { GridNet, Line, NetFace, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
@@ -246,3 +246,94 @@ const cylinder: ShapeScene = { shape: 'cylinder', size: { radius: 1, height: 2 }
 check(polyhedronOf(cylinder) === null && foldStepCount(cylinder) === 0, '곡면 도형은 면 트리가 없어야 함')
 check(foldStepCount({ ...base, shape: 'cube', size: { edge: 1 } }) === 5, '정육면체 단계 수는 5')
 console.log('ok: 직육면체·정육면체 면 트리 (s = 0 입체, s = 1 cross, 바닥에 눕히기, 단계별 접기, 맞닿는 모서리, 면 위 선분, 선 긋기 점, 겉면 최단 경로, 길 후보, 학습지 전개도 grid, 마주 보는 면, 같은 모양 길 빼기)')
+
+// 정다면체 4종 (TODO-16)·각기둥·각뿔 (TODO-31): 접으면 원래 좌표, 펼치면 바닥 한 평면에 겹치지 않게, 맞닿는 모서리 수, 닫힌 입체
+{
+  // 볼록 다각형 둘이 넓이 있게 겹치는가 (바닥 평면 x, z). 분리축: 두 다각형의 변 법선. 맞닿기만 하면 겹침 아님
+  const overlap2d = (p: number[][], q: number[][]) => {
+    for (const poly of [p, q])
+      for (let k = 0; k < poly.length; k++) {
+        const [a, b] = [poly[k], poly[(k + 1) % poly.length]]
+        const axis = [b[1] - a[1], a[0] - b[0]]
+        const proj = (r: number[][]) => r.map((v) => v[0] * axis[0] + v[1] * axis[1])
+        const [pp, qq] = [proj(p), proj(q)]
+        if (Math.max(...pp) <= Math.min(...qq) + 1e-6 || Math.max(...qq) <= Math.min(...pp) + 1e-6) return false
+      }
+    return true
+  }
+  // [도형, 크기, 면 수, 맞닿는 모서리 쌍 수]. 각기둥은 면 n+2·쌍 2n−1, 각뿔은 면 n+1·쌍 n (모서리 수 − 붙는 모서리 수)
+  const shapes: [ShapeScene['shape'], object, number, number][] = [
+    ['regular-tetrahedron', { edge: 2 }, 4, 3],
+    ['regular-octahedron', { edge: 2 }, 8, 5],
+    ['regular-dodecahedron', { edge: 2 }, 12, 19],
+    ['regular-icosahedron', { edge: 2 }, 20, 11],
+    ['prism', { sides: 3, edge: 2, height: 3 }, 5, 5],
+    ['prism', { sides: 5, edge: 2, height: 3 }, 7, 9],
+    ['prism', { sides: 6, edge: 2, height: 1 }, 8, 11],
+    ['pyramid', { sides: 3, edge: 2, height: 3 }, 4, 3],
+    ['pyramid', { sides: 4, edge: 2, height: 3 }, 5, 4],
+    ['pyramid', { sides: 7, edge: 2, height: 2 }, 8, 7],
+  ]
+  for (const [shape, size, faceCount, pairCount] of shapes) {
+    const scene = { shape, size, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene
+    const poly = polyhedronOf(scene)!
+    check(poly.faces.length === faceCount, `${shape} 면 수 ${poly.faces.length}`)
+    // 정다면체는 모든 모서리가 2, 각기둥·각뿔은 밑면 모서리가 2
+    if (shape.startsWith('regular'))
+      for (const f of poly.faces)
+        f.vertices.forEach((v, k) => {
+          const [a, b] = [poly.positions[v], poly.positions[f.vertices[(k + 1) % f.vertices.length]]]
+          check(Math.abs(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) - 2) < 1e-9, `${shape} 모서리 길이`)
+        })
+    else {
+      const [a, b] = [poly.positions[0], poly.positions[1]]
+      check(Math.abs(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) - 2) < 1e-9 && Math.abs(a[2] - b[2]) < 1e-9 && a[0] < b[0], `${shape} 밑면 앞 모서리 0-1`)
+    }
+    const tree = buildFaceTree(poly, [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()], new THREE.LineBasicMaterial())
+    applyUnfold(tree, 0)
+    tree.root.updateMatrixWorld(true)
+    for (const n of tree.nodes) {
+      const expected = n.vertices.map((i) => new THREE.Vector3(...poly.positions[i]))
+      check(worldPoints(n.mesh).every((p) => expected.some((e) => e.distanceTo(p) < 1e-5)), `${shape} 면 ${n.face}: 접힌 좌표가 다름`)
+    }
+    applyUnfold(tree, 1)
+    layOnFloor(tree, poly)
+    tree.root.updateMatrixWorld(true)
+    for (const n of tree.nodes) {
+      const pts = worldPoints(n.mesh) // 메시 좌표는 32비트라 1e-5 까지
+      check(pts.every((p) => Math.abs(p.y) < 1e-5), `${shape} 면 ${n.face}: 펼친 면이 바닥에 없음`)
+      const normal = new THREE.Vector3().crossVectors(pts[1].clone().sub(pts[0]), pts[2].clone().sub(pts[0])).normalize()
+      check(normal.y < -1 + 1e-5, `${shape} 면 ${n.face}: 펼친 면이 뒤집힘`)
+    }
+    // 꼭짓점 위치는 메시의 LineLoop 에서 (메시 위치는 부채꼴 삼각형이라)
+    const outline = tree.nodes.map((n) => {
+      const line = n.mesh.children[0] as THREE.LineLoop
+      const pos = line.geometry.getAttribute('position')
+      return [...Array(pos.count).keys()].map((k) => new THREE.Vector3().fromBufferAttribute(pos, k).applyMatrix4(line.matrixWorld)).map((p) => [p.x, p.z])
+    })
+    for (let i = 0; i < outline.length; i++)
+      for (let j = i + 1; j < outline.length; j++) check(!overlap2d(outline[i], outline[j]), `${shape}: 펼친 면 ${i}·${j} 가 겹침`)
+    check(matchingEdges(poly).length === pairCount, `${shape} 맞닿는 모서리 ${matchingEdges(poly).length}쌍`)
+    check(netCheck(scene)!.closed, `${shape}: 닫힌 입체가 아님`)
+    check(foldStepCount(scene) === faceCount - 1, `${shape} 단계 수`)
+    // 단계별 접기 순서: 카메라 쪽(+z 앞)에서 먼 면부터, 루트가 아닌 면을 한 번씩
+    // 바닥에 눕힐 방향: 펼친 전개도 가운데가 루트보다 카메라(+z 앞)에서 먼 쪽(−z)
+    layOnFloor(tree, poly, facingYaw(tree, poly, new THREE.Vector3(0, 0, 1)))
+    applyUnfold(tree, 1)
+    tree.root.updateMatrixWorld(true)
+    const mid = (f: number) => new THREE.Box3().setFromObject(tree.nodes[f].mesh).getCenter(new THREE.Vector3())
+    const rootFace = poly.faces.findIndex((f) => f.parent === undefined)
+    const avgZ = tree.nodes.reduce((s, n) => s + mid(n.face).z, 0) / tree.nodes.length
+    // 루트가 가운데인 도형(정사면체, 각뿔)과 접는 순서를 적은 도형(각기둥)은 돌리지 않아도 된다
+    const centered = shape === 'regular-tetrahedron' || shape === 'pyramid'
+    check(centered || poly.foldOrder !== undefined || avgZ < mid(rootFace).z - 1e-6, `${shape}: 루트 쪽이 카메라 앞이 아님`)
+    const order = poly.foldOrder ?? farFirstOrder(tree, new THREE.Vector3(0, 0, 1))
+    check(order.length === faceCount - 1 && new Set(order).size === order.length && !order.includes(rootFace), `${shape} 접는 순서`)
+    if (!poly.foldOrder) {
+      tree.root.updateMatrixWorld(true)
+      const z = (f: number) => new THREE.Box3().setFromObject(tree.nodes[f].mesh).getCenter(new THREE.Vector3()).z
+      check(order.every((f, k) => k === 0 || z(order[k - 1]) <= z(f) + 1e-9), `${shape} 먼 면부터`)
+    }
+  }
+  console.log('ok: 정다면체 4종·각기둥·각뿔 (접힌 좌표, 펼치면 바닥에 겹치지 않음, 맞닿는 모서리, 닫힘, 접는 순서)')
+}
