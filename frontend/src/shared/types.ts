@@ -7,10 +7,11 @@ export type RegularPolyhedronShape =
   | 'regular-octahedron'
   | 'regular-dodecahedron'
   | 'regular-icosahedron'
-export type ShapeKind = 'cuboid' | 'cube' | RegularPolyhedronShape | 'cylinder' | 'cone'
+export type PolygonSolidShape = 'prism' | 'pyramid' // 각기둥·각뿔 (밑면 정다각형)
+export type ShapeKind = 'cuboid' | 'cube' | RegularPolyhedronShape | PolygonSolidShape | 'cylinder' | 'cone'
 
-// 꼭짓점 수 = vertexLabels 길이
-export const VERTEX_COUNT: Record<ShapeKind, number> = {
+// 꼭짓점 수 = vertexLabels 길이. 각기둥·각뿔은 밑면 변 수에 따라 다르다 (vertexCountOf)
+export const VERTEX_COUNT: Record<Exclude<ShapeKind, PolygonSolidShape>, number> = {
   cuboid: 8,
   cube: 8,
   'regular-tetrahedron': 4,
@@ -28,6 +29,11 @@ export interface BoxSize {
 }
 export interface EdgeSize {
   edge: number // 한 모서리 길이
+}
+export interface PolygonSize {
+  sides: number // 밑면 정다각형의 변 수 (정수 3~12)
+  edge: number // 밑면 한 변
+  height: number
 }
 export interface RoundSize {
   radius: number // 밑면 반지름
@@ -60,7 +66,7 @@ export interface Line<P> {
 interface SceneOf<S extends ShapeKind, Z, P, N> {
   shape: S
   size: Z
-  vertexLabels: (string | null)[] // 길이 = VERTEX_COUNT[shape]
+  vertexLabels: (string | null)[] // 길이 = vertexCountOf(scene)
   lines: Line<P>[]
   net: N
 }
@@ -90,7 +96,12 @@ type CurvedNet = { layout: 'default'; seam?: number } // seam: 옆면을 자르�
 export type CuboidScene = SceneOf<'cuboid', BoxSize, PolyhedronPoint, CrossNet | GridNet>
 export type CubeScene = SceneOf<'cube', EdgeSize, PolyhedronPoint, CrossNet | GridNet>
 export type RegularPolyhedronScene = SceneOf<RegularPolyhedronShape, EdgeSize, PolyhedronPoint, DefaultNet>
+export type PolygonSolidScene = SceneOf<PolygonSolidShape, PolygonSize, PolyhedronPoint, DefaultNet>
 export type CylinderScene = SceneOf<'cylinder', RoundSize, CylinderPoint, CurvedNet>
 export type ConeScene = SceneOf<'cone', RoundSize, ConePoint, CurvedNet>
 
-export type ShapeScene = CuboidScene | CubeScene | RegularPolyhedronScene | CylinderScene | ConeScene
+export type ShapeScene = CuboidScene | CubeScene | RegularPolyhedronScene | PolygonSolidScene | CylinderScene | ConeScene
+
+// vertexLabels 길이 (shape-scene.md 꼭짓점 수)
+export const vertexCountOf = (scene: ShapeScene) =>
+  scene.shape === 'prism' ? 2 * scene.size.sides : scene.shape === 'pyramid' ? scene.size.sides + 1 : VERTEX_COUNT[scene.shape]

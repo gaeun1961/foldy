@@ -1,7 +1,7 @@
 // 다면체 면 트리 데이터 (docs/specs/viewer.md "다면체: 면 트리").
 // 새 다면체는 이 파일에 데이터만 추가한다. 렌더링 코드(faceTree.ts)는 도형 이름으로 분기하지 않는다.
 // 라이브러리 독립: three.js 타입 없이 숫자만 쓴다.
-import type { BoxSize, EdgeSize, RoundSize, ShapeKind, ShapeScene } from '../shared/types.ts'
+import type { BoxSize, EdgeSize, PolygonSize, RoundSize, ShapeKind, ShapeScene } from '../shared/types.ts'
 import { gridPolyhedron } from './gridNet.ts'
 
 export type Vec3 = [number, number, number]
@@ -58,6 +58,8 @@ const BOX_FACES: FaceDef[] = [
 // 왼쪽 → 뒷면 → 오른쪽 → 윗면 → 아랫면. 뒷면이 먼저 오른쪽 면 끝에서 일어서고, 오른쪽 면이 접히며 뒷면을 덮개로 얹는다
 const BOX_FOLD_ORDER = [1, 5, 2, 3, 4]
 
+const deg = (rad: number) => (rad * 180) / Math.PI
+
 // 정다면체 (TODO-16, docs/specs/shape-scene.md 꼭짓점 규칙). 가운데가 원점. 방향 φ 는 앞(+z) 0°, 오른쪽(+x) 90°
 const ring = (r: number, y: number, deg: number): Vec3 => [r * Math.sin((deg * Math.PI) / 180), y, r * Math.cos((deg * Math.PI) / 180)]
 const PHI = (1 + Math.sqrt(5)) / 2
@@ -80,19 +82,33 @@ function ccw(positions: Vec3[], set: number[]): number[] {
   return [...set].sort((i, j) => angle(positions[i]) - angle(positions[j]))
 }
 
-// 면 트리: [꼭짓점 집합, 부모 면 번호, 붙는 모서리]. 모든 면의 이면각이 같다
+// 면 트리: [꼭짓점 집합, 부모 면 번호, 붙는 모서리]. 이면각은 좌표에서 구한다 (180° − 두 면 바깥 법선 사이 각)
 type TreeRow = [set: number[], parent?: number, hinge?: [number, number]]
-function regular(positions: Vec3[], rows: TreeRow[], dihedral: number): Polyhedron {
-  return { positions, faces: rows.map(([set, parent, hinge]) => ({ vertices: ccw(positions, set), ...(parent !== undefined && { parent, hinge, dihedral }) })) }
+function solid(positions: Vec3[], rows: TreeRow[], foldOrder?: number[]): Polyhedron {
+  const vertices = rows.map(([set]) => ccw(positions, set))
+  const normal = (vs: number[]) => {
+    const [a, b, c] = vs.slice(0, 3).map((i) => positions[i])
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
+    const w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]
+    const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]]
+    const len = Math.hypot(n[0], n[1], n[2])
+    return n.map((x) => x / len)
+  }
+  const faces = rows.map(([, parent, hinge], f): FaceDef => {
+    if (parent === undefined) return { vertices: vertices[f] }
+    const [m, n] = [normal(vertices[f]), normal(vertices[parent])]
+    const cos = Math.max(-1, Math.min(1, m[0] * n[0] + m[1] * n[1] + m[2] * n[2]))
+    return { vertices: vertices[f], parent, hinge, dihedral: 180 - deg(Math.acos(cos)) }
+  })
+  return { positions, faces, ...(foldOrder && { foldOrder }) }
 }
-const deg = (rad: number) => (rad * 180) / Math.PI
 
 // 정사면체: 밑면(0 앞왼쪽, 1 앞오른쪽, 2 뒤) + 3 꼭대기. 전개도: 밑면 둘레에 옆면 셋 (큰 정삼각형)
 function tetrahedron(a: number): Polyhedron {
   const H = a * Math.sqrt(2 / 3)
   const R = a / Math.sqrt(3)
   const positions: Vec3[] = [ring(R, -H / 4, -60), ring(R, -H / 4, 60), ring(R, -H / 4, 180), [0, (3 * H) / 4, 0]]
-  return regular(positions, [[[0, 1, 2]], [[0, 1, 3], 0, [0, 1]], [[1, 2, 3], 0, [1, 2]], [[2, 0, 3], 0, [2, 0]]], deg(Math.acos(1 / 3)))
+  return solid(positions, [[[0, 1, 2]], [[0, 1, 3], 0, [0, 1]], [[1, 2, 3], 0, [1, 2]], [[2, 0, 3], 0, [2, 0]]])
 }
 
 // 정팔면체: 0 꼭대기, 1~4 가운데(앞·오른쪽·뒤·왼쪽), 5 바닥. 전개도: 꼭대기 둘레 윗면 넷을 부채꼴로, 아랫면은 각 윗면 바깥에 하나씩
@@ -102,7 +118,7 @@ function octahedron(a: number): Polyhedron {
   const next = (i: number) => (i % 4) + 1
   const rows: TreeRow[] = [1, 2, 3, 4].map((i): TreeRow => [[0, i, next(i)], i === 1 ? undefined : i - 2, i === 1 ? undefined : [0, i]])
   for (const i of [1, 2, 3, 4]) rows.push([[5, i, next(i)], i - 1, [i, next(i)]])
-  return regular(positions, rows, deg(Math.acos(-1 / 3)))
+  return solid(positions, rows)
 }
 
 // 정이십면체: 0 꼭대기, 1~5 위 고리(1이 앞), 6~10 아래 고리(36° 더 돈 자리부터), 11 바닥.
@@ -127,7 +143,7 @@ function icosahedron(a: number): Polyhedron {
   // 뚜껑: 위 U_i = {0, i, i+1} 는 A_i(띠 2(i−1)번)에, 아래 D_i = {11, 5+i, 5+i+1} 은 L_i(띠 2(i−1)+1번)에
   for (let i = 1; i <= 5; i++) rows.push([[0, i, up(i + 1)], 2 * (i - 1), [i, up(i + 1)]])
   for (let i = 1; i <= 5; i++) rows.push([[11, 5 + i, 5 + up(i + 1)], 2 * (i - 1) + 1, [5 + i, 5 + up(i + 1)]])
-  return regular(positions, rows, deg(Math.acos(-Math.sqrt(5) / 3)))
+  return solid(positions, rows)
 }
 
 // 정십이면체: 윗면이 수평. 0~4 윗면(0 앞), 5~9 위 고리(0~4 바로 아래), 10~14 아래 고리(36° 더 돈 자리부터), 15~19 아랫면.
@@ -151,10 +167,43 @@ function dodecahedron(a: number): Polyhedron {
   for (const i of k5) rows.push([[i, n(i), 5 + i, 5 + n(i), 10 + i], 0, [i, n(i)]])
   rows.push([k5.map((k) => 15 + k), 7, [15, 16]]) // 아랫면은 L_0(면 7)에 붙는다
   for (const i of k5) rows.push(i === 0 ? [[10, 11, 15, 16, 6], 1, [6, 10]] : [[10 + i, 10 + n(i), 15 + i, 15 + n(i), 5 + n(i)], 6, [15 + i, 15 + n(i)]])
-  return regular(positions, rows, deg(Math.acos(-1 / Math.sqrt(5))))
+  return solid(positions, rows)
 }
 
-type SizeOf<S extends ShapeKind> = S extends 'cuboid' ? BoxSize : S extends 'cylinder' | 'cone' ? RoundSize : EdgeSize
+// 각기둥·각뿔 (TODO-31, shape-scene.md): 밑면 정다각형 0 ~ n−1 (0 앞왼쪽, 1 앞오른쪽, 앞 → 오른쪽 → 뒤 → 왼쪽)
+const base = (n: number, a: number, y: number) => [...Array(n).keys()].map((k) => ring(a / (2 * Math.sin(Math.PI / n)), y, -180 / n + (360 * k) / n))
+
+// 각기둥: 윗면 n ~ 2n−1 은 밑면 바로 위. 전개도는 직육면체처럼 앞 옆면(0-1)이 루트, 옆면을 한 줄로(오른쪽에 절반, 왼쪽에 나머지),
+// 윗면·밑면은 앞 옆면에. 접는 순서도 직육면체와 같은 규칙: 왼쪽 줄(먼 것부터) → 오른쪽 줄(먼 것부터) → 윗면 → 밑면
+function prism({ sides: n, edge: a, height: h }: PolygonSize): Polyhedron {
+  const positions = [...base(n, a, -h / 2), ...base(n, a, h / 2)]
+  const side = (k: number) => [k, (k + 1) % n, n + ((k + 1) % n), n + k]
+  const right = Math.ceil((n - 1) / 2) // 오른쪽 줄 옆면 수 (사각기둥은 오른쪽 + 뒷면)
+  const rows: TreeRow[] = [[side(0)]]
+  for (let k = 1; k <= right; k++) rows.push([side(k), k - 1, [k, n + k]]) // 옆면 k 는 옆면 k−1 오른쪽에
+  for (let k = n - 1; k > right; k--) rows.push([side(k), k === n - 1 ? 0 : rows.length - 1, [(k + 1) % n, n + ((k + 1) % n)]]) // 왼쪽으로
+  const top = rows.push([[...Array(n).keys()].map((k) => n + k), 0, [n, n + 1]]) - 1
+  const bottom = rows.push([[...Array(n).keys()], 0, [0, 1]]) - 1
+  const leftRows = rows.slice(right + 1, top).map((_, i) => right + 1 + i).reverse()
+  const rightRows = [...Array(right).keys()].map((i) => i + 1).reverse()
+  return solid(positions, rows, [...leftRows, ...rightRows, top, bottom])
+}
+
+// 각뿔: 꼭대기 n 은 밑면 가운데 바로 위. 전개도는 밑면(루트) 둘레에 옆면 삼각형 (별 모양). 순서는 카메라에서 먼 면부터 (foldOrder 없음)
+function pyramid({ sides: n, edge: a, height: h }: PolygonSize): Polyhedron {
+  const positions: Vec3[] = [...base(n, a, -h / 4), [0, (3 * h) / 4, 0]] // 가운데(무게중심)가 원점
+  const rows: TreeRow[] = [[[...Array(n).keys()]]]
+  for (let k = 0; k < n; k++) rows.push([[k, (k + 1) % n, n], 0, [k, (k + 1) % n]])
+  return solid(positions, rows)
+}
+
+type SizeOf<S extends ShapeKind> = S extends 'cuboid'
+  ? BoxSize
+  : S extends 'cylinder' | 'cone'
+    ? RoundSize
+    : S extends 'prism' | 'pyramid'
+      ? PolygonSize
+      : EdgeSize
 
 const POLYHEDRA: { [S in ShapeKind]?: (size: SizeOf<S>) => Polyhedron } = {
   cuboid: ({ width, depth, height }) => ({ positions: boxPositions(width, depth, height), faces: BOX_FACES, foldOrder: BOX_FOLD_ORDER }),
@@ -163,6 +212,8 @@ const POLYHEDRA: { [S in ShapeKind]?: (size: SizeOf<S>) => Polyhedron } = {
   'regular-octahedron': ({ edge }) => octahedron(edge),
   'regular-dodecahedron': ({ edge }) => dodecahedron(edge),
   'regular-icosahedron': ({ edge }) => icosahedron(edge),
+  prism,
+  pyramid,
 }
 
 // 면 트리로 그릴 수 있는 도형이면 데이터를, 아니면(곡면 도형, 아직 없는 도형) null.

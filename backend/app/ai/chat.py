@@ -35,8 +35,11 @@ SYSTEM_PROMPT = """\
 
 도형 데이터(ShapeScene JSON) 읽는 법
 - shape: cuboid 직육면체, cube 정육면체, regular-tetrahedron 정사면체, regular-octahedron 정팔면체,
-  regular-dodecahedron 정십이면체, regular-icosahedron 정이십면체, cylinder 원기둥, cone 원뿔
-- size: width 가로, depth 세로(깊이), height 높이, edge 한 모서리, radius 밑면 반지름
+  regular-dodecahedron 정십이면체, regular-icosahedron 정이십면체, prism 각기둥, pyramid 각뿔, cylinder 원기둥, cone 원뿔
+- size: width 가로, depth 세로(깊이), height 높이, edge 한 모서리, radius 밑면 반지름,
+  sides 각기둥·각뿔 밑면 정다각형의 변 수 (3 이면 삼각기둥·삼각뿔, 5 면 오각기둥·오각뿔. 이 이름으로 불러)
+- 각기둥·각뿔 꼭짓점: 밑면 0 ~ sides-1 (0 앞왼쪽, 1 앞오른쪽, 위에서 볼 때 앞→오른쪽→뒤→왼쪽),
+  각기둥 윗면 sides ~ 2·sides-1 은 각각 밑면 꼭짓점 바로 위, 각뿔 꼭대기는 sides 번
 - vertexLabels[i] 는 꼭짓점 i 의 라벨. null 이면 라벨 없음
 - 직육면체·정육면체 꼭짓점: 0 앞왼쪽아래, 1 앞오른쪽아래, 2 뒤오른쪽아래, 3 뒤왼쪽아래, 4~7 은 각각 0~3 바로 위.
   면: 앞면 0-1-5-4, 뒷면 3-7-6-2, 윗면 4-5-6-7, 아랫면 0-3-2-1, 왼쪽 0-4-7-3, 오른쪽 1-2-6-5

@@ -103,4 +103,27 @@ if __name__ == "__main__":
         }
     )
     bad({**TETRA, "net": GRID["net"]})  # 정다면체는 grid 없음
+
+    # 각기둥·각뿔: 라벨 개수는 밑면 변 수로 (오각기둥 10, 사각뿔 5), 변 수는 정수 3~12
+    PRISM = {
+        "shape": "prism",
+        "size": {"sides": 5, "edge": 2, "height": 4},
+        "vertexLabels": [None] * 10,
+        "lines": [{"from": {"vertex": 9}, "to": {"edge": [0, 1], "t": 0.5}}],
+        "net": {"layout": "default"},
+    }
+    PYRAMID = {
+        **PRISM,
+        "shape": "pyramid",
+        "size": {"sides": 4, "edge": 3, "height": 5},
+        "vertexLabels": [None] * 5,
+        "lines": [{"from": {"vertex": 4}, "to": {"vertex": 0}}],
+    }
+    ok(PRISM)
+    ok(PYRAMID)
+    bad({**PRISM, "vertexLabels": [None] * 8})
+    bad({**PYRAMID, "lines": [{"from": {"vertex": 5}, "to": {"vertex": 0}}]})
+    bad({**PRISM, "size": {"sides": 2, "edge": 2, "height": 4}})
+    bad({**PRISM, "size": {"sides": 4.5, "edge": 2, "height": 4}})
+    bad({**PRISM, "size": {"edge": 2}})
     print("ok")

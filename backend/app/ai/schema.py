@@ -17,6 +17,7 @@ VERTEX_COUNT = {
     "regular-octahedron": 6,
     "regular-dodecahedron": 20,
     "regular-icosahedron": 12,
+    # 각기둥·각뿔은 밑면 변 수에 따라 다르다 (_vertex_count)
     "cylinder": 0,
     "cone": 1,
 }
@@ -34,6 +35,12 @@ class BoxSize(BaseModel):
 
 class EdgeSize(BaseModel):
     edge: Positive  # 한 모서리 길이
+
+
+class PolygonSize(BaseModel):
+    sides: Annotated[int, Field(ge=3, le=12)]  # 밑면 정다각형의 변 수
+    edge: Positive  # 밑면 한 변
+    height: Positive
 
 
 class RoundSize(BaseModel):
@@ -181,13 +188,22 @@ def _angles(p) -> list[float]:
     return []
 
 
+def _vertex_count(scene) -> int:
+    """vertexLabels 길이 (shape-scene.md 꼭짓점 수)."""
+    if scene.shape == "prism":
+        return 2 * scene.size.sides
+    if scene.shape == "pyramid":
+        return scene.size.sides + 1
+    return VERTEX_COUNT[scene.shape]
+
+
 class _Scene(BaseModel):
     vertexLabels: list[str | None]
 
     # 도형마다 다른 규칙: 라벨 개수, 꼭짓점 인덱스 범위, 곡면 각도 범위
     @model_validator(mode="after")
     def _check_by_shape(self) -> Self:
-        n = VERTEX_COUNT[self.shape]
+        n = _vertex_count(self)
         if len(self.vertexLabels) != n:
             raise ValueError(f"{self.shape} 의 vertexLabels 는 {n}개여야 한다")
         seam = getattr(self.net, "seam", 0)
@@ -228,6 +244,13 @@ class RegularPolyhedronScene(_Scene):
     net: DefaultNet
 
 
+class PolygonSolidScene(_Scene):
+    shape: Literal["prism", "pyramid"]  # 각기둥·각뿔 (밑면 정다각형)
+    size: PolygonSize
+    lines: list[PolyhedronLine]
+    net: DefaultNet
+
+
 class CylinderScene(_Scene):
     shape: Literal["cylinder"]
     size: RoundSize
@@ -246,6 +269,11 @@ class ShapeScene(RootModel):
     """shape 값으로 어느 형식인지 고른다. ShapeScene.model_validate(json) 으로 검증."""
 
     root: Annotated[
-        CuboidScene | CubeScene | RegularPolyhedronScene | CylinderScene | ConeScene,
+        CuboidScene
+        | CubeScene
+        | RegularPolyhedronScene
+        | PolygonSolidScene
+        | CylinderScene
+        | ConeScene,
         Field(discriminator="shape"),
     ]
