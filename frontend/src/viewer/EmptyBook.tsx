@@ -44,7 +44,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick }: Props) {
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
     const target = book.center.clone()
-    camera.position.copy(target).add(new THREE.Vector3(0, 0.9, 1)) // 책등 위에서 앞쪽으로 비스듬히
+    camera.position.copy(target).add(new THREE.Vector3(0, 1.88, 1)) // 책등 위에서 앞쪽으로 비스듬히
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.copy(target)
     controls.enableDamping = true

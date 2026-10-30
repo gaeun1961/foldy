@@ -1,21 +1,21 @@
 import * as THREE from 'three'
 import type { Polyhedron } from '../polyhedra.ts'
 import type { LessonObject } from './index.ts'
-import { oppositeFacePairs } from './surfaceLayout.ts'
+import { surfaceGroups } from './surfaceLayout.ts'
 
-// 겉넓이 설명 (TODO-25): 펼친 전개도에서 마주 보는 면 쌍을 한 쌍씩 같은 색으로 칠한다.
+// 겉넓이 설명 (TODO-25): 접힌 입체에서 같은 모양 면끼리 한 묶음씩 같은 색으로 칠한다. 뒤쪽·아래쪽 면도 보이게 반투명으로.
 // 단계 = 쌍. 칠하는 중인 쌍은 흰색에서 그 쌍의 색으로 서서히 바뀌고, 다 칠한 쌍은 그 색을 유지한다 (ui.md 친절한 설명 원칙)
 const PAIR_COLORS = ['#ffd982', '#b9dcff', '#c9f0c2'] // 노랑(앞·뒤), 하늘(왼·오), 연두(위·아래). 모서리 7색과 겹치지 않는 연한 색
 
 export function buildSurfaceAreaLesson(poly: Polyhedron): LessonObject {
-  const pairs = oppositeFacePairs(poly)
+  const pairs = surfaceGroups(poly)
   const white = new THREE.Color('#ffffff')
   const faceColor = new Map<number, { color: THREE.Color; pair: number }>()
   const materials = pairs.flatMap((pair, k) =>
     pair.map((face) => {
       const m: [THREE.Material, THREE.Material] = [
-        new THREE.MeshStandardMaterial({ color: '#ffffff', side: THREE.FrontSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: '#ffffff', side: THREE.BackSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: '#ffffff', side: THREE.FrontSide, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: '#ffffff', side: THREE.BackSide, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
       ]
       faceColor.set(face, { color: new THREE.Color(PAIR_COLORS[k % PAIR_COLORS.length]), pair: k })
       return [face, m] as const

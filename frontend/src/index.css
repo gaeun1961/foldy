@@ -4,7 +4,7 @@
   --muted: #6b6457;
   --accent: #3a7d87; /* 차분한 청록. 흰 글씨 대비 4.2:1 이상 */
   --line: #ddd5c6;
-  --desk: #e9e0d1;
+  --desk: #c8ad8c;
   --panel: rgb(251 249 244 / 92%);
   /* 파스텔 클레이: 빛은 왼쪽 위에서. 판은 왼쪽 위 하이라이트 + 오른쪽 아래 음영 + 오른쪽 아래로 보이는 두께 + 길고 부드러운 그림자.
      버튼은 볼록한 원판, 누르면 안으로 들어간다 */
@@ -90,7 +90,15 @@ h2 {
 .drag-handle::before { content: ''; width: 48px; height: 6px; border-radius: 999px; background: #dccfbd; box-shadow: var(--pressed); }
 .drag-handle:hover::before { background: #c9b9a2; }
 .dock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 6px; }
-.dock-row .line-controls { flex: 1; padding: 0; background: none; }
+/* 아래 줄 (ui.md 화면 배치 5번): 왼쪽에 선 긋기·선 지우기 한 묶음, 오른쪽에 보기·차례. 늘 같은 자리.
+   켜면 생기는 옵션(등분, 다른 길, 표시 고르기)은 그 아래 새 줄에. 묶음 div 를 풀어 한 줄에 놓고 order 로 옵션만 뒤로 보낸다 */
+.dock-row .line-controls, .dock-row .face-marks { display: contents; }
+.dock-row button, .dock-row summary { white-space: nowrap; }
+.dock-row .view-menu { margin-left: auto; }
+.dock-row > .contents-button { --button-height: 40px; }
+.dock-row > .line-controls .toggle-row, .dock-row .route, .dock-row > .face-marks .toggle-row { order: 2; }
+.dock-row:has(> .line-controls .toggle-row, .route, > .face-marks)::after { content: ''; order: 1; flex-basis: 100%; height: 0; }
+.dock-row .mark-picker { width: 100%; }
 
 /* 보기: 누르면 보기 옵션이 위로 펼쳐진다 */
 .view-menu { position: relative; }
@@ -107,20 +115,28 @@ h2 {
 .view-menu[open] > summary { color: var(--accent); box-shadow: var(--pressed); background: var(--groove); }
 /* 차례로 돌아가기 (ui.md 화면 배치 6번): 보기 버튼과 같은 모양 */
 .contents-button { min-height: var(--button-height, 40px); padding: 0 14px; font: inherit; font-size: 16px; }
-.view-menu > .view-options {
+/* 보기 메뉴 (ui.md 화면 배치 6번): 위로 펼쳐지는 판. 줄 왼쪽을 맞춘다 */
+.view-popup {
   position: absolute;
   right: 0;
   bottom: calc(100% + 8px);
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
+  z-index: 30;
+  display: grid;
+  justify-items: stretch;
+  gap: 8px;
   width: max-content;
-  padding: 8px 16px;
+  padding: 12px;
   border-radius: 18px;
   background: var(--slab);
   box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(18px) saturate(1.2);
+  --button-height: 40px;
 }
-.view-menu > .view-options legend { display: none; }
+.view-popup .toggle-row button { flex: 1; }
+.view-popup .menu-button { min-height: var(--button-height); padding: 0 14px; font-size: 16px; text-align: left; }
+.view-popup .menu-button[aria-pressed='true'] { background: var(--accent-face); box-shadow: var(--accent-raised); color: #fff; font-weight: 700; }
+.view-popup .view-options { display: grid; gap: 0; padding: 0; }
+.view-popup .view-options legend { display: none; }
 
 .status-badge {
   position: absolute;
@@ -216,7 +232,6 @@ h2 {
   color: #fff;
   font-weight: 700;
 }
-.line-controls > button.secondary { margin-left: auto; }
 .line-controls > button.route { color: #c2255c; font-weight: 700; } /* 다른 길: 선분 색 글씨 */
 .face-marks .mark-picker { display: grid; grid-template-columns: repeat(6, 1fr); } /* 면 표시 고르기 두 줄 (ui.md 화면 배치 5번) */
 .face-marks .mark-picker button { min-width: 40px; padding: 0 8px; }
@@ -275,7 +290,8 @@ h2 {
 
 .fold-buttons {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 8px;
 }
 .fold-buttons button {
@@ -286,7 +302,7 @@ h2 {
 .fold-buttons .primary { font-weight: 700; }
 
 /* 볼록한 버튼 (공통). 누르면 안으로 들어가고, 강조 버튼은 파란 그림자 */
-.fold-buttons button, .line-controls > button, .view-menu > summary, .contents-button, .primary-button, .secondary-button, .upload-button, .chat-input button {
+.fold-buttons button, .line-controls > button, .view-menu > summary, .contents-button, .menu-button, .primary-button, .secondary-button, .upload-button, .chat-input button {
   border: 0;
   border-radius: 14px;
   background: var(--face);
@@ -296,12 +312,12 @@ h2 {
   transition: transform 0.12s, box-shadow 0.12s;
 }
 .fold-buttons .primary, .primary-button, .upload-button, .chat-input button { background: var(--accent-face); box-shadow: var(--accent-raised); color: #fff; }
-:is(.fold-buttons button, .line-controls > button, .contents-button, .primary-button, .secondary-button, .upload-button, .chat-input button):not(:disabled):hover { transform: translate(-1px, -1px); }
-:is(.fold-buttons button, .line-controls > button, .view-menu > summary, .contents-button, .primary-button, .secondary-button, .upload-button, .chat-input button):not(:disabled):active {
+:is(.fold-buttons button, .line-controls > button, .contents-button, .menu-button, .primary-button, .secondary-button, .upload-button, .chat-input button):not(:disabled):hover { transform: translate(-1px, -1px); }
+:is(.fold-buttons button, .line-controls > button, .view-menu > summary, .contents-button, .menu-button, .primary-button, .secondary-button, .upload-button, .chat-input button):not(:disabled):active {
   transform: translate(1px, 1px);
   box-shadow: var(--pressed);
 }
-:is(.fold-buttons button, .line-controls > button, .contents-button, .primary-button, .secondary-button, .chat-input button):disabled { opacity: 0.45; box-shadow: none; cursor: default; }
+:is(.fold-buttons button, .line-controls > button, .contents-button, .menu-button, .primary-button, .secondary-button, .chat-input button):disabled { opacity: 0.45; box-shadow: none; cursor: default; }
 
 /* 단계별/한 번에, 속도: 파인 홈 안에서 고른 것만 볼록하게 파랗게 */
 .toggle-row {
@@ -369,20 +385,13 @@ h2 {
 /* 설명 종류 버튼이 6개라 좁은 화면에서는 줄을 바꿔 감싼다. 버튼 안 글자는 한 줄 ("겉넓이"가 한 글자씩 꺾이지 않게) */
 .lesson-controls .toggle-row { flex-wrap: wrap; }
 .lesson-controls .toggle-row button { white-space: nowrap; }
-.lesson-summary {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: #fff6d6;
-  box-shadow: var(--pressed);
-  font-size: 18px;
-  text-align: center;
-}
+/* 눈에는 안 보이고 키보드·화면 낭독기로만 쓰는 버튼 (왼쪽 쪽 메뉴) */
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
 /* 위치 관계 색 설명 (ui.md 화면 배치 4-1) */
 .relation-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 15px; }
 .relation-legend li { display: flex; align-items: center; gap: 6px; }
 .relation-legend span { width: 22px; height: 6px; border-radius: 3px; }
-.lesson-summary strong { font-size: 22px; color: var(--accent); }
 
 /* 3D 뷰 오른쪽 위 단계 표시 (글 없이 점만) */
 .step-dots {

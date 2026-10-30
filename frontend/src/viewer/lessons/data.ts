@@ -1,12 +1,12 @@
 // 설명 모드(공식 시각화)의 데이터 쪽: 종류, 자세, 단계 수, 멈춘 뒤 보여줄 공식. 화면 물체는 만들지 않는다 (docs/specs/viewer.md "설명 모드").
 // 새 설명은 LessonKind 와 아래 표들에 한 줄씩 더한다
 import type { ShapeScene } from '../../shared/types.ts'
-import { netCheck, polyhedronOf } from '../polyhedra.ts'
+import { netCheck, polyhedronOf, type Polyhedron } from '../polyhedra.ts'
 import { defaultEdge, edgeRelations } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { similarSteps } from './similarLayout.ts'
-import { faceArea, oppositeFacePairs } from './surfaceLayout.ts'
-import { volumeLayout } from './volumeLayout.ts'
+import { faceArea, faceNormal, surfaceGroups } from './surfaceLayout.ts'
+import { pieces, volumeLayout } from './volumeLayout.ts'
 
 export type LessonKind = 'volume' | 'surface-area' | 'diagonal' | 'shortest-path' | 'edge-relations' | 'similar'
 
@@ -21,12 +21,12 @@ const scaleOf = (lesson: { scale?: number }) => lesson.scale ?? 2
 export const LESSON_LABEL: Record<LessonKind, string> = { volume: '부피', 'surface-area': '겉넓이', diagonal: '대각선', 'shortest-path': '최단 거리', 'edge-relations': '위치 관계', similar: '닮음' }
 
 // 어느 자세에서 보여주는지: 'solid' 는 바로 세운 입체(unfold 0), 'net' 은 바닥에 펼친 전개도(unfold 1)
-export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'net', diagonal: 'solid', 'shortest-path': 'net', 'edge-relations': 'solid', similar: 'solid' }
+export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'solid', diagonal: 'solid', 'shortest-path': 'net', 'edge-relations': 'solid', similar: 'solid' }
 
 // 시작 전 3D 뷰 아래 안내 한 줄 (ui.md 안내 문구). 피타고라스는 보기 전에 먼저 어림해 보게 묻는다 (리포트 T30 참고 자료)
 export const LESSON_HINT: Record<LessonKind, string> = {
   volume: '한 층씩 쌓아 볼까요',
-  'surface-area': '마주 보는 면을 한 쌍씩 칠해 볼까요',
+  'surface-area': '같은 모양 면끼리 칠해 볼까요',
   diagonal: '밑면 대각선과 입체 대각선, 어느 쪽이 더 길까요?',
   'shortest-path': '꼭짓점에서 반대쪽 꼭짓점까지, 어느 길이 더 짧을까요?',
   'edge-relations': '빨간 모서리와 다른 모서리는 어떤 사이일까요? 다른 모서리를 눌러 바꿀 수 있어요',
@@ -37,7 +37,12 @@ export const LESSON_HINT: Record<LessonKind, string> = {
 // "만나지 않으면 평행일까?"를 물어 평면에서 배운 정의와 부딪히게 한다 (리포트 T28 참고 자료). 그 밖에는 없음
 // 닮음은 시작 전에 몇 배인지 먼저 어림하게 하고, 부피 직전(한 면까지 보고 멈춤)에 다시 묻고, 끝나면 모서리 길이의 합을 물어
 // "넓이·부피가 k²·k³ 배니까 다 그렇겠지"라는 과잉 일반화를 점검한다 (리포트 T29 참고 자료)
-export function lessonHint(lesson: Lesson): string | null {
+export function lessonHint(lesson: Lesson, scene?: ShapeScene): string | null {
+  // 부피 시작 안내는 도형마다 (solidVolume.ts 방식에 맞춰)
+  if (lesson.kind === 'volume' && lesson.progress <= 0 && scene && !boxSizeOf(scene)) {
+    if (scene.shape === 'pyramid') return '각뿔을 몇 번 부으면 같은 밑면·높이의 각기둥이 가득 찰까요?'
+    if (scene.shape !== 'prism') return '면마다 가운데로 모이는 각뿔로 나눠 볼까요'
+  }
   if (lesson.kind === 'similar') {
     const k = scaleOf(lesson)
     if (lesson.progress <= 0) return `모서리를 ${k}배로 늘리면 겉넓이와 부피는 몇 배가 될까요?`
@@ -79,20 +84,29 @@ export function boxCenterOf(scene: ShapeScene): [number, number, number] {
   return [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2]
 }
 
-// 단계 수. 설명할 수 없는 도형이면 0
+// 단계 수. 설명할 수 없는 도형이면 0. 접어서 닫히는 다면체만. 겉넓이·위치 관계·닮음·부피는 모든 다면체, 대각선·최단 거리는 상자만
 export function lessonStepCount(scene: ShapeScene, kind: LessonKind, scale = 2) {
+  const poly = polyhedronOf(scene)
+  if (!poly || !netCheck(scene)?.closed) return 0
   const box = boxSizeOf(scene)
-  if (!box) return 0
-  if (kind === 'volume') return volumeLayout(box.width, box.depth, box.height).layers
-  if (kind === 'surface-area') return oppositeFacePairs(polyhedronOf(scene)!).length
-  if (kind === 'diagonal') return 3 // 밑면 삼각형, 세운 삼각형, 입체 대각선
-  if (kind === 'shortest-path') return shortestRoutes(polyhedronOf(scene)!).length * 2 // 길마다 선, 직각삼각형
+  if (kind === 'surface-area') return surfaceGroups(poly).length
   if (kind === 'edge-relations') return 3 // 평행, 만남, 꼬인 위치
   if (kind === 'similar') return similarSteps(scale) // 길이, 한 면, 부피 k 층
+  if (kind === 'volume') {
+    if (box) return volumeLayout(box.width, box.depth, box.height).layers
+    if (scene.shape === 'prism') return pieces(scene.size.height).length // 밑면 판 층
+    if (scene.shape === 'pyramid') return 3 // 세 번 붓기
+    return 1 // 정다면체: 각뿔로 나누기
+  }
+  if (!box) return 0
+  if (kind === 'diagonal') return 3 // 밑면 삼각형, 세운 삼각형, 입체 대각선
+  if (kind === 'shortest-path') return shortestRoutes(poly).length * 2 // 길마다 선, 직각삼각형
   return 0
 }
 
 const num = (n: number) => (Number.isInteger(n) ? String(n) : String(+n.toFixed(2)))
+// 값: 딱 떨어지지 않으면 약
+const approx = (n: number) => (Math.abs(n - Math.round(n)) < 1e-9 ? String(Math.round(n)) : `약 ${num(n)}`)
 const near = (n: number) => (Math.abs(n - Math.round(n)) < 1e-9 ? Math.round(n) : n)
 // √x: 제곱수면 정수, 정수면 √29, 소수면 어림값
 const root = (x: number) => {
@@ -104,20 +118,13 @@ const leg = (parts: number[]) => (parts.length > 1 ? `(${parts.map(num).join(' +
 
 // 애니메이션이 멈춘 뒤 보여줄 식과 값 (ui.md 친절한 설명 원칙: 글은 멈춘 뒤에)
 export function lessonSummary(scene: ShapeScene, kind: LessonKind, scale = 2): { formula: string; value: string } | null {
-  const box = boxSizeOf(scene)
-  if (!box) return null
-  const { width: w, depth: d, height: h } = box
-  if (kind === 'volume') return { formula: `가로 × 세로 × 높이 = ${num(w)} × ${num(d)} × ${num(h)}`, value: num(w * d * h) }
+  const poly = polyhedronOf(scene)
+  if (!poly || !netCheck(scene)?.closed) return null
   if (kind === 'surface-area') {
-    // 쌍마다 면 하나의 넓이. 직육면체는 앞·뒤 = 가로×높이, 왼·오 = 세로×높이, 위·아래 = 가로×세로
-    const poly = polyhedronOf(scene)!
-    const areas = oppositeFacePairs(poly).map(([f]) => faceArea(poly, f))
-    const sum = areas.reduce((s, a) => s + a, 0)
-    return { formula: `2 × (${areas.map(num).join(' + ')}) = 2 × ${num(sum)}`, value: num(2 * sum) }
-  }
-  if (kind === 'diagonal') {
-    const space = diagonalLayout(box).space
-    return { formula: `√(${num(w)}² + ${num(d)}² + ${num(h)}²) = ${root(w * w + d * d + h * h)}`, value: `약 ${num(space)}` }
+    // 같은 모양 묶음마다 장수 × 넓이 (직육면체: 2 × 12 + 2 × 8 + 2 × 6, 정육면체: 6 × 9)
+    const groups = surfaceGroups(poly)
+    const sum = groups.reduce((total, g) => total + g.length * faceArea(poly, g[0]), 0)
+    return { formula: groups.map((g) => `${g.length} × ${num(faceArea(poly, g[0]))}`).join(' + '), value: approx(sum) }
   }
   if (kind === 'similar') {
     const k = scale
@@ -125,14 +132,23 @@ export function lessonSummary(scene: ShapeScene, kind: LessonKind, scale = 2): {
   }
   if (kind === 'edge-relations') {
     // 직육면체·정육면체는 어느 모서리를 기준으로 해도 개수가 같다 (평행 3, 수직으로 만남 4, 꼬인 위치 4)
-    const { parallel, meet, skew, perpendicular } = edgeRelations(polyhedronOf(scene)!, defaultEdge(polyhedronOf(scene)!))
+    const { parallel, meet, skew, perpendicular } = edgeRelations(poly, defaultEdge(poly))
     const meetWord = perpendicular.length === meet.length ? '수직으로 만남' : '만남'
     return { formula: `평행 ${parallel.length} + ${meetWord} ${meet.length} + 꼬인 위치 ${skew.length}`, value: `나머지 모서리 ${parallel.length + meet.length + skew.length}개` }
+  }
+  const box = boxSizeOf(scene)
+  if (kind === 'volume' && !box) return solidVolumeSummary(scene, poly)
+  if (!box) return null
+  const { width: w, depth: d, height: h } = box
+  if (kind === 'volume') return { formula: `가로 × 세로 × 높이 = ${num(w)} × ${num(d)} × ${num(h)}`, value: num(w * d * h) }
+  if (kind === 'diagonal') {
+    const space = diagonalLayout(box).space
+    return { formula: `√(${num(w)}² + ${num(d)}² + ${num(h)}²) = ${root(w * w + d * d + h * h)}`, value: `약 ${num(space)}` }
   }
   if (kind === 'shortest-path') {
     // 후보마다 √(변² + 변²)를 긴 길부터 > 로 잇고, 마지막(가장 짧은 길)의 값을 강조한다. 길이가 같으면 =
     // UI 는 "formula = value" 로 보여준다: √((4 + 2)² + 3²) = √45 > √((3 + 2)² + 4²) = √41
-    const routes = shortestRoutes(polyhedronOf(scene)!)
+    const routes = shortestRoutes(poly)
     if (!routes.length) return null
     const expr = (r: (typeof routes)[number]) => `√(${leg(r.legLengths[0])} + ${leg(r.legLengths[1])})`
     const formula = routes
@@ -141,4 +157,24 @@ export function lessonSummary(scene: ShapeScene, kind: LessonKind, scale = 2): {
     return { formula, value: root(routes[routes.length - 1].length ** 2) }
   }
   return null
+}
+
+// 상자가 아닌 도형의 부피 식 (solidVolume.ts 와 같은 방식)
+function solidVolumeSummary(scene: ShapeScene, poly: Polyhedron) {
+  const bottomArea = (s: { sides: number; edge: number }) => (s.sides * s.edge ** 2) / (4 * Math.tan(Math.PI / s.sides)) // 정다각형 넓이
+  if (scene.shape === 'prism') {
+    const A = bottomArea(scene.size)
+    return { formula: `밑넓이 × 높이 = ${num(A)} × ${num(scene.size.height)}`, value: approx(A * scene.size.height) }
+  }
+  if (scene.shape === 'pyramid') {
+    const A = bottomArea(scene.size)
+    return { formula: `밑넓이 × 높이 × ⅓ = ${num(A)} × ${num(scene.size.height)} × ⅓`, value: approx((A * scene.size.height) / 3) }
+  }
+  // 정다면체: 각뿔 면 수만큼. ⅓ × 한 면 넓이 × 가운데까지 거리 × 면 수
+  const center = [0, 1, 2].map((k) => poly.positions.reduce((t, p) => t + p[k], 0) / poly.positions.length)
+  const n = faceNormal(poly, 0)
+  const p = poly.positions[poly.faces[0].vertices[0]]
+  const r = Math.abs(n[0] * (p[0] - center[0]) + n[1] * (p[1] - center[1]) + n[2] * (p[2] - center[2]))
+  const A = faceArea(poly, 0)
+  return { formula: `한 면 넓이 × 가운데까지 거리 × ⅓ × 면 수 = ${num(A)} × ${num(r)} × ⅓ × ${poly.faces.length}`, value: approx((A * r * poly.faces.length) / 3) }
 }

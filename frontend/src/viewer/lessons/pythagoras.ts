@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import type { BoxSize } from '../../shared/types.ts'
 import type { FaceTree } from '../faceTree.ts'
 import type { Polyhedron } from '../polyhedra.ts'
-import { clamp01, DONE, growingTube, rightAngleMark, v3 } from './draw.ts'
+import { clamp01, DONE, growingTube, rightAngleMark, v3, textSprite } from './draw.ts'
+import { computedLengthText } from './lengthLabels.ts'
 import type { LessonObject } from './index.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 
@@ -37,6 +38,13 @@ export function buildDiagonalLesson(size: BoxSize, radius: number): LessonObject
   const standFill = triangle([p0, p2, p6], mats.stand)
   for (const t of [...baseLegs, baseDiagonal, height, space]) group.add(t.mesh)
   group.add(baseMark, standMark, baseFill, standFill)
+  // 계산해서 나온 길이 (ui.md): 그 선이 다 그려진 뒤 선 가운데 위에
+  const labelWidth = Math.max(size.width, size.depth, size.height) * 0.42
+  const baseLabel = textSprite(computedLengthText(L.base), labelWidth)
+  const spaceLabel = textSprite(computedLengthText(L.space), labelWidth)
+  baseLabel.sprite.position.copy(p0).lerp(p2, 0.5)
+  spaceLabel.sprite.position.copy(p0).lerp(p6, 0.5)
+  group.add(baseLabel.sprite, spaceLabel.sprite)
 
   const apply = (progress: number) => {
     const [q1, q2, q3] = [0, 1, 2].map((k) => clamp01(progress * 3 - k))
@@ -51,6 +59,8 @@ export function buildDiagonalLesson(size: BoxSize, radius: number): LessonObject
     mats.stand.opacity = 0.25
     // ③ 입체 대각선
     space.grow(q3)
+    baseLabel.sprite.visible = q1 >= DONE
+    spaceLabel.sprite.visible = q3 >= DONE
   }
   apply(0)
 
@@ -58,6 +68,8 @@ export function buildDiagonalLesson(size: BoxSize, radius: number): LessonObject
     group,
     apply,
     dispose: () => {
+      baseLabel.dispose()
+      spaceLabel.dispose()
       group.removeFromParent()
       group.traverse((o) => (o as THREE.Mesh).geometry?.dispose())
       for (const m of Object.values(mats)) m.dispose()

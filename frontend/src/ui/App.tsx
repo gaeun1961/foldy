@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { EmptyBook, foldStepCount, LESSON_POSE, lessonHint, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson } from '../viewer'
+import { EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonHint, lessonStepCount, lessonSummary, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
@@ -13,7 +13,9 @@ import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
 import { crossScene, crossToGrid, fitToBox, netPhoto, NO_FIT, SHAPES } from './manualScene.ts'
 import { PhotoUpload } from './PhotoUpload'
-import { ViewOptions, type ViewOptionValues } from './ViewOptions'
+import { ViewMenu } from './ViewMenu'
+import type { Speed } from './player'
+import type { ViewOptionValues } from './ViewOptions'
 
 // 선 긋기 안내 문구 (ui.md "안내 문구")
 const DRAW_HINT: Record<DrawState, string> = {
@@ -32,7 +34,7 @@ function facePickHint({ text, opposite }: FacePick) {
 // 도형이 없을 때 빈 책 (ui.md 안내 문구 "도형 없음", viewer.md "빈 책"): 왼쪽 쪽 사용법, 오른쪽 쪽 차례.
 // 지금 고를 수 있는 것은 치수로 만들기의 도형(SHAPES)이고, 나머지는 나중에 넣을 도형 (2·3차).
 // 쪽 번호: 차례는 2·3쪽, 차례 k번째 도형은 (2k+4)·(2k+5)쪽 (k 는 0부터)
-const INTRO = ['foldy', '전개도를 접어 보는 책이에요.', '① 학습지 사진을 올리거나 직접 만들어요.', '② 접어 보며 만나는 모서리를 찾아요.', '③ 선을 긋고 면에 표시해 봐요.']
+const INTRO = ['foldy', '전개도를 접어 보는 책이에요. 오른쪽 차례에서 도형을 골라 보세요.']
 const CONTENTS = [...SHAPES.map((s, k) => ({ title: s.name, page: 2 * k + 4 })), ...['원기둥·원뿔·구'].map((title) => ({ title, page: null }))]
 const CONTENTS_PAGES: [number, number] = [2, 3]
 function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
@@ -40,8 +42,8 @@ function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
   return k < 0 ? undefined : [2 * k + 4, 2 * k + 5]
 }
 
-// 책 장면 왼쪽 페이지 글 (viewer.md "책 장면"): 제목, 치수, 할 일 한 줄
-function pageTextOf(scene: ShapeScene) {
+// 책 장면 왼쪽 페이지 글 (ui.md 왼쪽 페이지, viewer.md "책 장면"): 제목과 한 줄 설명(치수). 공식 결과가 나오면 설명 자리를 결과가 대신한다
+function pageTextOf(scene: ShapeScene, lesson: Lesson | null, hasResult: boolean) {
   const size = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge' | 'sides', number>>
   const dims = size.width
     ? `가로 ${size.width} · 세로 ${size.depth} · 높이 ${size.height}`
@@ -50,7 +52,8 @@ function pageTextOf(scene: ShapeScene) {
       : size.edge
         ? `한 모서리 ${size.edge}`
         : ''
-  return [`${shapeName(scene)}의 전개도`, dims, '전개도를 접어 보며 어떤 모서리끼리 만나는지 찾아보세요.'].filter(Boolean)
+  const title = `${shapeName(scene)}의 ${lesson ? LESSON_LABEL[lesson.kind] : '전개도'}`
+  return hasResult ? [title] : [title, dims].filter(Boolean)
 }
 
 // 다른 전개도 보기 (ui.md 화면 배치 6번, TODO-38): 같은 치수로 k번째 정육면체 전개도 모양의 grid. 선은 꼭짓점 번호가 달라져서 옮기지 않는다
@@ -70,6 +73,7 @@ export default function App() {
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
   const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
+  const [speed, setSpeed] = useState<Speed>('normal')
   const [view, setView] = useState<ViewOptionValues>({ showHiddenEdges: true, showVertexLabels: true, showMatchingEdges: true }) // 보기 옵션 체크박스, 기본값은 ui.md
   const [drawLines, setDrawLines] = useState(false)
   // 챗봇 화면 조작 (api.md "/chat 화면 조작"): 꼭짓점 강조, 접기 목표
@@ -91,7 +95,35 @@ export default function App() {
   const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
   const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true, shapeName(scene)))
+  // 공식 결과: 애니메이션이 끝나고 멈춘 뒤에만 (ui.md 친절한 설명 원칙), 왼쪽 쪽에
+  const result = scene && lesson && lesson.progress >= 1 && !playing ? lessonSummary(scene, lesson.kind, lesson.scale) : null
+  const makeCard = useRef<HTMLDetailsElement>(null)
+  const canVariant = scene?.net.layout === 'cross' || scene?.net.layout === 'grid'
+  // 책 왼쪽 쪽 메뉴 (ui.md 왼쪽 페이지): 이 도형에 있는 공식 + 다른 전개도 보기
+  const pageMenu: PageMenuItem[] = !scene
+    ? []
+    : [
+        ...(Object.keys(LESSON_LABEL) as LessonKind[])
+          .filter((k) => lessonStepCount(scene, k) > 0)
+          .map((k) => ({ id: k as string, label: LESSON_LABEL[k], active: lesson?.kind === k, enabled: true })),
+        ...(canVariant
+          ? [{ id: 'variant', label: `다른 전개도 보기${variant !== null ? ` (${variant + 1}/${NET_VARIANTS.length})` : ''}`, active: false, enabled: !lesson && unfold >= 1 && scene.lines.length === 0 }]
+          : []),
+      ]
+  const pickMenu = (id: string) => {
+    if (!scene) return
+    if (id === 'variant') {
+      // 같은 치수로 다음 모양을 펼친다. grid 라서 전개도 그리기 칸에도 채워진다
+      const k = variant === null ? 0 : (variant + 1) % NET_VARIANTS.length
+      loadScene(variantScene(scene, k))
+      setFacePick(null)
+      setVariant(k)
+      return
+    }
+    changeLesson(lesson?.kind === id ? null : { kind: id as LessonKind, progress: 0 })
+  }
   const changeLesson = (next: Lesson | null) => {
+    if (next && !lesson && makeCard.current) makeCard.current.open = false // 공식 결과가 나오는 왼쪽 쪽을 가리지 않게 접는다 (제목 줄을 누르면 다시 펼침)
     if (next && next.kind !== lesson?.kind) setUnfold(LESSON_POSE[next.kind] === 'net' ? 1 : 0)
     setLesson(next)
   }
@@ -109,12 +141,15 @@ export default function App() {
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
-  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : lesson ? lessonHint(lesson) : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
+  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing ? null : lesson ? lessonHint(lesson, scene) : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
     <div className="layout">
       <main className="stage">
-        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} onPick={(k) => loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))} />}
+        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} onPick={(k) => {
+              loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
+              if (makeCard.current) makeCard.current.open = false // 왼쪽 쪽 메뉴를 가리지 않게 접는다
+            }} />}
         {scene && (
           <Viewer
             scene={scene}
@@ -125,7 +160,10 @@ export default function App() {
             lesson={lesson}
             drawLines={drawLines}
             edgeDivisions={edgeDivisions}
-            pageText={pageTextOf(scene)}
+            pageText={pageTextOf(scene, lesson, !!result)}
+            pageResult={result ?? undefined}
+            pageMenu={pageMenu}
+            onPageMenu={pickMenu}
             pageNumbers={pageNumbersOf(scene)}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             onSceneChange={(next) => {
@@ -154,53 +192,65 @@ export default function App() {
       </main>
       <section className="dock" aria-label="접기" style={{ translate: `${dockOffset.x}px ${dockOffset.y}px` }}>
         <DragHandle offset={dockOffset} onMove={setDockOffset} />
+        {/* 왼쪽 쪽 메뉴는 3D 책에 그려서 키보드·화면 낭독기로 못 고른다. 같은 메뉴를 눈에 안 보이는 버튼으로 둔다 */}
+        <div className="visually-hidden" role="group" aria-label="공식과 전개도 메뉴">
+          {pageMenu.map((m) => (
+            <button key={m.id} type="button" data-page-menu={m.id} aria-pressed={m.active} disabled={!m.enabled} onClick={() => pickMenu(m.id)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
         {hint && <p className="viewer-hint">{hint}</p>}
         {scene && (
           <>
-            {!lesson && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} onModeChange={setFoldMode} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
-            <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} />
+            <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} speed={speed} />
+            {!lesson && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
             <div className="dock-row">
-              <LineControls
-                drawing={drawLines}
-                onDrawingChange={(on) => {
-                  setDrawLines(on)
-                  setDrawState('idle')
-                  if (on) setMarking(false)
-                }}
-                divisions={edgeDivisions}
-                onDivisionsChange={setEdgeDivisions}
-                lineCount={strokes.length}
-                route={route && { index: route.index, count: route.routes.length }}
-                onNextRoute={() => {
-                  if (!route) return
-                  const index = (route.index + 1) % route.routes.length
-                  const kept = scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1])
-                  setScene({ ...scene, lines: [...kept, ...route.routes[index]] } as ShapeScene)
-                  setStrokes([...strokes.slice(0, -1), route.routes[index].length])
-                  setRoute({ ...route, index })
-                }}
-                onEraseLast={() => {
-                  setScene({ ...scene, lines: scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1]) } as ShapeScene)
-                  setStrokes(strokes.slice(0, -1))
-                  setRoute(null)
-                }}
-              />
-              <FaceMarks
-                on={marking && canMark}
-                enabled={canMark || (scene.net.layout === 'cross' && scene.lines.length === 0)}
-                onToggle={(on) => {
+              {!lesson && (
+                <LineControls
+                  drawing={drawLines}
+                  onDrawingChange={(on) => {
+                    setDrawLines(on)
+                    setDrawState('idle')
+                    if (on) setMarking(false)
+                  }}
+                  divisions={edgeDivisions}
+                  onDivisionsChange={setEdgeDivisions}
+                  lineCount={strokes.length}
+                  route={route && { index: route.index, count: route.routes.length }}
+                  onNextRoute={() => {
+                    if (!route) return
+                    const index = (route.index + 1) % route.routes.length
+                    const kept = scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1])
+                    setScene({ ...scene, lines: [...kept, ...route.routes[index]] } as ShapeScene)
+                    setStrokes([...strokes.slice(0, -1), route.routes[index].length])
+                    setRoute({ ...route, index })
+                  }}
+                  onEraseLast={() => {
+                    setScene({ ...scene, lines: scene.lines.slice(0, scene.lines.length - strokes[strokes.length - 1]) } as ShapeScene)
+                    setStrokes(strokes.slice(0, -1))
+                    setRoute(null)
+                  }}
+                />
+              )}
+              <ViewMenu
+                lessonOn={!!lesson}
+                steps={steps}
+                mode={foldMode}
+                onModeChange={setFoldMode}
+                speed={speed}
+                onSpeedChange={setSpeed}
+                marking={marking && canMark}
+                markEnabled={canMark || (scene.net.layout === 'cross' && scene.lines.length === 0)}
+                onMarkingChange={(on) => {
                   setMarking(on)
                   if (!on) return
                   setDrawLines(false)
                   if (!canMark) setScene(crossToGrid(scene)) // 십자형은 면 표시를 못 담아서 같은 모양의 grid 로 바꾼다
                 }}
-                mark={mark}
-                onMark={setMark}
+                values={view}
+                onValues={setView}
               />
-              <details className="view-menu">
-                <summary>보기</summary>
-                <ViewOptions values={view} onChange={setView} />
-              </details>
               <button
                 type="button"
                 className="contents-button"
@@ -215,28 +265,12 @@ export default function App() {
               >
                 차례
               </button>
-              {(scene.net.layout === 'cross' || scene.net.layout === 'grid') && (
-                <button
-                  type="button"
-                  className="contents-button"
-                  disabled={unfold < 1 || scene.lines.length > 0}
-                  title={unfold < 1 || scene.lines.length > 0 ? '펼친 상태에서, 선을 지운 뒤에 눌러 보세요' : undefined}
-                  onClick={() => {
-                    // 같은 치수로 다음 모양을 펼친다. grid 라서 전개도 그리기 칸에도 채워진다 (ui.md 화면 배치 6번)
-                    const k = variant === null ? 0 : (variant + 1) % NET_VARIANTS.length
-                    loadScene(variantScene(scene, k))
-                    setFacePick(null)
-                    setVariant(k)
-                  }}
-                >
-                  다른 전개도 보기{variant !== null && ` (${variant + 1}/${NET_VARIANTS.length})`}
-                </button>
-              )}
+              {!lesson && marking && canMark && <FaceMarks mark={mark} onMark={setMark} />}
             </div>
           </>
         )}
       </section>
-      <details className="make-card" open>
+      <details className="make-card" open ref={makeCard}>
         <summary>
           <span className="brand">foldy</span> 도형 만들기
         </summary>
@@ -263,6 +297,11 @@ export default function App() {
               // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
               if (how === 'size' && scene) {
                 if (next.net.layout !== scene.net.layout) setVariant(next.net.layout === 'cross' ? 0 : null)
+                // 도형을 바꾸면 공식 설명을 끈다. 켜 둔 공식이 없는 도형(정다면체 등)에서는 조작 버튼이 모두 사라진다
+                if (next.shape !== scene.shape) {
+                  setLesson(null)
+                  setUnfold(1)
+                }
                 return setScene(next)
               }
               loadScene(next)

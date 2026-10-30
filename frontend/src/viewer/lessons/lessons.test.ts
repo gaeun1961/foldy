@@ -6,8 +6,8 @@ import { boxCenterOf, boxSizeOf, lessonHint, lessonStepCount, lessonSummary } fr
 import { defaultEdge, edgeRelations, edgesOf, meetPoint } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { similarLayout, similarSteps } from './similarLayout.ts'
-import { faceArea, faceNormal, oppositeFacePairs } from './surfaceLayout.ts'
-import { boxLengthLabels, faceLengthLabels } from './lengthLabels.ts'
+import { faceArea, faceNormal, oppositeFacePairs, surfaceGroups } from './surfaceLayout.ts'
+import { boxLengthLabels, computedLengthText, faceLengthLabels } from './lengthLabels.ts'
 import { layerProgress, volumeLayout } from './volumeLayout.ts'
 
 const EPS = 1e-9
@@ -64,9 +64,9 @@ const check = (ok: boolean, msg: string) => {
     check(Math.abs(faceArea(poly, f) - faceArea(poly, g)) < EPS, `면 ${f}·${g} 의 넓이가 같음`)
   }
   check(Math.abs(faceArea(poly, 0) - 12) < EPS && Math.abs(faceArea(poly, 1) - 6) < EPS && Math.abs(faceArea(poly, 3) - 8) < EPS, '앞면 4×3, 왼쪽 2×3, 윗면 4×2')
-  check(lessonStepCount(cuboid, 'surface-area') === 3, '겉넓이 단계 = 쌍 3개')
+  check(lessonStepCount(cuboid, 'surface-area') === 3, '겉넓이 단계 = 묶음 3개')
   const s = lessonSummary(cuboid, 'surface-area')!
-  check(s.formula === '2 × (12 + 6 + 8) = 2 × 26' && s.value === '52', `겉넓이 공식, 실제 ${s.formula} = ${s.value}`)
+  check(s.formula === '2 × 12 + 2 × 8 + 2 × 6' && s.value === '52', `겉넓이 공식, 실제 ${s.formula} = ${s.value}`)
 }
 
 // 피타고라스 (TODO-30): 입체 대각선, 겉면 최단 거리 후보와 직각삼각형
@@ -165,9 +165,35 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(lessonStepCount(wrong, 'volume') === 0 && lessonSummary(wrong, 'volume') === null, '잘못된 전개도에는 설명 없음')
 }
 
+// 다른 도형: 같은 모양 묶음, 부피·겉넓이 값이 공식과 맞는지, 탭 (대각선·최단 거리는 상자만)
+{
+  const solid = (shape: string, size: object) => ({ shape, size, vertexLabels: [], lines: [], net: { layout: 'default' } }) as unknown as ShapeScene
+  const groupsOf = (scene: ShapeScene) => surfaceGroups(polyhedronOf(scene)!).map((g) => g.length).sort((a, b) => b - a).join()
+  const prism = solid('prism', { sides: 5, edge: 2, height: 4 })
+  const pyramid = solid('pyramid', { sides: 4, edge: 3, height: 4 })
+  const cube = { shape: 'cube', size: { edge: 3 }, vertexLabels: [], lines: [], net: { layout: 'cross' } } as unknown as ShapeScene
+  check(groupsOf(prism) === '5,2' && groupsOf(pyramid) === '4,1' && groupsOf(cube) === '6', `같은 모양 묶음 ${groupsOf(prism)} ${groupsOf(pyramid)} ${groupsOf(cube)}`)
+  check(lessonSummary(cube, 'surface-area')!.formula === '6 × 9' && lessonSummary(cube, 'surface-area')!.value === '54', '정육면체 겉넓이 6 × 9')
+  // 각뿔: 밑넓이 9 × 높이 4 × ⅓ = 12, 단계 3 (세 번 붓기)
+  check(lessonSummary(pyramid, 'volume')!.value === '12' && lessonStepCount(pyramid, 'volume') === 3, `각뿔 부피 ${lessonSummary(pyramid, 'volume')!.value}`)
+  // 오각기둥: 밑넓이 × 높이, 단계 = 높이 층 수
+  const pentagon = (5 * 2 ** 2) / (4 * Math.tan(Math.PI / 5))
+  check(lessonSummary(prism, 'volume')!.value === `약 ${+(pentagon * 4).toFixed(2)}` && lessonStepCount(prism, 'volume') === 4, `오각기둥 부피 ${lessonSummary(prism, 'volume')!.value}`)
+  // 정다면체: 각뿔로 나눈 값이 알려진 공식과 같다. 정사면체 a³/(6√2), 정이십면체 5(3+√5)a³/12
+  const tetra = solid('regular-tetrahedron', { edge: 3 })
+  const ico = solid('regular-icosahedron', { edge: 2 })
+  check(lessonSummary(tetra, 'volume')!.value === `약 ${+(27 / (6 * Math.SQRT2)).toFixed(2)}`, `정사면체 부피 ${lessonSummary(tetra, 'volume')!.value}`)
+  check(lessonSummary(ico, 'volume')!.value === `약 ${+((5 * (3 + Math.sqrt(5)) * 8) / 12).toFixed(2)}`, `정이십면체 부피 ${lessonSummary(ico, 'volume')!.value}`)
+  for (const scene of [prism, pyramid, tetra, ico]) {
+    for (const k of ['surface-area', 'edge-relations', 'similar', 'volume'] as const) check(lessonStepCount(scene, k) > 0, `${scene.shape} ${k} 있음`)
+    for (const k of ['diagonal', 'shortest-path'] as const) check(lessonStepCount(scene, k) === 0, `${scene.shape} ${k} 없음`)
+  }
+}
+
 // 모서리 길이 글자: 입체는 가로·세로·높이, 전개도 면은 그 면의 이웃한 두 변
 {
   check(boxLengthLabels({ width: 4, depth: 2, height: 3.5 }).map((l) => l.text).join() === '4 cm,2 cm,3.5 cm', '입체 길이 글자')
+  check(computedLengthText(5) === '5 cm' && computedLengthText(Math.hypot(4, 2)) === '약 4.47 cm', '계산한 길이 글자')
   const poly = polyhedronOf({ shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' } } as ShapeScene)!
   check(poly.faces.every((_, f) => faceLengthLabels(poly, f).length === 2), '면마다 글자 둘')
   check(faceLengthLabels(poly, 0).map((l) => l.text).sort().join() === '3 cm,4 cm', `앞면 글자 ${faceLengthLabels(poly, 0).map((l) => l.text)}`)

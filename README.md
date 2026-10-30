@@ -39,6 +39,27 @@ python -m tests.test_vision_eval
 python -m tests.test_analyze
 ```
 
+## 시연할 때 (로컬 실행 순서)
+
+터미널 두 개를 열고, **backend 먼저, 그다음 frontend** 를 켭니다. 처음 한 번은 위 "실행"의 설치 단계를 먼저 합니다.
+
+```sh
+# 터미널 1: backend (사진 인식·챗봇)
+cd backend
+.venv\Scripts\activate        # macOS/Linux: source .venv/bin/activate
+uvicorn app.main:app --reload --env-file .env
+
+# 터미널 2: frontend
+cd frontend
+npm run dev
+```
+
+1. 브라우저에서 http://localhost:5173 을 엽니다. 코드를 바꾼 뒤라면 Ctrl+F5 로 새로고침합니다.
+2. 책 차례에서 도형을 고르거나, 학습지 사진을 올려 시작합니다.
+
+사진 인식은 인터넷과 Gemini 한도가 필요합니다 (무료 한도: 모델당 하루 20번, 한국 시간 오후 4시쯤 다시 채워짐). 한도를 아끼려면 시연 직전에 측정을 돌리지 않습니다.
+인터넷이나 한도가 막혀도 접기·공식 설명·전개도 그리기·사진 따라 그리기는 backend 없이 됩니다. 사진 인식 비상 경로(Gemini CLI)는 [docs/specs/api.md](docs/specs/api.md) "/analyze 에러"를 봅니다.
+
 ## 일하는 방식
 
 1. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md) 맨 위 "지금 시작 가능"에서 하나 고른다

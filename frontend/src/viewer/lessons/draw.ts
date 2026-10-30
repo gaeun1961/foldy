@@ -1,6 +1,6 @@
 // 설명 모드 공용 그리기 도우미 (피타고라스 TODO-30, 위치 관계 TODO-28): 자라는 막대, 직각 표시, 단계 진행률
 import * as THREE from 'three'
-import type { Vec3 } from '../polyhedra.ts'
+import type { Polyhedron, Vec3 } from '../polyhedra.ts'
 
 export const v3 = (p: Vec3) => new THREE.Vector3(...p)
 export const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
@@ -19,6 +19,17 @@ export function growingTube(from: THREE.Vector3, to: THREE.Vector3, r: number, m
   }
   grow(0)
   return { mesh, length, grow }
+}
+
+// 볼록 다면체를 한 덩어리 메시로 (면마다 부채꼴 삼각형). 설명에서 입체를 칠하거나 복사할 때 쓴다
+export function solidGeometry(poly: Polyhedron) {
+  const pts = poly.faces.flatMap((f) => {
+    const p = f.vertices.map((v) => new THREE.Vector3(...poly.positions[v]))
+    return p.slice(1, -1).flatMap((q, i) => [p[0], q, p[i + 2]])
+  })
+  const geometry = new THREE.BufferGeometry().setFromPoints(pts)
+  geometry.computeVertexNormals()
+  return geometry
 }
 
 // 길이 글자: 바탕이 흰 작은 표. 깊이 검사를 꺼서 다른 면에 가려져도 보인다. width 는 글자 표의 3D 가로 길이

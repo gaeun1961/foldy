@@ -1,31 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { ShapeScene } from '../shared/types'
-import { LESSON_LABEL, lessonStepCount, lessonSummary, RELATION_COLORS, SIMILAR_SCALES, type Lesson, type LessonKind } from '../viewer'
+import { LESSON_LABEL, lessonStepCount, RELATION_COLORS, SIMILAR_SCALES, type Lesson } from '../viewer'
 import { StepDots } from './FoldControls'
 import { stepTargets } from './foldStatus.ts'
 import { animate, SPEEDS, type Speed } from './player'
 
 // 설명 모드 조작 (docs/specs/ui.md 화면 배치 8번). 설명을 고르면 입체로 접고 한 단계(한 층)씩 보여준다.
-// 값은 lesson.progress (0 = 시작 전, 1 = 끝). 단계·속도·멈춤은 접기 패널과 같은 방식 (player.ts)
+// 값은 lesson.progress (0 = 시작 전, 1 = 끝). 단계·속도·멈춤은 접기 패널과 같은 방식 (player.ts). 공식 고르기는 책 왼쪽 쪽 메뉴에서 하고, 여기는 고른 공식의 버튼만.
+// 공식 결과는 끝난 뒤 왼쪽 쪽에 나온다 (App.tsx)
 interface Props {
   scene: ShapeScene
   lesson: Lesson | null
   onChange: (lesson: Lesson | null) => void
   onPlayingChange: (playing: boolean) => void
+  speed: Speed // 보기 메뉴에서 고른다
 }
 
-const KINDS = Object.keys(LESSON_LABEL) as LessonKind[]
-
-export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Props) {
-  const [speed, setSpeed] = useState<Speed>('normal')
-  const [playing, setPlaying] = useState(false)
+export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed }: Props) {
   const cancel = useRef(() => {})
   const stop = () => {
     cancel.current()
-    setPlaying(false)
     onPlayingChange(false)
   }
   useEffect(() => () => cancel.current(), [])
+  useEffect(stop, [lesson?.kind]) // eslint-disable-line react-hooks/exhaustive-deps -- 왼쪽 쪽 메뉴에서 공식을 바꾸면 멈춘다
 
   const steps = lesson ? lessonStepCount(scene, lesson.kind, lesson.scale) : 0
   const progress = lesson?.progress ?? 0
@@ -38,11 +36,9 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
     const targets = stepTargets(1 - progress, steps, dir === 'next' ? 'fold' : 'unfold').map((u) => 1 - u)
     const list = oneStep ? targets.slice(0, 1) : targets
     if (list.length === 0) return
-    setPlaying(true)
     onPlayingChange(true)
     const { stepMs, pauseMs } = SPEEDS[speed]
     cancel.current = animate(progress, list, stepMs * steps, pauseMs, set, () => {
-      setPlaying(false)
       onPlayingChange(false)
     })
   }
@@ -53,39 +49,15 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
     if (lesson) onChange({ ...lesson, scale: k, progress: 0 })
   }
 
-  const pick = (kind: LessonKind) => {
-    stop()
-    onChange(lesson?.kind === kind ? null : { kind, progress: 0 })
-  }
-
-  const summary = lesson && progress >= 1 && !playing ? lessonSummary(scene, lesson.kind, lesson.scale) : null
-  const available = KINDS.filter((k) => lessonStepCount(scene, k) > 0)
-  if (available.length === 0) return null
-
+  if (!lesson) return null
   return (
     <div className="lesson-controls">
       <div className="option-row">
-        <div className="toggle-row" role="group" aria-label="설명">
-          {available.map((k) => (
-            <button key={k} type="button" aria-pressed={lesson?.kind === k} onClick={() => pick(k)}>
-              {LESSON_LABEL[k]}
-            </button>
-          ))}
-        </div>
         {lesson?.kind === 'similar' && (
           <div className="toggle-row" role="group" aria-label="닮음비">
             {SIMILAR_SCALES.map((k) => (
               <button key={k} type="button" aria-pressed={(lesson.scale ?? 2) === k} onClick={() => pickScale(k)}>
                 {k}배
-              </button>
-            ))}
-          </div>
-        )}
-        {lesson && (
-          <div className="toggle-row" role="group" aria-label="속도">
-            {(Object.keys(SPEEDS) as Speed[]).map((s) => (
-              <button key={s} type="button" aria-pressed={speed === s} onClick={() => setSpeed(s)}>
-                {SPEEDS[s].label}
               </button>
             ))}
           </div>
@@ -124,12 +96,6 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange }: Pro
                   ),
               )}
             </ul>
-          )}
-          {/* 공식은 애니메이션이 끝나고 멈춘 뒤에만 (ui.md 친절한 설명 원칙) */}
-          {summary && (
-            <p className="lesson-summary" role="status">
-              {summary.formula} = <strong>{summary.value}</strong>
-            </p>
           )}
         </>
       )}

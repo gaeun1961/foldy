@@ -3,26 +3,33 @@
 import * as THREE from 'three'
 
 // 색은 docs/specs/ui.md 색 기준 "3D 뷰 배경"
-export const DESK_COLOR = '#e9e0d1'
+export const DESK_COLOR = '#c8ad8c' // 연한 오크색: 밝은 책과 패널이 뜨도록 (index.css --desk 와 같게)
 const MAT_COLOR = '#a9bab0'
 const COVER_COLOR = '#d6a63f'
 const PAPER_COLOR = '#fbf8f1'
 const PAPER_EDGE = '#ece5d6'
 const INK = '#2a2f3a'
+const PAGE_SCALE = 2
 const RED = '#b5452f'
 const SERIF = "'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif"
 
 // 빈 책 오른쪽 쪽의 차례 한 줄 (viewer.md "빈 책")
+// 공식 결과: 왼쪽 쪽에서 한 줄 설명 자리에 식과 값을 찍는다
+export type BookResult = { formula: string; value: string }
+// 왼쪽 쪽 메뉴 한 줄 (viewer.md "책 장면"). 누르면 onPageMenu(id)
+export type BookMenuItem = { id: string; label: string; active: boolean; enabled: boolean }
 export type BookContent = { title: string; page: number | null } // page: 그 도형의 왼쪽 쪽 번호, 아직 없는 도형이면 null
 
 // 종이 한 장의 윗면: 종이색 + 책등 쪽 그늘 + (왼쪽 페이지) 글자 / (오른쪽, 빈 책) 차례. 캔버스 위쪽이 책의 먼 쪽(−z).
 // 차례를 그리면 줄마다 캔버스 위 세로 범위(0 = 위, 1 = 아래)를 rows 에 담는다 (누른 줄 찾기)
-function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number) {
+function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number, result?: BookResult, menu: BookMenuItem[] = [], menuRows: { id: string; top: number; bottom: number; enabled: boolean }[] = []) {
   const canvas = document.createElement('canvas')
-  canvas.width = 1024
-  canvas.height = Math.round((1024 * pageD) / pageW)
-  const { width: w, height: h } = canvas
+  // 글자가 뭉개지지 않게 실제 그림은 PAGE_SCALE 배로 그린다. 아래 좌표와 글자 크기는 가로 1024 기준 그대로
+  const [w, h] = [1024, Math.round((1024 * pageD) / pageW)]
+  canvas.width = w * PAGE_SCALE
+  canvas.height = h * PAGE_SCALE
   const ctx = canvas.getContext('2d')!
+  ctx.scale(PAGE_SCALE, PAGE_SCALE)
   ctx.fillStyle = PAPER_COLOR
   ctx.fillRect(0, 0, w, h)
   // 책등 쪽으로 갈수록 어둡게 (페이지가 안으로 말려 들어가는 그늘)
@@ -62,7 +69,7 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
       ctx.font = `bold 44px ${SERIF}`
       ctx.fillText(String(k + 1), x, y)
       ctx.fillStyle = ready ? INK : '#b5ad9f'
-      ctx.font = `48px ${SERIF}`
+      ctx.font = `600 48px ${SERIF}`
       ctx.fillText(title, x + 70, y, right - x - 300)
       const titleEnd = x + 70 + Math.min(ctx.measureText(title).width, right - x - 300)
       ctx.textAlign = 'right'
@@ -101,13 +108,46 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
   ctx.fillRect(x, y, maxWidth, 3)
   y += 70
   ctx.fillStyle = INK
-  ctx.font = `42px ${SERIF}`
+  ctx.font = `600 42px ${SERIF}`
   for (const line of text.slice(1)) {
     for (const row of wrap(ctx, line, maxWidth)) {
       ctx.fillText(row, x, y)
       y += 64
     }
     y += 24
+  }
+  if (result) {
+    ctx.font = `600 42px ${SERIF}`
+    const rows = wrap(ctx, result.formula, maxWidth)
+    // 노란 형광펜: 식과 값 뒤를 칠해 눈에 띄게
+    ctx.fillStyle = '#fff0a8'
+    ctx.beginPath()
+    ctx.roundRect(x - 24, y - 52, maxWidth + 48, rows.length * 64 + 148, 16)
+    ctx.fill()
+    ctx.fillStyle = INK
+    for (const row of rows) {
+      ctx.fillText(row, x, y)
+      y += 64
+    }
+    y += 40
+    ctx.fillStyle = RED
+    ctx.font = `bold 84px ${SERIF}`
+    ctx.fillText(result.value, x, y, maxWidth)
+    y += 40
+  }
+  // 메뉴: 글 아래 한 줄씩. 고른 줄은 굵게 + 표시, 못 고르는 줄은 흐리게 (색만으로 구분하지 않기)
+  if (menu.length) {
+    y = Math.max(y + 70, h * 0.42)
+    ctx.fillStyle = '#cfc6b6'
+    ctx.fillRect(x, y - 62, maxWidth, 3)
+    y += 10
+    for (const { id, label, active, enabled } of menu) {
+      ctx.font = `${active ? 'bold' : '600'} 54px ${SERIF}`
+      ctx.fillStyle = !enabled ? '#b5ad9f' : active ? RED : INK
+      ctx.fillText(`${active ? '▸ ' : ''}${label}`, x, y, maxWidth)
+      menuRows.push({ id, top: (y - 60) / h, bottom: (y + 24) / h, enabled })
+      y += 84
+    }
   }
   return finish(canvas)
 }
@@ -129,7 +169,7 @@ function wrap(ctx: CanvasRenderingContext2D, line: string, maxWidth: number) {
 function finish(canvas: HTMLCanvasElement) {
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.anisotropy = 8 // 비스듬히 봐도 글자가 뭉개지지 않게
+  texture.anisotropy = 16 // 비스듬히 봐도 글자가 뭉개지지 않게 (그래픽 카드 한도까지)
   return texture
 }
 
@@ -164,7 +204,7 @@ function woodTexture() {
   let seed = 7
   const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) // 매번 같은 무늬
   for (let k = 0; k < 50; k++) {
-    ctx.strokeStyle = rand() < 0.5 ? 'rgb(150 120 80 / 6%)' : 'rgb(255 255 255 / 14%)'
+    ctx.strokeStyle = rand() < 0.5 ? 'rgb(90 60 30 / 12%)' : 'rgb(255 225 190 / 10%)'
     ctx.lineWidth = 1 + rand() * 2
     const y = rand() * 512
     ctx.beginPath()
@@ -180,7 +220,7 @@ function woodTexture() {
 
 // net: 다 펼친 전개도의 범위(y ≈ 0), size: 도형 크기(카메라 범위 반지름), pageText: 왼쪽 페이지 글 (첫 줄 제목),
 // contents: 빈 책이면 오른쪽 쪽 차례 (viewer.md "빈 책"), pageNumbers: 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음)
-export function buildBook(net: THREE.Box3, size: number, pageText: string[], contents: BookContent[] = [], pageNumbers?: [number, number]) {
+export function buildBook(net: THREE.Box3, size: number, pageText: string[], contents: BookContent[] = [], pageNumbers?: [number, number], result?: BookResult, menu: BookMenuItem[] = []) {
   const group = new THREE.Group()
   const owned: { dispose(): void }[] = []
   const own = <T extends { dispose(): void }>(x: T) => (owned.push(x), x)
@@ -216,8 +256,10 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
   const edge = own(new THREE.MeshStandardMaterial({ map: own(edgeTexture()) }))
   const rows: { top: number; bottom: number }[] = []
   let rightPage: THREE.Mesh | null = null
+  let leftPage: THREE.Mesh | null = null
+  const menuRows: { id: string; top: number; bottom: number; enabled: boolean }[] = []
   for (const side of ['left', 'right'] as const) {
-    const face = own(new THREE.MeshStandardMaterial({ map: own(pageTexture(pageW, pageD, side, pageText, contents, rows, pageNumbers?.[side === 'left' ? 0 : 1])) }))
+    const face = own(new THREE.MeshStandardMaterial({ map: own(pageTexture(pageW, pageD, side, pageText, contents, rows, pageNumbers?.[side === 'left' ? 0 : 1], result, side === 'left' ? menu : [], menuRows)) }))
     const x = side === 'left' ? spineX - pageW / 2 : spineX + pageW / 2
     const geometry = new THREE.BoxGeometry(pageW, thick, pageD, 48, 1, 1)
     const pos = geometry.attributes.position
@@ -230,6 +272,7 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     const page = add(geometry, [edge, edge, face, edge, edge, edge], x, top - thick / 2, cz)
     page.castShadow = true
     if (side === 'right') rightPage = page
+    else leftPage = page
   }
 
   // 표지: 종이보다 조금 크게, 종이 아래
@@ -251,6 +294,7 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
   return {
     group,
     center: new THREE.Vector3(spineX, 0, cz), // 펼친 책의 가운데 (책등 위)
+    textCorner: new THREE.Vector3(spineX - pageW * 0.88, 0, cz - pageD * 0.42), // 왼쪽 쪽 글이 시작하는 곳. 공식 결과를 보여 줄 때 카메라가 담는다
     top, // 페이지 윗면 높이 (평평한 곳)
     // 빈 책: 광선이 맞힌 곳이 오른쪽 쪽 차례의 몇 번째 줄인가 (윗면 텍스처 v 는 위쪽이 1). 아니면 null
     contentAt: (hit: THREE.Intersection | undefined) => {
@@ -260,6 +304,13 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
       return k < 0 ? null : k
     },
     pages: () => (rightPage ? [rightPage] : []),
+    leftPage: () => leftPage,
+    // 광선이 맞힌 곳이 왼쪽 쪽 메뉴의 어느 줄인가 (고를 수 있는 줄만). 아니면 null
+    menuAt: (hit: THREE.Intersection | undefined) => {
+      if (!hit || hit.object !== leftPage || hit.face?.materialIndex !== 2 || !hit.uv) return null
+      const v = 1 - hit.uv.y
+      return menuRows.find((r) => r.enabled && v >= r.top && v <= r.bottom)?.id ?? null
+    },
     dispose: () => owned.forEach((x) => x.dispose()),
   }
 }

@@ -12,8 +12,13 @@ const { ref: REF, kinds: KIND_COLORS } = RELATION_COLORS
 
 export function buildEdgeRelationsLesson(poly: Polyhedron, radius: number): LessonObject {
   const p = poly.positions
-  const r = radius * 0.012
-  const ext = radius * 0.9 // 꼬인 위치에서 직선을 양쪽으로 늘리는 길이
+  const r = radius * 0.008 // 다른 화면의 맞닿는 모서리와 같은 굵기
+  // 꼬인 위치에서 늘리는 점선은 책 페이지 안에서 끝난다: 가로·깊이는 페이지 여백(긴 변의 15%, bookScene)까지, 세로는 바닥 아래로 내려가지 않는다
+  const lo = [0, 1, 2].map((k) => Math.min(...p.map((v) => v[k])))
+  const hi = [0, 1, 2].map((k) => Math.max(...p.map((v) => v[k])))
+  const margin = Math.max(hi[0] - lo[0], hi[2] - lo[2]) * 0.15 * 0.9
+  const inPage = (v: THREE.Vector3) => new THREE.Vector3(Math.min(hi[0] + margin, Math.max(lo[0] - margin, v.x)), Math.min(hi[1] + margin, Math.max(lo[1], v.y)), Math.min(hi[2] + margin, Math.max(lo[2] - margin, v.z)))
+  const ext = radius // 넉넉히 늘린 뒤 inPage 로 자른다
   const group = new THREE.Group()
 
   // 누르기 쉽게 모서리마다 보이지 않는 굵은 원기둥 (Raycaster 는 visible 과 상관없이 맞힌다)
@@ -39,7 +44,7 @@ export function buildEdgeRelationsLesson(poly: Polyhedron, radius: number): Less
   const extension = (e: Edge, material: THREE.LineDashedMaterial) => {
     const [a, b] = [v3(p[e[0]]), v3(p[e[1]])]
     const dir = b.clone().sub(a).normalize()
-    return new THREE.Line(new THREE.BufferGeometry().setFromPoints([a.addScaledVector(dir, -ext), b.addScaledVector(dir, ext)]), material).computeLineDistances()
+    return new THREE.Line(new THREE.BufferGeometry().setFromPoints([inPage(a.clone().addScaledVector(dir, -ext)), inPage(b.clone().addScaledVector(dir, ext))]), material).computeLineDistances()
   }
   // 꼬인 위치 모서리는 점선 막대: 짧은 막대 여러 개. grow(q) 는 앞에서부터 q 만큼
   const dashedTube = (e: Edge, material: THREE.Material) => {

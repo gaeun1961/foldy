@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types'
-import { chat, type ChatView } from './api'
+import { chat, type ChatView, OfflineError } from './api'
 
 // 챗봇 (docs/specs/ui.md 화면 배치 7번): 오른쪽 아래 동그란 아이콘을 누르면 대화창이 열린다.
 // 넓은 화면은 아이콘 위 작은 창, 좁은 화면은 아래에서 올라오는 절반 높이 시트. 3D 뷰는 계속 보인다.
@@ -40,7 +40,7 @@ export function ChatPanel({ scene, onView }: { scene: ShapeScene | null; onView:
       setMessages((m) => [...m, { from: 'bot', text: reply }])
       onView(view ?? CLEAR)
     } catch (e) {
-      setMessages((m) => [...m, { from: 'error', text: (e as Error).message }])
+      setMessages((m) => [...m, { from: e instanceof OfflineError ? 'bot' : 'error', text: (e as Error).message }])
     } finally {
       setWaiting(false)
     }
