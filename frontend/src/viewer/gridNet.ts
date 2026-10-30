@@ -2,7 +2,7 @@
 // 펼친 전개도(평면 위 직사각형 면)를 같은 쪽으로 90°씩 접어 접힌 좌표를 구하고, 그 좌표로 Polyhedron 을 만든다.
 // 그 뒤로는 다른 다면체와 같다 (faceTree.ts). 잘못 그린 전개도도 그대로 접혀서 겹치거나 빈 곳이 생긴다.
 // 라이브러리 독립: three.js 없이 숫자만 쓴다.
-import type { GridNet, Line, NetPoint, PolyhedronPoint } from '../shared/types.ts'
+import type { GridNet, Line, NetFace, NetPoint, PolyhedronPoint } from '../shared/types.ts'
 import type { FaceDef, Polyhedron, Vec3 } from './polyhedra.ts'
 
 const EPS = 1e-6
@@ -164,4 +164,52 @@ export function gridPolyhedron(net: GridNet): GridPolyhedron {
   })
 
   return { positions, faces, foldOrder: order.slice(1).map((_, k) => k + 1), cornerLabels, marks, netLines, netFaces: order }
+}
+
+// 정육면체 전개도 11가지 (viewer.md "전개도 grid" 다른 전개도 모양, TODO-38). # 이 단위 정사각형 칸이다.
+// 1-4-1 여섯 가지(첫째가 십자형), 2-3-1 세 가지, 2-2-2, 3-3
+export const NET_VARIANTS = [
+  ['.#..', '####', '.#..'],
+  ['#...', '####', '#...'],
+  ['#...', '####', '.#..'],
+  ['#...', '####', '..#.'],
+  ['#...', '####', '...#'],
+  ['.#..', '####', '..#.'],
+  ['##..', '.###', '.#..'],
+  ['##..', '.###', '..#.'],
+  ['##..', '.###', '...#'],
+  ['##..', '.##.', '..##'],
+  ['###..', '..###'],
+].map((rows) => rows.flatMap((row, y) => [...row].flatMap((c, x) => (c === '#' ? [{ x, y }] : []))))
+
+// k번째 모양을 치수 [가로, 세로, 높이] 에 맞춘 grid 면 목록. 칸을 너비 우선으로 따라가며 면의 가로·세로·법선이 입체의
+// 어느 방향(0 가로, 1 세로, 2 높이)인지 들고 다닌다. 루트 칸은 십자형 앞면처럼 가로 = 가로, 세로 = 높이, 법선 = 세로.
+// 왼쪽·오른쪽으로 넘어가 접으면 면의 가로와 법선이, 위·아래로 넘어가면 세로와 법선이 바뀐다. 면은 부모 옆에 맞닿는 변을 맞춰 놓는다
+export function netVariant(k: number, dims: [number, number, number]): NetFace[] {
+  const cells = NET_VARIANTS[k]
+  const at = (x: number, y: number) => cells.findIndex((c) => c.x === x && c.y === y)
+  const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+  const degree = cells.map((c) => STEPS.filter(([dx, dy]) => at(c.x + dx, c.y + dy) >= 0).length)
+  const root = degree.indexOf(Math.max(...degree))
+  const axes = new Map([[root, { u: 0, v: 2, n: 1 }]])
+  const rects = new Map<number, NetFace>([[root, { x: 0, y: 0, w: dims[0], h: dims[2] }]])
+  const order = [root]
+  for (let i = 0; i < order.length; i++) {
+    const [c, a, r] = [cells[order[i]], axes.get(order[i])!, rects.get(order[i])!]
+    for (const [dx, dy] of STEPS) {
+      const j = at(c.x + dx, c.y + dy)
+      if (j < 0 || axes.has(j)) continue
+      const b = dx ? { u: a.n, v: a.v, n: a.u } : { u: a.u, v: a.n, n: a.v }
+      const [w, h] = [dims[b.u], dims[b.v]]
+      const x = dx > 0 ? r.x + r.w : dx < 0 ? r.x - w : r.x
+      const y = dy > 0 ? r.y + r.h : dy < 0 ? r.y - h : r.y
+      axes.set(j, b)
+      rects.set(j, { x, y, w, h })
+      order.push(j)
+    }
+  }
+  // 칸 순서대로, 왼쪽 위가 (0, 0) 이 되게 옮긴다
+  const faces = cells.map((_, i) => rects.get(i)!)
+  const [x0, y0] = [Math.min(...faces.map((f) => f.x)), Math.min(...faces.map((f) => f.y))]
+  return faces.map((f) => ({ ...f, x: f.x - x0, y: f.y - y0 }))
 }

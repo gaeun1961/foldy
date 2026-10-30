@@ -3,10 +3,11 @@
 import * as THREE from 'three'
 import { applyUnfold, buildFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
 import { foldOrderOf, foldStepCount, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Polyhedron } from './polyhedra.ts'
-import type { GridPolyhedron } from './gridNet.ts'
+import { NET_VARIANTS, netVariant, type GridPolyhedron } from './gridNet.ts'
 import type { GridNet, Line, NetFace, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 
 const EPS = 1e-9
+const near3 = (a: number[], b: number[]) => a.every((v, k) => Math.abs(v - b[k]) < 1e-6)
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
 }
@@ -169,6 +170,42 @@ checkBox({ ...base, shape: 'cube', size: { edge: 2.5 } }, 2.5, 2.5, 2.5)
   check(checked.every((c, i) => Math.abs(c.length - routes[i].length) < 1e-6 && (i === 0 || c.length >= checked[i - 1].length - 1e-9)), '후보 길이가 짧은 순')
   check(Math.abs(checked[0].length - Math.sqrt(41)) < 1e-6, '첫째 후보는 최단 √41')
   check(new Set(checked.map((c) => c.faces.join())).size === 3, '후보는 서로 다른 길')
+}
+
+// 다른 전개도 모양 (viewer.md "전개도 grid", TODO-38): 정육면체 전개도 11가지, 직육면체 치수에 맞춘 것도 모두 바른 전개도
+{
+  const extent = (poly: Polyhedron) => [0, 1, 2].map((k) => Math.max(...poly.positions.map((p) => p[k])) - Math.min(...poly.positions.map((p) => p[k]))).sort((a, b) => a - b)
+  const sizes: [number, number, number][] = [[1, 1, 1], [4, 2, 3], [2, 3, 4], [3, 4, 2], [5, 1.5, 2.5], [1, 6, 2]]
+  check(NET_VARIANTS.length === 11 && NET_VARIANTS.every((cells) => cells.length === 6), '전개도 11가지, 칸 6개씩')
+  NET_VARIANTS.forEach((_, k) =>
+    sizes.forEach((dims) => {
+      const faces = netVariant(k, dims)
+      const scene: ShapeScene = { shape: 'cuboid', size: { width: dims[0], depth: dims[1], height: dims[2] }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'grid', faces } }
+      const result = netCheck(scene)!
+      check(result.closed, `${k + 1}번 전개도 ${dims} 이 닫히지 않음 ${JSON.stringify(result)}`)
+      const overlap = faces.some((a, i) => faces.some((b, j) => i < j && a.x < b.x + b.w - 1e-9 && b.x < a.x + a.w - 1e-9 && a.y < b.y + b.h - 1e-9 && b.y < a.y + a.h - 1e-9))
+      check(!overlap, `${k + 1}번 전개도 ${dims} 면끼리 겹침`)
+      const poly = polyhedronOf(scene)!
+      check(poly.positions.length === 8 && near3(extent(poly), [...dims].sort((a, b) => a - b)), `${k + 1}번 전개도 ${dims} 접은 크기 ${extent(poly)}`)
+    }),
+  )
+  // 첫째는 십자형: crossToGrid(ui)와 같은 [왼][앞][오][뒤] 한 줄, 위·아래는 앞면에
+  const first = netVariant(0, [4, 2, 3]).map((f) => `${f.x},${f.y},${f.w},${f.h}`).sort().join(' ')
+  check(first === ['0,2,2,3', '2,0,4,2', '2,2,4,3', '2,5,4,2', '6,2,2,3', '8,2,4,3'].sort().join(' '), `첫째 전개도는 십자형 ${first}`)
+  // 11가지는 돌리거나 뒤집어도 서로 다른 모양 (8가지 대칭으로 옮긴 것 중 가장 작은 글자를 대표로)
+  const canonical = (cells: { x: number; y: number }[]) => {
+    const forms = [0, 1, 2, 3, 4, 5, 6, 7].map((t) => {
+      const moved = cells.map(({ x, y }) => {
+        const [a, b] = t & 4 ? [-x, y] : [x, y]
+        return [[a, b], [-b, a], [-a, -b], [b, -a]][t & 3]
+      })
+      const [mx, my] = [Math.min(...moved.map((p) => p[0])), Math.min(...moved.map((p) => p[1]))]
+      return moved.map(([x, y]) => `${x - mx},${y - my}`).sort().join(' ')
+    })
+    return forms.sort()[0]
+  }
+  check(new Set(NET_VARIANTS.map(canonical)).size === 11, '11가지는 서로 다른 모양')
+  console.log('ok: 다른 전개도 모양 (정육면체 전개도 11가지, 직육면체 치수 6개 모두 닫힘·겹치지 않음·크기 맞음, 서로 다른 모양)')
 }
 
 // 학습지 전개도 grid (viewer.md "전개도 grid"): 전개도를 그대로 접는다
