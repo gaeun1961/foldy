@@ -366,6 +366,9 @@ h2 {
 @media (pointer: coarse) {
   .lesson-controls { --button-height: 44px; }
 }
+/* 설명 종류 버튼이 6개라 좁은 화면에서는 줄을 바꿔 감싼다. 버튼 안 글자는 한 줄 ("겉넓이"가 한 글자씩 꺾이지 않게) */
+.lesson-controls .toggle-row { flex-wrap: wrap; }
+.lesson-controls .toggle-row button { white-space: nowrap; }
 .lesson-summary {
   margin: 0;
   padding: 10px 14px;
