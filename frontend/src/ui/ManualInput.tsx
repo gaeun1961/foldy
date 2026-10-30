@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { NetFace, ShapeScene } from '../shared/types'
-import { CELL, crossScene, gridScene, overlaps, PHOTO_W, rectOf, SHAPES, SLIDER, type BoxShape, type PhotoFit } from './manualScene.ts'
+import { polygonName } from './foldStatus.ts'
+import { CELL, SIDES, crossScene, gridScene, overlaps, PHOTO_W, rectOf, SHAPES, SLIDER, type BoxShape, type PhotoFit } from './manualScene.ts'
 
 // 직접 만들기 (docs/specs/ui.md 화면 배치 3번). 사진 인식(LLM) 없이 쓰는 기본 길.
 // ① 치수로 만들기: 도형 드롭다운 + 치수 슬라이더 → 십자형. ② 전개도 그리기: 칸 위를 끌어 직사각형 면을 그린다 → 그대로 접힌다.
@@ -59,6 +60,18 @@ function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scen
           ))}
         </select>
       </label>
+      {'sides' in size && (
+        <label className="shape-select">
+          밑면
+          <select value={size.sides} onChange={(e) => change(shape, { ...size, sides: Number(e.target.value) })}>
+            {SIDES.map((n) => (
+              <option key={n} value={n}>
+                {polygonName(n)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {def.sliders.map(({ key, label }) => (
         <label key={key} className="slider-row">
           <span>{label}</span>

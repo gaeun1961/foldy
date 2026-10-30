@@ -1,5 +1,6 @@
 // 상태 배지 문구 검사. 실행: frontend 폴더에서 `npm test`
-import { foldPercent, foldStatus, stepTargets, unfoldOf } from './foldStatus.ts'
+import type { ShapeScene } from '../shared/types.ts'
+import { foldPercent, foldStatus, shapeName, stepTargets, unfoldOf } from './foldStatus.ts'
 
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
@@ -38,4 +39,9 @@ near(stepTargets(0.5, 5, 'unfold'), [0.6, 0.8, 1])
 // 잘못 그린 전개도: 다 접었을 때만 "전개도가 아니에요"
 eq(foldStatus('cube', 0, false, false), { done: false, wrong: true, text: '정육면체 전개도가 아니에요 · 면이 겹치거나 비어요' })
 eq(foldStatus('cube', 0.5, false, false).text, '정육면체 · 접는 중 50%')
+// 각기둥·각뿔 이름은 밑면 변 수로, 조사도 맞게
+const prismScene = { shape: 'prism', size: { sides: 5, edge: 2, height: 3 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as ShapeScene
+eq(shapeName(prismScene), '오각기둥')
+eq(shapeName({ ...prismScene, shape: 'pyramid', size: { sides: 4, edge: 2, height: 3 } } as ShapeScene), '사각뿔')
+eq(foldStatus('prism', 0, false, true, shapeName(prismScene)).text, '빈틈없이 오각기둥이 됐어요')
 console.log('ok: 접기 % 방향, 상태 배지 문구, 조사, 단계 경계')
