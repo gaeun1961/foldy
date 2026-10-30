@@ -63,7 +63,7 @@
 
 ```sh
 cd frontend && npm run build && npm run lint && npm test
-cd backend && ruff check . && ruff format --check . && python -m tests.test_schema
+cd backend && ruff check . && ruff format --check . && python -m tests.test_schema && python -m tests.test_chat && python -m tests.test_vision_eval && python -m tests.test_analyze
 ```
 
 화면이 바뀌면 `npm run dev`로 띄워서 직접 확인한다.

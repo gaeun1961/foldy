@@ -1,4 +1,4 @@
-import type { ShapeScene } from '../shared/types'
+import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import type { Lesson } from './lessons/data'
 
 // 뷰어 구현이 지켜야 할 props (docs/specs/viewer.md). UI는 이 인터페이스와 아래 Viewer, foldStepCount 만 사용한다.
@@ -12,8 +12,30 @@ export interface ViewerProps {
   showVertexLabels?: boolean // 꼭짓점 라벨 (기본 true, 보기 옵션)
   highlightVertices?: number[] // 강조할 꼭짓점 인덱스. 복사본 모두 색으로, 나머지는 흐리게 (챗봇 화면 조작 TODO-10)
   lesson?: Lesson | null // 설명 모드 (부피 등 공식 시각화). 입체 상태(unfold 0)에서 보여준다. 없으면 보통 보기
+  drawLines?: boolean // 선 긋기 모드: 클릭으로 선분의 두 끝점을 고른다 (기본 false)
+  edgeDivisions?: 2 | 3 | 4 // 선 긋기에서 모서리 등분 (기본 2 = 중점)
+  onSceneChange?: (scene: ShapeScene) => void // 선분이 더해진 새 scene. UI가 다시 scene 으로 넘긴다
+  onDrawState?: (state: DrawState) => void // 선 긋기 진행 상태 (안내 문구용)
+  pageText?: string[] // 책 장면 왼쪽 페이지 글. 첫 줄 제목, 나머지 본문 (UI가 정한다, viewer.md "책 장면")
+  pageNumbers?: [number, number] // 책 아래 귀퉁이 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음, UI가 차례에 맞춰 정한다)
+  onRouteChoices?: (routes: Line<PolyhedronPoint>[][]) => void // 방금 그은 선의 길 후보 (첫째가 그은 길). 같은 면 두 점이면 그 면 위 직선 + 다른 면들을 지나는 길
+  photo?: NetPhoto // 따라 그린 학습지 사진. 전개도 grid 일 때만 책 페이지에 깐다 (viewer.md "책 장면")
+  onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
+  faceMarking?: boolean // 면 표시 모드: 면을 누르면 마주 보는 면 보기 대신 onFaceMark (기본 false)
+  onFaceMark?: (netFace: number) => void // 면 표시 모드에서 누른 면의 scene.net.faces 인덱스 (학습지 전개도 grid 만)
 }
 
+// 누른 면과 다 접었을 때 마주 보는 면. text 는 학습지 전개도 면에 쓰인 글자 (없으면 null)
+export type FacePick = { face: number; text: string | null; opposite: { face: number; text: string | null }[] }
+
+// 전개도 그리기 칸에서 맞춘 사진 위치 (단위: 칸). x, y 가운데, size 사진이 비율대로 들어가는 정사각형 한 변, angle 시계 방향 각도(도)
+export type NetPhoto = { src: string; x: number; y: number; size: number; angle: number }
+
+// idle: 첫 점을 기다림 / picked: 첫 점을 고름 / no-path: 겉면으로 이을 길을 찾지 못해 긋지 않음 (드묾)
+export type DrawState = 'idle' | 'picked' | 'no-path'
+
 export { ThreeViewer as Viewer } from './ThreeViewer'
-export { foldStepCount } from './polyhedra'
+export { EmptyBook } from './EmptyBook' // 도형이 없을 때 빈 책 + 차례 (viewer.md "빈 책")
+export type { BookContent } from './bookScene'
+export { foldStepCount, netCheck } from './polyhedra'
 export { LESSON_LABEL, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'

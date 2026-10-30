@@ -1,0 +1,264 @@
+// 책 장면 (docs/specs/viewer.md "책 장면"): 나무 책상 · 데스크 매트 · 펼친 책. 바닥(y = 0)이 오른쪽 페이지라서
+// 전개도가 페이지 위에 눕고, 접으면 페이지에서 일어선다. 이미지 파일 없이 상자·평면과 캔버스 텍스처로만 만든다
+import * as THREE from 'three'
+
+// 색은 docs/specs/ui.md 색 기준 "3D 뷰 배경"
+export const DESK_COLOR = '#e9e0d1'
+const MAT_COLOR = '#a9bab0'
+const COVER_COLOR = '#d6a63f'
+const PAPER_COLOR = '#fbf8f1'
+const PAPER_EDGE = '#ece5d6'
+const INK = '#2a2f3a'
+const RED = '#b5452f'
+const SERIF = "'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif"
+
+// 빈 책 오른쪽 쪽의 차례 한 줄 (viewer.md "빈 책")
+export type BookContent = { title: string; page: number | null } // page: 그 도형의 왼쪽 쪽 번호, 아직 없는 도형이면 null
+
+// 종이 한 장의 윗면: 종이색 + 책등 쪽 그늘 + (왼쪽 페이지) 글자 / (오른쪽, 빈 책) 차례. 캔버스 위쪽이 책의 먼 쪽(−z).
+// 차례를 그리면 줄마다 캔버스 위 세로 범위(0 = 위, 1 = 아래)를 rows 에 담는다 (누른 줄 찾기)
+function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1024
+  canvas.height = Math.round((1024 * pageD) / pageW)
+  const { width: w, height: h } = canvas
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = PAPER_COLOR
+  ctx.fillRect(0, 0, w, h)
+  // 책등 쪽으로 갈수록 어둡게 (페이지가 안으로 말려 들어가는 그늘)
+  const spine = side === 'left' ? w : 0
+  const shade = ctx.createLinearGradient(spine, 0, side === 'left' ? w * 0.86 : w * 0.14, 0)
+  shade.addColorStop(0, 'rgb(120 100 70 / 28%)')
+  shade.addColorStop(1, 'rgb(120 100 70 / 0%)')
+  ctx.fillStyle = shade
+  ctx.fillRect(0, 0, w, h)
+
+  ctx.fillStyle = '#9a9184'
+  ctx.font = `28px ${SERIF}`
+  ctx.textAlign = side === 'left' ? 'left' : 'right'
+  if (pageNumber !== undefined) ctx.fillText(String(pageNumber), side === 'left' ? w * 0.08 : w * 0.92, h * 0.95) // 쪽 번호 (바깥 아래 귀퉁이)
+  if (side === 'right') {
+    if (!contents.length) return finish(canvas)
+    const x = w * 0.12
+    const right = w * 0.88
+    let y = h * 0.14
+    ctx.textAlign = 'left'
+    ctx.fillStyle = RED
+    ctx.font = `bold 30px ${SERIF}`
+    ctx.fillText('CONTENTS', x, y)
+    y += 90
+    ctx.fillStyle = INK
+    ctx.font = `bold 76px ${SERIF}`
+    ctx.fillText('차례', x, y)
+    y += 40
+    ctx.fillStyle = '#cfc6b6'
+    ctx.fillRect(x, y, right - x, 3)
+    y += 110
+    contents.forEach(({ title, page }, k) => {
+      const ready = page !== null
+      ctx.textAlign = 'left'
+      ctx.fillStyle = ready ? RED : '#c9c0b0'
+      ctx.font = `bold 44px ${SERIF}`
+      ctx.fillText(String(k + 1), x, y)
+      ctx.fillStyle = ready ? INK : '#b5ad9f'
+      ctx.font = `48px ${SERIF}`
+      ctx.fillText(title, x + 70, y, right - x - 300)
+      const titleEnd = x + 70 + Math.min(ctx.measureText(title).width, right - x - 300)
+      ctx.textAlign = 'right'
+      if (ready) {
+        ctx.font = `44px ${SERIF}`
+        ctx.fillStyle = INK
+        ctx.fillText(String(page), right, y)
+        // 제목과 쪽 번호 사이 점선 (차례 줄)
+        ctx.fillStyle = '#b9b0a0'
+        for (let dx = titleEnd + 24; dx < right - 60; dx += 18) ctx.fillRect(dx, y - 8, 4, 4)
+      } else {
+        ctx.font = `34px ${SERIF}`
+        ctx.fillStyle = '#c9c0b0'
+        ctx.fillText('곧 나와요', right, y)
+      }
+      rows.push({ top: (y - 62) / h, bottom: (y + 34) / h })
+      y += 104
+    })
+    return finish(canvas)
+  }
+  if (text.length === 0) return finish(canvas)
+
+  const x = w * 0.12
+  const maxWidth = w * 0.74
+  let y = h * 0.14
+  ctx.textAlign = 'left'
+  ctx.fillStyle = RED
+  ctx.font = `bold 30px ${SERIF}`
+  ctx.fillText('입체도형 · 전개도', x, y)
+  y += 90
+  ctx.fillStyle = INK
+  ctx.font = `bold 76px ${SERIF}`
+  ctx.fillText(text[0], x, y, maxWidth)
+  y += 40
+  ctx.fillStyle = '#cfc6b6'
+  ctx.fillRect(x, y, maxWidth, 3)
+  y += 70
+  ctx.fillStyle = INK
+  ctx.font = `42px ${SERIF}`
+  for (const line of text.slice(1)) {
+    for (const row of wrap(ctx, line, maxWidth)) {
+      ctx.fillText(row, x, y)
+      y += 64
+    }
+    y += 24
+  }
+  return finish(canvas)
+}
+
+// 띄어쓰기 단위로 줄을 나눈다
+function wrap(ctx: CanvasRenderingContext2D, line: string, maxWidth: number) {
+  const rows: string[] = []
+  let row = ''
+  for (const word of line.split(' ')) {
+    const next = row ? `${row} ${word}` : word
+    if (row && ctx.measureText(next).width > maxWidth) {
+      rows.push(row)
+      row = word
+    } else row = next
+  }
+  return [...rows, row]
+}
+
+function finish(canvas: HTMLCanvasElement) {
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 8 // 비스듬히 봐도 글자가 뭉개지지 않게
+  return texture
+}
+
+// 종이 단면: 종이가 여러 장 쌓인 가는 가로줄. 상자 옆면은 텍스처 v 가 높이 방향이라 네 옆면에 같이 쓴다
+function edgeTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = PAPER_EDGE
+  ctx.fillRect(0, 0, 4, 128)
+  let seed = 3
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) // 매번 같은 무늬
+  // 화면에서 단면은 몇십 픽셀이라 줄이 촘촘하면 한 색으로 뭉개진다. 열 몇 장만, 굵은 진한 줄 + 밝은 줄로.
+  // 밉맵은 켜 둔다: 끄면 축소했을 때 줄이 지그재그로 깨진다
+  for (let y = 2; y < 128; y += 8 + Math.floor(rand() * 4)) {
+    ctx.fillStyle = `rgb(110 90 60 / ${45 + rand() * 25}%)`
+    ctx.fillRect(0, y, 4, 2)
+    ctx.fillStyle = 'rgb(255 255 255 / 55%)'
+    ctx.fillRect(0, y + 2, 4, 2)
+  }
+  return finish(canvas)
+}
+
+// 옅은 나뭇결: 책상색 바탕에 가로로 긴 줄
+function woodTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 512
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = DESK_COLOR
+  ctx.fillRect(0, 0, 512, 512)
+  let seed = 7
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) // 매번 같은 무늬
+  for (let k = 0; k < 50; k++) {
+    ctx.strokeStyle = rand() < 0.5 ? 'rgb(150 120 80 / 6%)' : 'rgb(255 255 255 / 14%)'
+    ctx.lineWidth = 1 + rand() * 2
+    const y = rand() * 512
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.bezierCurveTo(170, y + (rand() - 0.5) * 12, 340, y + (rand() - 0.5) * 12, 512, y)
+    ctx.stroke()
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  return texture
+}
+
+// net: 다 펼친 전개도의 범위(y ≈ 0), size: 도형 크기(카메라 범위 반지름), pageText: 왼쪽 페이지 글 (첫 줄 제목),
+// contents: 빈 책이면 오른쪽 쪽 차례 (viewer.md "빈 책"), pageNumbers: 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음)
+export function buildBook(net: THREE.Box3, size: number, pageText: string[], contents: BookContent[] = [], pageNumbers?: [number, number]) {
+  const group = new THREE.Group()
+  const owned: { dispose(): void }[] = []
+  const own = <T extends { dispose(): void }>(x: T) => (owned.push(x), x)
+  const add = (geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(own(geometry), material)
+    mesh.position.set(x, y, z)
+    mesh.receiveShadow = true
+    group.add(mesh)
+    return mesh
+  }
+
+  const w = net.max.x - net.min.x
+  const d = net.max.z - net.min.z
+  const margin = Math.max(w, d) * 0.15
+  const pageW = w + 2 * margin
+  const pageD = Math.max(d + 2 * margin, pageW * 1.3)
+  const cx = (net.min.x + net.max.x) / 2
+  const cz = (net.min.z + net.max.z) / 2
+  const spineX = cx - pageW / 2 // 책등: 오른쪽 페이지의 왼쪽 끝
+  const top = -size * 0.01 // 페이지 윗면. 전개도(y = 0)와 겹쳐 깜빡이지 않게 조금 아래 (0.3% 는 먼 쪽 면에서 줄무늬가 졌다)
+  const thick = Math.max(w, d) * 0.04 // 종이 묶음 두께
+  const coverT = thick * 0.35
+  const coverMargin = margin * 0.25
+  const matT = thick * 0.15
+
+  // 책등 쪽 골: 책등에서 curl 안쪽만 아래로 말려 들어간다. 전개도는 책등에서 margin 이상 떨어져 있어 평평한 곳에만 놓인다
+  const curl = margin * 0.9
+  const dip = thick * 0.8
+  const sag = (s: number) => (s < curl ? -dip * (1 - s / curl) ** 2 : 0) // s: 책등에서 떨어진 거리
+
+  // 종이 두 장: 윗면은 페이지 텍스처, 옆면은 종이 단면. BoxGeometry 재질 순서 +x, −x, +y, −y, +z, −z
+  // 가로로 잘게 나눈 상자의 위쪽 꼭짓점을 sag 만큼 내려 윗면과 앞뒤 단면이 함께 휜다
+  const edge = own(new THREE.MeshStandardMaterial({ map: own(edgeTexture()) }))
+  const rows: { top: number; bottom: number }[] = []
+  let rightPage: THREE.Mesh | null = null
+  for (const side of ['left', 'right'] as const) {
+    const face = own(new THREE.MeshStandardMaterial({ map: own(pageTexture(pageW, pageD, side, pageText, contents, rows, pageNumbers?.[side === 'left' ? 0 : 1])) }))
+    const x = side === 'left' ? spineX - pageW / 2 : spineX + pageW / 2
+    const geometry = new THREE.BoxGeometry(pageW, thick, pageD, 48, 1, 1)
+    const pos = geometry.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      if (pos.getY(i) < 0) continue
+      const s = side === 'left' ? pageW / 2 - pos.getX(i) : pos.getX(i) + pageW / 2
+      pos.setY(i, pos.getY(i) + sag(s))
+    }
+    geometry.computeVertexNormals()
+    const page = add(geometry, [edge, edge, face, edge, edge, edge], x, top - thick / 2, cz)
+    page.castShadow = true
+    if (side === 'right') rightPage = page
+  }
+
+  // 표지: 종이보다 조금 크게, 종이 아래
+  const cover = own(new THREE.MeshStandardMaterial({ color: COVER_COLOR, roughness: 0.8 }))
+  const coverY = top - thick - coverT / 2
+  add(new THREE.BoxGeometry(2 * pageW + 2 * coverMargin, coverT, pageD + 2 * coverMargin), cover, spineX, coverY, cz).castShadow = true
+
+  // 데스크 매트와 책상
+  const matTop = coverY - coverT / 2
+  const matW = (2 * pageW + 2 * coverMargin) * 1.25
+  const matD = (pageD + 2 * coverMargin) * 1.3
+  add(new THREE.BoxGeometry(matW, matT, matD), own(new THREE.MeshStandardMaterial({ color: MAT_COLOR, roughness: 1 })), spineX, matTop - matT / 2, cz)
+  const wood = own(woodTexture())
+  const deskSize = size * 60
+  wood.repeat.set(deskSize / (size * 3), deskSize / (size * 3))
+  const desk = add(new THREE.PlaneGeometry(deskSize, deskSize), own(new THREE.MeshStandardMaterial({ map: wood, roughness: 0.9 })), spineX, matTop - matT, cz)
+  desk.rotation.x = -Math.PI / 2
+
+  return {
+    group,
+    center: new THREE.Vector3(spineX, 0, cz), // 펼친 책의 가운데 (책등 위)
+    top, // 페이지 윗면 높이 (평평한 곳)
+    // 빈 책: 광선이 맞힌 곳이 오른쪽 쪽 차례의 몇 번째 줄인가 (윗면 텍스처 v 는 위쪽이 1). 아니면 null
+    contentAt: (hit: THREE.Intersection | undefined) => {
+      if (!hit || hit.object !== rightPage || hit.face?.materialIndex !== 2 || !hit.uv) return null
+      const v = 1 - hit.uv.y
+      const k = rows.findIndex((r) => v >= r.top && v <= r.bottom)
+      return k < 0 ? null : k
+    },
+    pages: () => (rightPage ? [rightPage] : []),
+    dispose: () => owned.forEach((x) => x.dispose()),
+  }
+}

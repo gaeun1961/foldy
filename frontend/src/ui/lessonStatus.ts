@@ -3,7 +3,7 @@ import { LESSON_LABEL, type Lesson } from '../viewer'
 
 export function lessonStatus(lesson: Lesson, playing: boolean) {
   const label = LESSON_LABEL[lesson.kind]
-  if (lesson.progress >= 1 && !playing) return { done: true, text: `${label}를 다 봤어요` }
-  if (lesson.progress <= 0) return { done: false, text: `${label} · 시작 전` }
-  return { done: false, text: `${label} · 보는 중` }
+  if (lesson.progress >= 1 && !playing) return { done: true, wrong: false, text: `${label}를 다 봤어요` }
+  if (lesson.progress <= 0) return { done: false, wrong: false, text: `${label} · 시작 전` }
+  return { done: false, wrong: false, text: `${label} · 보는 중` }
 }
