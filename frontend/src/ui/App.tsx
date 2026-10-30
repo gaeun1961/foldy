@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { EmptyBook, foldStepCount, LESSON_POSE, lessonHint, netCheck, Viewer, type DrawState, type FacePick, type Lesson } from '../viewer'
+import { EmptyBook, foldStepCount, LESSON_POSE, lessonHint, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
@@ -52,6 +52,13 @@ function pageTextOf(scene: ShapeScene) {
   return [`${shapeName(scene)}의 전개도`, dims, '전개도를 접어 보며 어떤 모서리끼리 만나는지 찾아보세요.'].filter(Boolean)
 }
 
+// 다른 전개도 보기 (ui.md 화면 배치 6번, TODO-38): 같은 치수로 k번째 정육면체 전개도 모양의 grid. 선은 꼭짓점 번호가 달라져서 옮기지 않는다
+function variantScene(scene: ShapeScene, k: number): ShapeScene {
+  const s = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge', number>>
+  const dims: [number, number, number] = s.edge ? [s.edge, s.edge, s.edge] : [s.width!, s.depth!, s.height!]
+  return { ...scene, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'grid', faces: netVariant(k, dims) } } as ShapeScene
+}
+
 // 화면 (docs/specs/ui.md 화면 배치): 3D 책 장면(stage) + 아래 바(dock: 안내·접기·선 긋기·보기) + 만들기 카드(사진·직접 만들기) + 챗봇.
 // 넓은 화면은 stage 가 화면을 채우고 dock·카드가 그 위에 뜬다. 좁은 화면은 위 3D, 아래로 dock·카드
 export default function App() {
@@ -77,6 +84,8 @@ export default function App() {
   const [strokes, setStrokes] = useState<number[]>([])
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
   const [route, setRoute] = useState<{ routes: Line<PolyhedronPoint>[][]; index: number } | null>(null)
+  // 지금 전개도가 정육면체 전개도 11가지 중 몇 번째인지 (십자형은 0, 그리기 칸에서 고쳤거나 학습지 전개도면 null)
+  const [variant, setVariant] = useState<number | null>(null)
   const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
   const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true, shapeName(scene)))
@@ -94,6 +103,7 @@ export default function App() {
     setHighlight([])
     setDrawState('idle')
     setLesson(null)
+    setVariant(next.net.layout === 'cross' ? 0 : null)
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
@@ -202,6 +212,23 @@ export default function App() {
               >
                 📖 차례
               </button>
+              {(scene.net.layout === 'cross' || scene.net.layout === 'grid') && (
+                <button
+                  type="button"
+                  className="contents-button"
+                  disabled={unfold < 1 || scene.lines.length > 0}
+                  title={unfold < 1 || scene.lines.length > 0 ? '펼친 상태에서, 선을 지운 뒤에 눌러 보세요' : undefined}
+                  onClick={() => {
+                    // 같은 치수로 다음 모양을 펼친다. grid 라서 전개도 그리기 칸에도 채워진다 (ui.md 화면 배치 6번)
+                    const k = variant === null ? 0 : (variant + 1) % NET_VARIANTS.length
+                    loadScene(variantScene(scene, k))
+                    setFacePick(null)
+                    setVariant(k)
+                  }}
+                >
+                  다른 전개도 보기{variant !== null && ` (${variant + 1}/${NET_VARIANTS.length})`}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -231,7 +258,10 @@ export default function App() {
             onScene={(next, how) => {
               if (!next) return setScene(null)
               // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
-              if (how === 'size' && scene) return setScene(next)
+              if (how === 'size' && scene) {
+                if (next.net.layout !== scene.net.layout) setVariant(next.net.layout === 'cross' ? 0 : null)
+                return setScene(next)
+              }
               loadScene(next)
             }}
           />

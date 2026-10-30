@@ -18,6 +18,13 @@ interface Props {
 
 export function ManualInput({ scene, photo, onScene, fit, onFit }: Props) {
   const [mode, setMode] = useState<Mode>(photo || scene?.net.layout === 'grid' ? 'draw' : 'size')
+  // 전개도가 학습지 전개도(grid)로 바뀌면(다른 전개도 보기, 면 표시) ② 칸을 열어 이어서 고치게 한다
+  const layout = scene?.net.layout
+  const [seenLayout, setSeenLayout] = useState(layout)
+  if (layout !== seenLayout) {
+    setSeenLayout(layout)
+    if (layout === 'grid') setMode('draw')
+  }
   return (
     <section className="manual-input" id="manual-input" aria-label="직접 만들기">
       <h2>직접 만들기</h2>
