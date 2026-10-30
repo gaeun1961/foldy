@@ -16,7 +16,7 @@ export function LineControls({ drawing, onDrawingChange, divisions, onDivisionsC
   return (
     <div className="line-controls">
       <button type="button" className="toggle-button" aria-pressed={drawing} onClick={() => onDrawingChange(!drawing)}>
-        ✏️ 선 긋기
+        선 긋기
       </button>
       {drawing && (
         <div className="toggle-row" role="group" aria-label="모서리 나누기">

@@ -210,7 +210,7 @@ export default function App() {
                   setFacePick(null)
                 }}
               >
-                📖 차례
+                차례
               </button>
               {(scene.net.layout === 'cross' || scene.net.layout === 'grid') && (
                 <button

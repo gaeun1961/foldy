@@ -1,12 +1,22 @@
-/* 색·글꼴 (ui.md 색 기준). 패널은 책 장면 위에 뜨는 반투명 종이색 */
+/* 색·글꼴 (ui.md 색 기준) */
 :root {
   --ink: #1f2430;
   --muted: #6b6457;
-  --accent: #3d6fd9;
+  --accent: #3a7d87; /* 차분한 청록. 흰 글씨 대비 4.2:1 이상 */
   --line: #ddd5c6;
   --desk: #e9e0d1;
   --panel: rgb(251 249 244 / 92%);
-  --panel-shadow: 0 6px 24px rgb(60 45 20 / 16%);
+  /* 파스텔 클레이: 빛은 왼쪽 위에서. 판은 왼쪽 위 하이라이트 + 오른쪽 아래 음영 + 오른쪽 아래로 보이는 두께 + 길고 부드러운 그림자.
+     버튼은 볼록한 원판, 누르면 안으로 들어간다 */
+  --slab: linear-gradient(145deg, rgb(253 250 244 / 74%), rgb(242 233 220 / 70%)); /* 반투명: 뒤 3D 장면이 흐리게 비친다 */
+  --panel-shadow: inset 2px 2px 1px #fff, inset -5px -7px 14px rgb(150 120 80 / 13%), 4px 7px 0 #ddcdb6, 7px 11px 6px rgb(110 80 50 / 14%), 18px 30px 50px rgb(110 80 50 / 24%);
+  --face: linear-gradient(145deg, #fff, #f4eee5);
+  --raised: inset 1px 1px 0 #fff, inset -2px -3px 5px rgb(150 120 80 / 12%), 2px 3px 4px rgb(110 80 50 / 14%), 6px 10px 16px rgb(110 80 50 / 14%);
+  --pressed: inset 2px 3px 6px rgb(70 90 90 / 18%), inset -1px -1px 0 rgb(255 255 255 / 70%);
+  --accent-face: linear-gradient(145deg, #6aaab2, #43868f 55%, #37767f);
+  --accent-raised: inset 1px 1px 0 rgb(255 255 255 / 35%), inset -2px -3px 5px rgb(0 0 0 / 12%), 2px 3px 4px rgb(40 90 95 / 25%), 6px 10px 16px rgb(58 125 135 / 26%);
+  --groove: #d8e8e4; /* 파인 홈: 연한 민트 */
+  --peach: linear-gradient(145deg, #fbd9c1, #eeb48f);
   --serif: 'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif;
 }
 
@@ -33,14 +43,14 @@ h2 {
 .make-card, .dock {
   position: absolute;
   z-index: 10;
-  border-radius: 16px;
-  background: var(--panel);
+  border-radius: 24px;
+  background: var(--slab);
   box-shadow: var(--panel-shadow);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(18px) saturate(1.2);
 }
 
 /* 만들기 카드: 제목 줄을 누르면 접힌다 (details) */
-.make-card { top: 16px; left: 16px; width: 300px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.make-card { top: 16px; left: 16px; width: 300px; max-height: calc(100vh - 40px); overflow-y: auto; }
 .make-card > summary {
   position: sticky;
   top: 0;
@@ -48,8 +58,9 @@ h2 {
   align-items: baseline;
   gap: 10px;
   padding: 14px 16px;
-  border-radius: 16px;
-  background: var(--panel);
+  border-radius: 24px;
+  background: rgb(252 248 241 / 60%); /* 스크롤할 때 아래 내용은 흐리게 가린다 */
+  backdrop-filter: blur(18px);
   font-size: 17px;
   font-weight: 700;
   cursor: pointer;
@@ -63,14 +74,14 @@ h2 {
 
 /* 아래 바: 안내 한 줄 + 접기 + 선 긋기·보기. 왼쪽 카드와 오른쪽 아래 챗봇 아이콘 사이 가운데 */
 .dock {
-  bottom: 16px;
+  bottom: 28px; /* 옆면(두께)이 보일 자리 */
   left: 332px;
   right: 92px;
   max-width: 720px;
   margin-inline: auto;
   display: grid;
   gap: 4px;
-  padding: 10px 0 6px;
+  padding: 12px 4px 8px;
 }
 .dock:not(:has(.fold-controls, .lesson-controls)) { padding: 0; } /* 도형이 없으면 안내 한 줄만 */
 .dock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 6px; }
@@ -83,18 +94,14 @@ h2 {
   align-items: center;
   min-height: var(--button-height, 40px);
   padding: 0 14px;
-  border: 1px solid #d0d5dd;
-  border-radius: 10px;
-  background: #fff;
   font-size: 16px;
-  cursor: pointer;
   list-style: none;
 }
 .view-menu > summary::-webkit-details-marker { display: none; }
 .view-menu > summary::after { content: ' ▴'; }
-.view-menu[open] > summary { border-color: var(--accent); color: var(--accent); }
+.view-menu[open] > summary { color: var(--accent); box-shadow: var(--pressed); background: var(--groove); }
 /* 차례로 돌아가기 (ui.md 화면 배치 6번): 보기 버튼과 같은 모양 */
-.contents-button { min-height: var(--button-height, 40px); padding: 0 14px; border: 1px solid #d0d5dd; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-size: 16px; cursor: pointer; }
+.contents-button { min-height: var(--button-height, 40px); padding: 0 14px; font: inherit; font-size: 16px; }
 .view-menu > .view-options {
   position: absolute;
   right: 0;
@@ -104,8 +111,8 @@ h2 {
   gap: 0;
   width: max-content;
   padding: 8px 16px;
-  border-radius: 12px;
-  background: #fff;
+  border-radius: 18px;
+  background: var(--slab);
   box-shadow: var(--panel-shadow);
 }
 .view-menu > .view-options legend { display: none; }
@@ -118,8 +125,8 @@ h2 {
   white-space: nowrap;
   padding: 8px 16px;
   border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+  background: var(--face);
+  box-shadow: var(--raised);
   font-size: 16px;
 }
 .status-badge.done { color: #2e7d4f; font-weight: 700; }
@@ -129,15 +136,13 @@ h2 {
 .manual-input .toggle-row button { flex: 1; padding: 0 8px; font-size: 15px; }
 .size-form { display: grid; gap: 10px; }
 .shape-select { display: grid; gap: 6px; font-size: 16px; font-weight: 700; }
-.shape-select select { min-height: 40px; font-size: 16px; }
+.shape-select select { min-height: 40px; padding: 0 12px; border: 0; border-radius: 14px; background: var(--face); box-shadow: var(--raised); color: var(--ink); font-size: 16px; font-weight: 400; cursor: pointer; }
 .size-form .slider-row { grid-template-columns: 3em 1fr 2.5em; }
-.primary-button, .secondary-button { min-height: 40px; border-radius: 10px; font-size: 16px; cursor: pointer; }
-.primary-button { border: 0; background: #3d6fd9; color: #fff; font-weight: 700; }
-.secondary-button { border: 1px solid #d0d5dd; background: #fff; color: #1f2430; }
-.secondary-button:disabled { opacity: 0.4; cursor: default; }
+.primary-button, .secondary-button { min-height: 40px; font-size: 16px; }
+.primary-button { font-weight: 700; }
 .net-drawer { display: grid; gap: 8px; }
 .drawer-help { margin: 0; font-size: 15px; color: #4b5563; }
-.net-drawer svg { width: 100%; height: auto; background: #fff; border: 1px solid #d0d5dd; border-radius: 8px; touch-action: none; cursor: crosshair; }
+.net-drawer svg { width: 100%; height: auto; background: #fff; border-radius: 14px; box-shadow: var(--pressed); touch-action: none; cursor: crosshair; }
 .net-drawer .grid-line { stroke: #e4ded4; stroke-width: 1; }
 .net-drawer svg.moving { cursor: grab; }
 .net-drawer .trace-photo { opacity: 0.45; pointer-events: none; } /* 깐 사진: 칸과 그린 면이 위에서 보이게 반투명 (TODO-35) */
@@ -145,7 +150,7 @@ h2 {
 .net-drawer .net-face { fill: #e3f1fb; stroke: #3c4048; stroke-width: 1.5; }
 .net-drawer .net-face.fill { fill: #cfe3c4; }
 .net-drawer .net-face-text { font-size: 12px; text-anchor: middle; dominant-baseline: central; fill: #3c4048; pointer-events: none; }
-.net-drawer .net-preview { fill: rgb(61 111 217 / 25%); stroke: #3d6fd9; stroke-dasharray: 4 3; }
+.net-drawer .net-preview { fill: rgb(58 125 135 / 25%); stroke: var(--accent); stroke-dasharray: 4 3; }
 .net-drawer .net-preview.blocked { fill: rgb(201 42 42 / 20%); stroke: #c92a2a; }
 .upload-status a { color: inherit; font-weight: 700; }
 
@@ -156,23 +161,20 @@ h2 {
   align-items: center;
   justify-content: center;
   min-height: 52px;
-  border-radius: 12px;
-  background: #3d6fd9;
-  color: #fff;
+  border-radius: 16px;
   font-size: 17px;
   font-weight: 700;
-  cursor: pointer;
 }
 .upload-button input { display: none; }
-.upload-button.disabled { opacity: 0.5; cursor: default; }
+.upload-button.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 /* 사진에서 읽을 부분 네모로 고르기 (ui.md 화면 배치 2번) */
 .photo-pick { position: relative; touch-action: none; cursor: crosshair; user-select: none; border-radius: 8px; overflow: hidden; }
 .photo-pick.disabled { cursor: default; opacity: 0.7; }
 .photo-pick img { display: block; width: 100%; height: auto; }
-.pick-box { position: absolute; border: 2px solid var(--accent); background: rgb(61 111 217 / 15%); box-shadow: 0 0 0 9999px rgb(0 0 0 / 25%); pointer-events: none; }
+.pick-box { position: absolute; border: 2px solid var(--accent); background: rgb(58 125 135 / 15%); box-shadow: 0 0 0 9999px rgb(0 0 0 / 25%); pointer-events: none; }
 .pick-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .upload-status { margin: 0; font-size: 16px; color: #1f2430; }
-.upload-status.loading { color: #3d6fd9; }
+.upload-status.loading { color: var(--accent); }
 .upload-status.done { color: #2e7d4f; font-weight: 700; }
 .upload-status.error { color: #c92a2a; }
 .status-badge.wrong { color: #c92a2a; font-weight: 700; } /* 잘못 그린 전개도 (ui.md 상태 배지) */
@@ -201,21 +203,18 @@ h2 {
 .line-controls > button {
   min-height: var(--button-height);
   padding: 0 14px;
-  border: 1px solid #d0d5dd;
-  border-radius: 10px;
-  background: #fff;
-  color: #1f2430;
   font-size: 16px;
-  cursor: pointer;
 }
-.line-controls > button[aria-pressed='true'] { border-color: #e64980; background: #e64980; color: #fff; font-weight: 700; }
-.line-controls > button:disabled { opacity: 0.4; cursor: default; }
+.line-controls > button[aria-pressed='true'] {
+  background: linear-gradient(145deg, #f06c9b, #e64980 55%, #d63a72);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 35%), inset -2px -3px 5px rgb(0 0 0 / 12%), 2px 3px 4px rgb(150 30 70 / 25%), 6px 10px 16px rgb(230 73 128 / 26%);
+  color: #fff;
+  font-weight: 700;
+}
 .line-controls > button.secondary { margin-left: auto; }
-.line-controls > button.route { border-color: #e64980; color: #c2255c; font-weight: 700; } /* 다른 길: 선분 색 테두리 */
+.line-controls > button.route { color: #c2255c; font-weight: 700; } /* 다른 길: 선분 색 글씨 */
 .face-marks .mark-picker { display: grid; grid-template-columns: repeat(6, 1fr); } /* 면 표시 고르기 두 줄 (ui.md 화면 배치 5번) */
-.face-marks .mark-picker button { min-width: 40px; padding: 0 8px; border-left: 1px solid #d0d5dd; }
-.face-marks .mark-picker button:nth-child(6n + 1) { border-left: 0; }
-.face-marks .mark-picker button:nth-child(n + 7) { border-top: 1px solid #d0d5dd; }
+.face-marks .mark-picker button { min-width: 40px; padding: 0 8px; }
 .face-marks .mark-picker button:last-child { grid-column: span 2; }
 .line-controls > button.toggle-button:disabled { opacity: 0.4; cursor: default; }
 
@@ -246,12 +245,28 @@ h2 {
   font-weight: 700;
 }
 .slider-row output { text-align: right; }
+/* 슬라이더: 바에 파인 홈 + 볼록한 파란 손잡이 */
 .slider-row input {
   width: 100%;
-  height: 24px;
+  height: 28px;
   margin: 0;
-  accent-color: #3d6fd9;
+  background: none;
+  appearance: none;
+  cursor: pointer;
 }
+.slider-row input::-webkit-slider-runnable-track { height: 10px; border-radius: 999px; background: var(--groove); box-shadow: var(--pressed); }
+.slider-row input::-moz-range-track { height: 10px; border-radius: 999px; background: var(--groove); box-shadow: var(--pressed); }
+.slider-row input::-moz-range-progress { height: 10px; border-radius: 999px; background: var(--accent-face); }
+.slider-row input::-webkit-slider-thumb {
+  width: 26px;
+  height: 26px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0 4px, transparent 5px), var(--face);
+  box-shadow: var(--raised);
+  appearance: none;
+}
+.slider-row input::-moz-range-thumb { width: 26px; height: 26px; border: 0; border-radius: 50%; background: radial-gradient(circle, var(--accent) 0 4px, transparent 5px), var(--face); box-shadow: var(--raised); }
 
 .fold-buttons {
   display: grid;
@@ -261,33 +276,49 @@ h2 {
 .fold-buttons button {
   min-height: var(--button-height);
   padding: 0 12px;
-  border-radius: 10px;
   font-size: 16px;
-  cursor: pointer;
 }
-.fold-buttons .primary { border: 0; background: #3d6fd9; color: #fff; }
-.fold-buttons .secondary { border: 1px solid #d0d5dd; background: #fff; color: #1f2430; }
-.fold-buttons button:disabled { opacity: 0.4; cursor: default; }
+.fold-buttons .primary { font-weight: 700; }
 
-/* 단계별/한 번에, 속도: 붙어 있는 버튼 묶음. 고른 것만 파랗게 */
+/* 볼록한 버튼 (공통). 누르면 안으로 들어가고, 강조 버튼은 파란 그림자 */
+.fold-buttons button, .line-controls > button, .view-menu > summary, .contents-button, .primary-button, .secondary-button, .upload-button, .chat-input button {
+  border: 0;
+  border-radius: 14px;
+  background: var(--face);
+  box-shadow: var(--raised);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.fold-buttons .primary, .primary-button, .upload-button, .chat-input button { background: var(--accent-face); box-shadow: var(--accent-raised); color: #fff; }
+:is(.fold-buttons button, .line-controls > button, .contents-button, .primary-button, .secondary-button, .upload-button, .chat-input button):not(:disabled):hover { transform: translate(-1px, -1px); }
+:is(.fold-buttons button, .line-controls > button, .view-menu > summary, .contents-button, .primary-button, .secondary-button, .upload-button, .chat-input button):not(:disabled):active {
+  transform: translate(1px, 1px);
+  box-shadow: var(--pressed);
+}
+:is(.fold-buttons button, .line-controls > button, .contents-button, .primary-button, .secondary-button, .chat-input button):disabled { opacity: 0.45; box-shadow: none; cursor: default; }
+
+/* 단계별/한 번에, 속도: 파인 홈 안에서 고른 것만 볼록하게 파랗게 */
 .toggle-row {
   display: flex;
-  border: 1px solid #d0d5dd;
-  border-radius: 10px;
-  overflow: hidden;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 14px;
+  background: var(--groove);
+  box-shadow: var(--pressed);
 }
 .toggle-row button {
-  min-height: var(--button-height);
+  min-height: calc(var(--button-height) - 6px);
   padding: 0 14px;
   border: 0;
-  border-left: 1px solid #d0d5dd;
-  background: #fff;
-  color: #1f2430;
+  border-radius: 11px;
+  background: none;
+  color: var(--muted);
   font-size: 15px;
   cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
 }
-.toggle-row button:first-child { border-left: 0; }
-.toggle-row button[aria-pressed='true'] { background: #3d6fd9; color: #fff; font-weight: 700; }
+.toggle-row button[aria-pressed='true'] { background: var(--accent-face); box-shadow: var(--accent-raised); color: #fff; font-weight: 700; }
 
 /* 보기 옵션: 접기 패널 아래 한 줄 체크박스 (ui.md 화면 배치 6번) */
 .view-options {
@@ -317,7 +348,7 @@ h2 {
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: #3d6fd9;
+  accent-color: var(--accent);
 }
 
 /* 설명 모드 (ui.md 화면 배치 8번): 접기 패널과 같은 줄 구성. 공식은 멈춘 뒤 한 줄 */
@@ -333,12 +364,13 @@ h2 {
 .lesson-summary {
   margin: 0;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: #fff6d6;
+  box-shadow: var(--pressed);
   font-size: 18px;
   text-align: center;
 }
-.lesson-summary strong { font-size: 22px; color: #3d6fd9; }
+.lesson-summary strong { font-size: 22px; color: var(--accent); }
 
 /* 3D 뷰 오른쪽 위 단계 표시 (글 없이 점만) */
 .step-dots {
@@ -350,19 +382,19 @@ h2 {
   gap: 8px;
   padding: 10px 14px;
   border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+  background: var(--face);
+  box-shadow: var(--raised);
 }
 .step-dots span {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid #b9bdc4;
-  box-sizing: border-box;
+  background: var(--groove);
+  box-shadow: inset 0 1px 2px rgb(80 60 30 / 25%);
   transition: transform 0.2s;
 }
-.step-dots span.done { background: #3d6fd9; border-color: #3d6fd9; }
-.step-dots span.current { background: #ffd982; border-color: #e0a400; transform: scale(1.5); }
+.step-dots span.done { background: var(--accent-face); box-shadow: 1px 1px 2px rgb(40 90 95 / 35%); }
+.step-dots span.current { background: var(--peach); box-shadow: 1px 2px 3px rgb(160 90 40 / 35%); transform: scale(1.5); }
 
 /* 좁은 화면 (ui.md 화면 배치): 위 3D 뷰(50%, 고정) → 아래 바 → 만들기 카드. 패널은 불투명하게 이어진다 */
 @media (max-width: 1023px) {
@@ -394,10 +426,10 @@ h2 {
   height: 56px;
   border: 0;
   border-radius: 50%;
-  background: #3d6fd9;
+  background: var(--accent-face);
   color: #fff;
   font-size: 24px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
+  box-shadow: var(--accent-raised), 12px 18px 28px rgb(58 125 135 / 22%);
   cursor: pointer;
 }
 
@@ -410,9 +442,9 @@ h2 {
   flex-direction: column;
   width: 360px;
   height: min(480px, calc(100vh - 120px));
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 4px 24px rgb(0 0 0 / 18%);
+  border-radius: 24px;
+  background: #fbf7f0;
+  box-shadow: var(--panel-shadow);
   overflow: hidden;
 }
 .chat-panel > header {
@@ -450,7 +482,7 @@ h2 {
   line-height: 1.5;
   white-space: pre-wrap;
 }
-.chat-message.me { align-self: flex-end; background: #3d6fd9; color: #fff; }
+.chat-message.me { align-self: flex-end; background: var(--accent); color: #fff; }
 .chat-message.bot { align-self: flex-start; background: #f1f3f6; }
 .chat-message.waiting { color: #6b7280; }
 .chat-message.error { align-self: flex-start; background: #fdecec; color: #b42318; }
@@ -466,21 +498,18 @@ h2 {
   min-width: 0;
   min-height: 40px;
   padding: 0 12px;
-  border: 1px solid #d0d5dd;
-  border-radius: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--groove);
+  box-shadow: var(--pressed);
   font-size: 16px; /* 16px 미만이면 아이폰이 입력할 때 확대한다 */
 }
 .chat-input button {
   min-height: 40px;
   padding: 0 14px;
   border: 0;
-  border-radius: 10px;
-  background: #3d6fd9;
-  color: #fff;
   font-size: 16px;
-  cursor: pointer;
 }
-.chat-input button:disabled { opacity: 0.4; cursor: default; }
 @media (pointer: coarse) {
   .chat-input input, .chat-input button, .chat-panel > header button { min-height: 44px; }
 }
