@@ -23,3 +23,8 @@
 ## 참고
 - 관련 문서: `docs/specs/ui.md` (친절한 설명 원칙)
 - 1차 다른 TODO보다 뒤 순위다
+- 설계 참고 (2026-10-30 조사)
+  - "길이가 2배면 부피도 2배"라는 선형성 착각이 아주 흔하다 (비례가 아닌 문항 정답률 12~13세 2~7%). 보기 전에 "모서리가 2배면 겉넓이는 몇 배?"를 비교형으로 먼저 고르게 하고, 결과와 부딪히게 한다. 넓이는 원래 면을 k×k장 깔고, 부피는 원래 입체를 k³개 채우는 "세기"로 보여준다. 장식적인 이야기 맥락은 오히려 역효과였다 — De Bock 외 (2003), *Learning and Instruction* 13, [KU Leuven](https://lirias.kuleuven.be/retrieve/c7bcb088-1d0f-4448-8fc2-0bd751dcfa00)
+  - 부피가 넓이보다 더 어렵다. 부피 단계에 단계와 멈춤을 더 준다 — Pavlin-Bernardić & Mateša (2012), *Review of Psychology* 19(2), [hrcak](https://hrcak.srce.hr/en/100334)
+  - 길이 k → 넓이 k² → 부피 k³을 한 흐름으로 이어 보이고 마지막에 나란히 놓는다. 마무리에 "모서리 길이의 합은 몇 배?"로 k²·k³ 과잉 일반화를 점검한다 — Svanteson Wester & Kullberg (2020), *NOMAD* 25(1), [tidsskrift.dk](https://tidsskrift.dk/NOMAD/article/view/149046)
+  - 교육과정: 중학교 1~3학년군 '도형의 닮음'. 교과서 관행상 중2

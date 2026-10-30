@@ -11,7 +11,6 @@
 
 - **TODO-38** [다양한 전개도 모양 고르기](38-net-variants.md) · [#91](https://github.com/gaeun1961/foldy/issues/91) — UI: "다른 전개도 보기"로 정육면체 11가지·직육면체 여러 모양을 바꿔 보며 접는다
 - **TODO-28** [공간에서 모서리 위치 관계 (평행·수직·꼬인 위치)](28-edge-relations.md) · [#44](https://github.com/gaeun1961/foldy/issues/44) — 3D: 모서리를 누르면 평행·수직·꼬인 위치 모서리를 색으로 구분한다 (1차 다른 TODO보다 뒤)
-- **TODO-30** [피타고라스: 직육면체 대각선, 겉면 위 최단 거리](30-pythagoras.md) · [#46](https://github.com/gaeun1961/foldy/issues/46) — 3D: 대각선 길이와 전개도 위 최단 거리를 직각삼각형으로 보여준다 (1차 다른 TODO보다 뒤)
 - **TODO-29** [닮은 직육면체의 겉넓이비·부피비](29-similar-ratio.md) · [#45](https://github.com/gaeun1961/foldy/issues/45) — 3D: 닮은 직육면체의 겉넓이비·부피비를 보여준다 (1차 다른 TODO보다 뒤)
 
 ## 진행 중

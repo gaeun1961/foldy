@@ -2,6 +2,7 @@
 import type { ShapeScene } from '../../shared/types.ts'
 import { polyhedronOf } from '../polyhedra.ts'
 import { lessonStepCount, lessonSummary } from './data.ts'
+import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { faceArea, faceNormal, oppositeFacePairs } from './surfaceLayout.ts'
 import { layerProgress, volumeLayout } from './volumeLayout.ts'
 
@@ -64,4 +65,32 @@ const check = (ok: boolean, msg: string) => {
   check(s.formula === '2 × (12 + 6 + 8) = 2 × 26' && s.value === '52', `겉넓이 공식, 실제 ${s.formula} = ${s.value}`)
 }
 
-console.log('ok: 설명 모드 (부피 조각 배치, 층 진행률, 겉넓이 면 쌍·넓이, 단계 수, 공식)')
+// 피타고라스 (TODO-30): 입체 대각선, 겉면 최단 거리 후보와 직각삼각형
+{
+  const cuboid: ShapeScene = { shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' } }
+  const L = diagonalLayout({ width: 4, depth: 2, height: 3 })
+  check(Math.abs(L.base - Math.sqrt(20)) < EPS && Math.abs(L.space - Math.sqrt(29)) < EPS, '4×2×3 밑면 대각선 √20, 입체 대각선 √29')
+  check(lessonStepCount(cuboid, 'diagonal') === 3, '대각선 단계 = 3')
+  const s = lessonSummary(cuboid, 'diagonal')!
+  check(s.formula === '√(4² + 2² + 3²) = √29' && s.value === '약 5.39', `대각선 공식, 실제 ${s.formula} = ${s.value}`)
+
+  const routes = shortestRoutes(polyhedronOf(cuboid)!)
+  check(routes.length === 2, `펼친 전개도에서 곧은 길 2개, 실제 ${routes.length}`)
+  check(routes[0].length > routes[1].length && Math.abs(routes[1].length - Math.sqrt(41)) < EPS, '긴 길부터, 마지막이 최단 √41')
+  for (const r of routes) {
+    const a = r.legLengths[0].reduce((x, y) => x + y, 0)
+    const b = r.legLengths[1][0]
+    check(Math.abs(a * a + b * b - r.length * r.length) < EPS, `두 변 ${a}, ${b} 로 빗변 ${r.length} (피타고라스)`)
+    check(r.segments.length === 2 && r.segments[0].face !== r.segments[1].face, '길은 두 면 위 선분')
+    const [u, v] = r.corner.dirs
+    check(Math.abs(u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) < EPS, '직각 표시의 두 방향이 수직')
+  }
+  check(lessonStepCount(cuboid, 'shortest-path') === 4, '최단 거리 단계 = 길마다 2')
+  const p = lessonSummary(cuboid, 'shortest-path')!
+  check(p.formula === '√((4 + 2)² + 3²) = √45 > √((3 + 2)² + 4²)' && p.value === '√41', `최단 거리 공식, 실제 ${p.formula} = ${p.value}`)
+  const cube: ShapeScene = { shape: 'cube', size: { edge: 2 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' } }
+  const c = lessonSummary(cube, 'shortest-path')!
+  check(c.formula === '√((2 + 2)² + 2²) = √20 = √((2 + 2)² + 2²)' && c.value === '√20', `정육면체는 두 길이 같다, 실제 ${c.formula} = ${c.value}`)
+}
+
+console.log('ok: 설명 모드 (부피 조각 배치, 층 진행률, 겉넓이 면 쌍·넓이, 피타고라스 대각선·최단 거리, 단계 수, 공식)')
