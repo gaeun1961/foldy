@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { PENCIL_WOOD, PENCILS } from './bookScene.ts'
 import { pathLength, penSweep, pointAt, type Point } from './penSweep.ts'
 
 // 펜으로 그려 내기 (viewer.md 책 장면 "펜으로 그려 내기"). 사진에서 읽은 전개도가 책에 옮겨 그려지는 것을 보인다.
@@ -131,8 +132,7 @@ function writeUntilDrawn(material: THREE.MeshStandardMaterial, blank: THREE.Text
 // 펜: 책 옆 매트에 놓인 색연필과 같은 모양 (bookScene.ts 색연필 네 자루, ui.md 컨셉 "책상 위에서 색연필로 그린 책").
 // 육각 기둥 몸통 + 깎인 나무 끝 + 같은 색 심. 색은 초록 색연필(bookScene PENCILS[2]), 나무는 bookScene 의 깎은 나무 색.
 // 펜촉(심 끝)이 원점, 몸통은 +y. 색연필보다 조금 굵게 해서 책 위에서도 잘 보이게
-const PENCIL_GREEN = '#2e9e4f'
-const PENCIL_WOOD = '#e8d3ae'
+const PENCIL_GREEN = PENCILS[2]
 function penModel(length: number) {
   const group = new THREE.Group()
   const r = length * 0.032

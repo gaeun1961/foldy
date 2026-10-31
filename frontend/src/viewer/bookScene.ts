@@ -16,7 +16,8 @@ export const INK = '#2f2a25'
 const PAGE_SCALE = 2
 const ANSWER = '#e0442e' // 최종 답만 빨강
 const RESULT_FILL = '#fbecb8' // 결과 칸: 노랑 색연필로 칠한 형광펜
-const PENCILS = ['#e0442e', '#2f6fd0', '#2e9e4f', '#f5c518'] // 화면의 강조색 전부 (ui.md 컨셉)
+export const PENCILS = ['#e0442e', '#2f6fd0', '#2e9e4f', '#f5c518'] // 화면의 강조색 전부 (ui.md 컨셉). 펜으로 그려 내기의 펜도 초록을 쓴다 (penDraw.ts)
+export const PENCIL_WOOD = '#e8d3ae' // 색연필 깎은 나무
 
 // 매트: 밝기를 비교하는 임시 토글 때문에 하나를 같이 쓴다 (ui.md 컨셉). 정해지면 상수로
 const matMaterial = new THREE.MeshStandardMaterial({ color: '#4d4945', roughness: 0.9 })
@@ -451,7 +452,7 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
   // 색연필 네 자루: 책 오른쪽 옆 매트 위에 비스듬히. 육각 기둥 + 깎인 끝 (ui.md 컨셉)
   const pencilR = pageD * 0.012
   const pencilL = pageD * 0.55
-  const woodTip = own(new THREE.MeshStandardMaterial({ color: '#e8d3ae' }))
+  const woodTip = own(new THREE.MeshStandardMaterial({ color: PENCIL_WOOD }))
   const pencilX = spineX + pageW + coverMargin + (halfW - pageW - coverMargin) / 2
   PENCILS.forEach((color, k) => {
     const paint = own(new THREE.MeshStandardMaterial({ color, roughness: 0.6 }))
