@@ -17,13 +17,18 @@ def health() -> dict:
 
 
 @router.post("/analyze")
-async def analyze(file: UploadFile) -> ShapeScene:
+async def analyze(file: UploadFile, problem: UploadFile | None = None) -> ShapeScene:
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(400, "이미지 파일만 올릴 수 있어요")
     try:
         # 인식은 오래 걸릴 수 있어(agy 는 2분쯤) 다른 요청(/chat 등)을 막지 않게 스레드에서
         return await run_in_threadpool(
-            vision.analyze_image, await file.read(), file.content_type
+            vision.analyze_image,
+            await file.read(),
+            file.content_type,
+            await problem.read()
+            if problem
+            else None,  # 문제 칸 사진 (선택, 2단계 네모)
         )
     except vision.VisionError as e:
         logger.warning(

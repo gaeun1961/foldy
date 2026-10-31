@@ -33,9 +33,11 @@ export async function chat(message: string, scene: ShapeScene): Promise<ChatAnsw
 }
 
 // 학습지 사진 → ShapeScene (api.md /analyze). 실패하면 backend 의 안내 문구(detail)를 담은 Error 를 던진다
-export async function analyze(photo: File): Promise<ShapeScene> {
+// problem: 문제 칸 사진 (선택, 2단계 네모). 오면 backend 가 글자만 따로 동시에 읽어 problem 을 채운다
+export async function analyze(photo: File, problem?: File): Promise<ShapeScene> {
   const form = new FormData()
   form.append('file', photo)
+  if (problem) form.append('problem', problem)
   const res = await fetch(`${API_URL}/analyze`, { method: 'POST', body: form }).catch((e) => {
     console.error('backend 연결 실패', API_URL, e) // 개발자용. 학생에게는 아래 문구
     throw new OfflineError('사진을 따라 전개도를 그려 보세요')

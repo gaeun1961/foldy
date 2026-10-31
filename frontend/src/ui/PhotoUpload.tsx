@@ -3,6 +3,7 @@ import type { ShapeScene } from '../shared/types'
 import { analyze, OfflineError } from './api'
 import { CornerPick } from './CornerPick'
 import { NetPreview } from './NetPreview'
+import { NetSketch } from './PenDraw'
 import { TOUCH } from './device'
 import { prepPhoto, rotatePhoto } from './photoPrep'
 import { WorksheetShelf } from './WorksheetShelf'
@@ -48,6 +49,9 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
   const [box, setBox] = useState<PhotoBox | null>(null)
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null) // 네모를 그리기 시작한 점
+  // 2단계 네모 (worksheets.md): ① 문제 전체(문장과 그림) → ② 그 안에서 도형만. 문제 칸은 글자만, 도형 칸은 모양만 따로 동시에 읽는다
+  const [problemBox, setProblemBox] = useState<PhotoBox | null>(null)
+  const [step, setStep] = useState<'problem' | 'shape'>('problem')
   const img = useRef<HTMLImageElement>(null)
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   const loading = state.kind === 'loading' || state.kind === 'preparing'
@@ -69,6 +73,8 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
     const url = URL.createObjectURL(file)
     setPhoto({ file, url })
     setBox(null)
+    setProblemBox(null)
+    setStep('problem')
     onPhoto(url)
     setState({ kind: 'picking' })
   }
@@ -101,13 +107,14 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
     if (file) pick(file)
   }
 
-  const read = async (part: PhotoBox | null) => {
+  const read = async (part: PhotoBox | null, problemPart: PhotoBox | null = null) => {
     if (!photo || !img.current) return
     setState({ kind: 'loading', since: Date.now() })
     setNow(Date.now())
     try {
       const file = part ? await crop(img.current, part) : photo.file
-      const scene = await analyze(file)
+      const problemFile = problemPart ? await crop(img.current, problemPart) : undefined
+      const scene = await analyze(file, problemFile)
       // 전체를 읽었으면 인식이 알려 준 사진 속 전개도 네모(photoBox)로 칸 밑 사진을 맞춘다 (worksheets.md W8)
       const where = part ?? (scene.photoBox ? clampBox(scene.photoBox) : null)
       const place = where && { box: where, aspect: img.current.naturalWidth / img.current.naturalHeight }
@@ -174,16 +181,55 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
         >
           <img ref={img} src={photo.url} alt="올린 학습지 사진" draggable={false} />
           {state.kind === 'loading' && <div className="reading-scan" aria-hidden />}
+          {problemBox && (
+            // ① 에서 고른 문제 칸: 점선으로 남겨 둔다 (index.css 는 다른 작업과 겹쳐서 여기서 바로 칠한다)
+            <div
+              aria-hidden
+              style={{ position: 'absolute', pointerEvents: 'none', border: '2px dashed #e07a3f', borderRadius: 4, left: `${problemBox.x * 100}%`, top: `${problemBox.y * 100}%`, width: `${problemBox.w * 100}%`, height: `${problemBox.h * 100}%` }}
+            />
+          )}
           {box && <div className="pick-box" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }} />}
         </div>
       )}
-      {photo && state.kind !== 'straighten' && (
+      {photo && state.kind !== 'straighten' && step === 'problem' && (
         <div className="pick-buttons">
-          <button type="button" className="primary-button" disabled={loading || !usable} onClick={() => read(box)}>
-            이 부분 읽기
+          <button
+            type="button"
+            className="primary-button"
+            style={{ gridColumn: '1 / -1' }}
+            disabled={loading || !usable}
+            onClick={() => {
+              setProblemBox(box)
+              setBox(null)
+              setStep('shape')
+            }}
+          >
+            다음: 도형 고르기
+          </button>
+          <button type="button" className="secondary-button" disabled={loading} onClick={() => setStep('shape')}>
+            문제 없이 도형만
           </button>
           <button type="button" className="secondary-button" disabled={loading} onClick={() => read(null)}>
             사진 전체 읽기
+          </button>
+        </div>
+      )}
+      {photo && state.kind !== 'straighten' && step === 'shape' && (
+        <div className="pick-buttons">
+          <button type="button" className="primary-button" disabled={loading || !usable} onClick={() => read(box, problemBox)}>
+            이 도형 읽기
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={loading}
+            onClick={() => {
+              setBox(problemBox)
+              setProblemBox(null)
+              setStep('problem')
+            }}
+          >
+            문제 다시 고르기
           </button>
         </div>
       )}
@@ -204,7 +250,7 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
         {state.kind === 'idle' && '학습지 사진을 올리면 도형이 나타나요'}
         {state.kind === 'preparing' && '사진을 준비하고 있어요…'}
         {state.kind === 'straighten' && '동그라미 네 개를 학습지 네 귀퉁이에 맞춰 주세요'}
-        {state.kind === 'picking' && '읽을 전개도를 네모로 딱 맞게 감싸 주세요'}
+        {state.kind === 'picking' && (step === 'problem' ? '① 문제 전체(문장과 그림)를 네모로 감싸 주세요' : '② 이제 도형(그림)만 네모로 딱 맞게 감싸 주세요')}
         {state.kind === 'loading' && (
           <>
             사진에서 도형을 찾고 있어요… {seconds}초
@@ -226,6 +272,7 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
           </>
         )}
       </p>
+      {state.kind === 'loading' && <NetSketch />}
       {state.kind === 'done' && <NetPreview scene={state.scene} />}
     </div>
   )

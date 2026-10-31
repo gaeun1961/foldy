@@ -116,6 +116,30 @@ assert post(b"photo-agy").status_code == 200 and len(agy_calls) == 1  # 같은 �
 assert post(b"photo-agy-bad").status_code == 422 and calls == []
 del os.environ["VISION_ENGINE"]
 
+# 문제 칸 (2단계 네모, worksheets.md): 도형과 동시에 글자만 읽어 problem 을 채운다. 못 읽어도 도형은 그대로
+texts = {b"q-ok": "다음 전개도로 ㉠에 알맞은 수를 구하세요.", b"q-bad": None}
+vision.read_problem = lambda image, content_type: texts[image]
+
+
+def post2(image: bytes, problem: bytes):
+    files = {
+        "file": ("photo.jpg", image, "image/jpeg"),
+        "problem": ("q.jpg", problem, "image/jpeg"),
+    }
+    return client.post("/analyze", files=files)
+
+
+fake(MOCK_SCENE)
+r = post2(b"photo-q", b"q-ok")
+assert r.status_code == 200 and r.json()["problem"].startswith("다음 전개도로"), (
+    r.json()
+)
+fake(MOCK_SCENE)
+r = post2(b"photo-q", b"q-bad")  # 같은 도형 사진이라도 문제 칸이 다르면 따로 기억
+assert (
+    r.status_code == 200 and calls == [b"photo-q"] and r.json().get("problem") is None
+)
+
 # CLI 출력 읽기: ```json 으로 감싸여 와도, 이상한 출력은 503 쪽 에러
 scene_json = MOCK_SCENE.model_dump_json(by_alias=True)
 wrapped = json.dumps({"response": f"```json\n{scene_json}\n```"})
@@ -128,5 +152,5 @@ for bad, unavailable in (("not json", True), (json.dumps({"response": "{}"}), Fa
         assert e.unavailable == unavailable, bad
 
 print(
-    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진)"
+    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, 문제 칸)"
 )
