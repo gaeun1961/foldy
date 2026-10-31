@@ -15,8 +15,8 @@ const FLUTTER_TIME = 1.0 // 레퍼런스(KOKUYO Turn the page) 한 장 넘김 �
 const FIRST_TIME = 1.8 // 첫 장은 천천히: 왼쪽에 처음 펴지는 종이가 갑자기 생기는 것처럼 보이지 않게. 다음 장들은 그만큼 늦게 출발
 const PAGES = 5 // 넘어오는 종이 장 수
 const POP = 3.5 // 도형이 하나씩 떠오르기 시작. 그 뒤로 곡선을 그리며 날아다닌다
-const TURN = [7.9, 9.7] // 속표지가 넘어간다. 넘어가기 시작하면 도형이 종이가 지나가는 순서대로 하나씩 흡수된다
-export const OPENING_SECONDS = 9.9
+const TURN = [7.9, 10.3] // 속표지가 넘어간다. 넘어가기 시작하면 도형이 종이가 지나가는 순서대로 하나씩 흡수된다
+export const OPENING_SECONDS = 10.5
 const SIZES = [3.2, 1.1, 2.3, 1.6, 0.9, 2.8, 1.4, 3.4, 1.9, 1.0, 2.5] // 도형마다 다른 크기 (배)
 // 도형마다 책에서 튀어나오는 때 (POP 부터 초): 2~3개씩 묶여 들쭉날쭉한 순서로
 const POP_AT = [0.25, 0.6, 0, 0.85, 0.45, 0, 1.05, 0.25, 0.6, 0, 0.6]
@@ -26,8 +26,8 @@ const TWIST = [0.2, -0.25, 0.1, 0.3, -0.15, 0.05, -0.3, 0.25, -0.1, 0.15, -0.2]
 const HEIGHTS = [2.0, 3.6, 2.7, 4.2, 1.7, 3.1, 2.3, 3.9, 2.9, 1.5, 3.4]
 export const LOW_ANGLE = 24 // 오프닝 동안 카메라 높이각(도): 낮게 봐야 공중에 뜬 높이가 보인다. 속표지가 넘어가는 동안 원래 각도로 올라간다
 const WANDER = 1.0 // 날아다니는 폭
-const ABSORB_TIME = 0.7 // 오른쪽 도형: 넘어가는 종이에 흡수되는 시간 (종이가 그 도형에 닿을 때 끝난다)
-const STRETCH = 8 // 블랙홀처럼 빨려 들어갈 때 늘어나는 정도 (최대 1 + STRETCH 배)
+const ABSORB_TIME = 1.0 // 오른쪽 도형: 책 가운데로 늘어나 빨려 들어가는 시간 (넘어가는 종이가 그 도형에 닿을 때 끝난다)
+const REACH = 0.55 // 그중 앞부분: 몸은 공중에 두고 앞끝이 책 가운데까지 늘어난다. 나머지: 몸도 빨려 들어간다
 const ABSORB_MIN = 0.35 // 넘기기 시작하자마자 닿는 도형도 이만큼은 날아 들어간다
 const SINK_TIME = 1.0 // 왼쪽 도형: 곡선을 그리며 왼쪽 쪽 안으로 들어가는 시간 (종이가 오기 전에 끝나게 줄어들 수 있다)
 const SINK_GAP = 0.06 // 왼쪽 도형이 하나씩 들어가는 간격 (넘기기 시작할 때부터)
@@ -95,7 +95,6 @@ function turningPage(book: Book, front: THREE.Texture, back: THREE.Texture, own:
   const alpha = Math.atan((2 * dip) / curl) // 골에서 종이가 올라오는 기울기 (bookScene 의 sag 와 같은 모양)
   const xs = new Float32Array(N + 1)
   const ys = new Float32Array(N + 1)
-  let height = 0
   // p: 넘긴 시간 비율 (0 오른쪽에 누움 ~ 1 왼쪽에 누움, 등속). lift: 평평한 곳에서 페이지 윗면보다 얼마나 위에 놓일지
   const set = (p: number, lift: number) => {
     const angle = Math.PI * (1 - (1 - p) ** TURN_EASE) // 종이 전체가 넘어간 각도
@@ -111,7 +110,6 @@ function turningPage(book: Book, front: THREE.Texture, back: THREE.Texture, own:
       xs[i] = xs[i - 1] + Math.cos(phi) * ds
       ys[i] = ys[i - 1] + Math.sin(phi) * ds
     }
-    height = lift
     for (let i = 0; i < pos.count; i++) pos.setXY(i, xs[column[i]], ys[column[i]] + lift)
     pos.needsUpdate = true
     geometry.computeVertexNormals()
@@ -120,12 +118,7 @@ function turningPage(book: Book, front: THREE.Texture, back: THREE.Texture, own:
   // 누운 종이의 평평한 곳이 페이지 윗면 높이가 되게: 휜 모양이 올라오는 높이를 재서 책등 쪽 시작점을 그만큼 내린다
   set(0, 0)
   group.position.y = book.top - ys[N]
-  // 종이 위 한 점 (책등에서 종이를 따라 s, 앞뒤 z) 의 지금 위치
-  const pointAt = (s: number, z: number, out: THREE.Vector3) => {
-    const i = Math.min(N, Math.round((s / w) * N))
-    return out.set(xs[i], ys[i] + height, z).add(group.position)
-  }
-  return { group, set, pointAt }
+  return { group, set }
 }
 
 export function buildOpening(book: Book, size: number) {
@@ -225,7 +218,7 @@ export function buildOpening(book: Book, size: number) {
     holder.add(mesh)
     mesh.scale.setScalar(0)
     book.group.add(holder)
-    return { holder, mesh, ground, air, size: SIZES[k % SIZES.length], left: theta > Math.PI / 2, theta, start, end: Math.max(start + ABSORB_MIN, turnTime(theta)), reach: Math.min(Math.hypot(dx, dy), w * 0.95) }
+    return { holder, mesh, ground, air, size: SIZES[k % SIZES.length], left: theta > Math.PI / 2, theta, start, end: Math.max(start + ABSORB_MIN, turnTime(theta)) }
   })
   // 왼쪽 도형은 넘기기 시작할 때부터 책등 가까운 것부터 하나씩. 종이가 그 자리를 덮기 전에 끝나게
   shapes
@@ -251,8 +244,8 @@ export function buildOpening(book: Book, size: number) {
     )
   }
   const from = new THREE.Vector3()
-  const to = new THREE.Vector3()
-  const via = new THREE.Vector3()
+  const center = new THREE.Vector3(spine.x, book.top, spine.z) // 블랙홀: 책 가운데 (책등 위)
+  const head = new THREE.Vector3()
   const spot = new THREE.Vector3()
   const dir = new THREE.Vector3()
   const UP = new THREE.Vector3(0, 1, 0)
@@ -274,7 +267,7 @@ export function buildOpening(book: Book, size: number) {
     stack(landed / PAGES)
     const turn = span(t, TURN[0], TURN[1])
     title.set(turn, lerp(eps, eps * (PAGES + 1), turn))
-    shapes.forEach(({ holder, mesh, size, left, start, end, reach }, k) => {
+    shapes.forEach(({ holder, mesh, size, left, start, end }, k) => {
       // 축마다 빠르기가 다른 회전, 살짝 늘었다 줄었다 (말랑한 느낌)
       mesh.rotation.set(Math.sin(t * 0.6 + k) * 0.5, k + t * (0.5 + 0.12 * (k % 3)), Math.cos(t * 0.45 + k * 1.3) * 0.3)
       const u = span(t, start, end)
@@ -299,20 +292,20 @@ export function buildOpening(book: Book, size: number) {
         holder.scale.set(1 + 0.4 * press, 1 - 0.7 * press, 1 + 0.4 * press)
         return
       }
-      // 오른쪽: 블랙홀에 빨려 들어가듯, 왼쪽 위 대각선으로 솟구쳤다가 넘어가는 종이 위 자기 자리로 점점 빨라지며 들어간다
-      // (종이가 넘어가는 쪽으로 끌려간다). 움직이는 방향으로 길게 늘어나고 옆은 가늘어지다가 끝에서 한 점으로 사라진다.
-      // 끝점은 종이를 따라 움직인다
-      const a = u * u // 점점 빨라진다
-      title.pointAt(reach, from.z - spine.z, to)
-      via.copy(from).add(new THREE.Vector3(-2.2, 2.6, 0)) // 왼쪽 위 대각선
-      const b = 1 - a
-      holder.position.set(0, 0, 0).addScaledVector(from, b * b).addScaledVector(via, 2 * a * b).addScaledVector(to, a * a)
-      // 늘어나는 방향 = 곡선의 진행 방향 (처음엔 왼쪽 위, 끝으로 갈수록 종이 쪽)
-      dir.subVectors(via, from).multiplyScalar(b).addScaledVector(to.clone().sub(via), a)
-      if (dir.lengthSq() > 1e-6) holder.quaternion.setFromUnitVectors(UP, dir.normalize())
-      const long = 1 + STRETCH * u * u
-      holder.scale.set(1 / Math.sqrt(long), long, 1 / Math.sqrt(long))
-      mesh.scale.setScalar(size * (1 - smooth(0.7, 1, u))) // 늘어난 모습이 보이게 끝 무렵에야 작아진다
+      // 오른쪽: 책 가운데(책등 위)가 블랙홀. 몸은 공중에서 계속 날고 앞끝이 가운데까지 길게 늘어난 뒤(REACH),
+      // 몸도 가운데로 빨려 들어가며 가늘어지다 사라진다. 책등에서 도형 쪽으로 뻗은 선을 따라 늘어나므로,
+      // 넘어가는 종이가 그 방향에 닿기 전에 끝나면 종이를 뚫지 않는다
+      flying(k, t, from)
+      head.lerpVectors(from, center, 1 - (1 - span(u, 0, REACH)) ** 2) // 앞끝: 빠르게 뻗었다가 가운데에 닿는다
+      from.lerp(center, span(u, REACH, 1) ** 2) // 몸: 점점 빨라지며 빨려 들어간다
+      dir.subVectors(head, from)
+      const length = dir.length()
+      if (length > 1e-4) holder.quaternion.setFromUnitVectors(UP, dir.divideScalar(length))
+      holder.position.lerpVectors(from, head, 0.5)
+      const long = Math.max(1, length / size)
+      const thin = (1 - 0.7 * smooth(REACH, 1, u)) / Math.sqrt(long)
+      holder.scale.set(thin, long, thin)
+      mesh.scale.setScalar(size * (1 - smooth(0.85, 1, u)))
     })
   }
 
