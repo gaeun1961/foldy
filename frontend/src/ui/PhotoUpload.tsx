@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types'
 import { analyze, OfflineError } from './api'
 import { CornerPick } from './CornerPick'
+import { TOUCH } from './device'
 import { prepPhoto } from './photoPrep'
 import type { PhotoBox } from './manualScene.ts'
 
@@ -18,8 +19,7 @@ interface Props {
 }
 
 const MIN_BOX = 0.03 // 이보다 작은 네모는 누른 것으로 보고 무시
-// 터치 화면(휴대폰·태블릿)은 "사진 올리기 | 촬영하기" 두 칸. 촬영하기는 capture 로 뒷면 카메라를 바로 연다 (HTTPS 없이 된다). PC 는 capture 를 무시해서 한 칸
-const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+// 터치 화면(휴대폰·태블릿)은 "사진 올리기 | 촬영하기" 두 칸. 촬영하기는 capture 로 뒷면 카메라를 바로 연다 (HTTPS 없이 된다). PC 는 지금 capture 를 무시해서 한 칸
 
 // 사진의 box 부분만 원래 해상도로 잘라 JPEG 파일로
 function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
@@ -90,7 +90,7 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
   const usable = !!box && box.w > MIN_BOX && box.h > MIN_BOX
 
   return (
-    <div className="photo-upload">
+    <div className="photo-upload" data-state={state.kind}>
       <div className="upload-buttons">
         <label className={`upload-button${loading ? ' disabled' : ''}`}>
           {TOUCH ? (photo ? '다른 사진 올리기' : '사진 올리기') : photo ? '다른 사진 올리기' : '학습지 사진 올리기'}

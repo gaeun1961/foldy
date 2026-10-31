@@ -96,12 +96,13 @@ cd frontend && npm run dev -- --host                                 # .env: VIT
 
 ## G. M5: 휴대폰 화면 다듬기
 
-| 문제 | 고칠 곳 | 방향 |
+| 문제 | 고칠 곳 | 상태 (2026-10-31) |
 |---|---|---|
-| 챗봇 아이콘(`.chat-fab`)이 패널 아래쪽 버튼을 가림 | `index.css` 좁은 화면 | 패널 맨 아래에 아이콘 높이만큼 여백 |
-| 다 접은 도형이 3D 영역에 비해 작음 | `viewer/` 카메라 거리 | **`viewer.md`를 먼저 고친다**. 좁은 화면에서 도형에 맞춰 더 가까이 |
-| 3D 아래 안내 문구가 두 줄 | `index.css` 또는 `ui.md` 문구 | 좁은 화면 글자 크기·문구 줄이기 |
-| 터치 대상이 작은 버튼 | `index.css` `@media (pointer: coarse)` | 44px 이상 |
+| 챗봇 아이콘(`.chat-fab`)이 만들기 카드 맨 아래 버튼을 가림 | `index.css` 좁은 화면 | **함**: `.make-card` 아래 여백 88px |
+| 사진에 네모를 그리거나 귀퉁이를 맞출 때 위에 고정된 3D 뷰(50%)가 사진을 가림 | `index.css` 좁은 화면 | **함**: 그동안(`PhotoUpload`의 `data-state`가 `picking`·`straighten`) 3D 뷰를 28%로 줄임 (`:has`) |
+| 다 접은 도형이 3D 영역에 비해 작음 | `viewer/` 카메라 | **제안만**: viewer.md의 "다 펼친 모양까지 담는 범위" 규칙 때문이라 규칙을 바꿔야 한다(예: 좁은 화면은 접은 뒤 도형으로 당기기). `ThreeViewer.tsx`는 다른 작업과 겹침이 높아 팀 합의 후 따로 |
+| 3D 아래 안내 문구가 두 줄 | `index.css` 또는 `ui.md` 문구 | 두지 않음 (390px에서 읽기에 문제 없음) |
+| 터치 대상이 작은 버튼 | `index.css` `@media (pointer: coarse)` | 종이 펴기 손잡이만 40px. 나머지는 기존 규칙 |
 
 - 확인: 크롬 개발자 도구 기기 모드(390×844, 360×800) + 실제 휴대폰(M1 LAN)
 
@@ -121,6 +122,7 @@ N = 새 파일, M = 고침. "겹침"은 다른 팀원 작업과 충돌할 가능
 | `frontend/src/ui/perspective.ts` (+ `.test.ts`) | | | N | | | 없음 |
 | `frontend/src/ui/CornerPick.tsx` | | | N | | | 없음 |
 | `frontend/src/ui/CameraCapture.tsx` (보류) | | | | N | | 없음 |
+| `frontend/src/ui/device.ts` | | | | N | | 없음 (PC·휴대폰 판별을 모으는 곳, ui.md "PC·휴대폰 구분") |
 | `frontend/src/ui/PhotoUpload.tsx` | | M | M | M | | **높음** (M2~M4가 차례로 고침, #104도 고쳤음) |
 | `frontend/src/index.css` | | | M | M | M | **높음** (거의 모든 UI PR이 고침) |
 | `frontend/src/viewer/ThreeViewer.tsx`, `CurvedViewer.tsx` | | | | | M | **높음** (설명 모드·곡면 PR들이 고침) |
