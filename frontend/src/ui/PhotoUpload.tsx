@@ -3,7 +3,6 @@ import type { ShapeScene } from '../shared/types'
 import { analyze, OfflineError } from './api'
 import { CornerPick } from './CornerPick'
 import { NetPreview } from './NetPreview'
-import { NetSketch } from './PenDraw'
 import { TOUCH } from './device'
 import { prepPhoto, rotatePhoto } from './photoPrep'
 import { WorksheetShelf } from './WorksheetShelf'
@@ -274,7 +273,6 @@ export function PhotoUpload({ onScene, onPhoto, onManual }: Props) {
           </>
         )}
       </p>
-      {state.kind === 'loading' && <NetSketch />}
       {state.kind === 'done' && <NetPreview scene={state.scene} />}
     </div>
   )
