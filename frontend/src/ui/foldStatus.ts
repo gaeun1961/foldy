@@ -12,6 +12,7 @@ export const SHAPE_NAME: Record<ShapeKind, string> = {
   pyramid: '각뿔',
   cylinder: '원기둥',
   cone: '원뿔',
+  sphere: '구',
 }
 
 // 화면에 쓰는 도형 이름. 각기둥·각뿔은 밑면 변 수로 (오각기둥, 사각뿔)
@@ -47,6 +48,7 @@ function subjectParticle(word: string) {
 // closed: 바른 전개도인지 (viewer netCheck). 학습지에 잘못 그린 전개도면 다 접었을 때 "전개도가 아니에요" (ui.md 상태 배지)
 // name: 화면에 쓸 이름 (각기둥·각뿔은 shapeName 으로 넘긴다)
 export function foldStatus(shape: ShapeKind, unfold: number, playing = false, closed = true, name = SHAPE_NAME[shape]) {
+  if (shape === 'sphere') return { done: false, text: '구는 전개도가 없어요' }
   const percent = foldPercent(unfold)
   if (playing && percent > 0 && percent < 100) return { done: false, text: `${name} · 접는 중` }
   if (percent >= 100 && !closed) return { done: false, wrong: true, text: `${name} 전개도가 아니에요 · 면이 겹치거나 비어요` }

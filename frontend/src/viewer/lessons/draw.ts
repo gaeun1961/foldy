@@ -79,9 +79,9 @@ export function layerTags(parent: THREE.Object3D, count: number, width: number, 
 }
 
 // 피타고라스 직각삼각형: 밑변·높이·빗변이 자라고 값이 나온다. foot 이 직각, show(q) 는 0~1. 같은 길이는 같은 색
-export function rightTriangleOverlay(parent: THREE.Object3D, { foot, end, top, out, reach, text }: { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; text: { edge: string; leg: string; rise: string } }) {
+export function rightTriangleOverlay(parent: THREE.Object3D, { foot, end, top, out, reach, text, edgeColor = '#c2255c' }: { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; text: { edge: string; leg: string; rise: string }; edgeColor?: string }) {
   const r = reach * 0.018
-  const materials = ['#2f9e44', '#1c7ed6', '#c2255c'].map((color) => new THREE.MeshBasicMaterial({ color }))
+  const materials = ['#2f9e44', '#1c7ed6', edgeColor].map((color) => new THREE.MeshBasicMaterial({ color }))
   const shadeMaterial = new THREE.MeshBasicMaterial({ color: '#ff9f6b', transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })
   const tubes = [growingTube(foot, end, r, materials[0]), growingTube(foot, top, r, materials[1]), growingTube(end, top, r, materials[2])]
   const shadeGeometry = new THREE.BufferGeometry().setFromPoints([foot, end, top])

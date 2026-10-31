@@ -10,15 +10,16 @@ const INK = '#3c4048'
 const LIFT = 1.15 // 통 위로 들어 올리는 높이 (높이 h 의 배수)
 
 // progress(0~1) → 지금 모습. three.js 없음 (npm test 로 검사)
-export function pourState(progress: number) {
-  if (progress >= DONE) return { pour: 2, lift: 0, tilt: 0, flow: 0, level: 1, inside: 0 }
-  const t = clamp01(progress) * 3
-  const pour = Math.min(Math.floor(t + 1e-6), 2) // 몇 번째 붓기 (0부터). 소수 오차로 1/3 × 3 이 1 보다 작게 나와도 다음 번으로
+// pours 번 부어서 한 번에 share 만큼 찬다 (뿔: 세 번에 ⅓씩, 구: 한 번에 ⅔)
+export function pourState(progress: number, pours = 3, share = 1 / 3) {
+  if (progress >= DONE) return { pour: pours - 1, lift: 0, tilt: 0, flow: 0, level: pours * share, inside: 0 }
+  const t = clamp01(progress) * pours
+  const pour = Math.min(Math.floor(t + 1e-6), pours - 1) // 몇 번째 붓기 (0부터). 소수 오차로 1/3 × 3 이 1 보다 작게 나와도 다음 번으로
   const q = Math.max(0, t - pour)
   const lift = q < 0.25 ? q / 0.25 : q > 0.8 ? (1 - q) / 0.2 : 1
   const tilt = q > 0.8 ? 0 : clamp01((q - 0.25) / 0.1)
   const flow = clamp01((q - 0.35) / 0.45)
-  return { pour, lift, tilt, flow, level: (pour + flow) / 3, inside: 1 - flow }
+  return { pour, lift, tilt, flow, level: (pour + flow) * share, inside: 1 - flow }
 }
 
 interface PourOptions {
@@ -34,6 +35,8 @@ interface PourOptions {
   radius: number // 밑면 반지름 (통 오른쪽 글자 자리, 범위)
   height: number
   heightLabel: string
+  pours?: number // 몇 번 붓는지 (기본 3)
+  share?: number // 한 번에 통의 얼마가 차는지 (기본 ⅓)
 }
 
 export function buildPourLesson(o: PourOptions): LessonObject {
@@ -76,8 +79,9 @@ export function buildPourLesson(o: PourOptions): LessonObject {
   group.add(heightLabel.sprite)
   sprites.push(heightLabel)
   // 몇 번째 붓는지: 통 위에
-  const counts = ['1번', '2번', '3번'].map((text) => {
-    const s = textSprite(text, size * 0.4)
+  const pours = o.pours ?? 3
+  const counts = [...Array(pours).keys()].map((k) => {
+    const s = textSprite(`${k + 1}번`, size * 0.4)
     s.sprite.position.set(cupX + R + size * 0.2, baseY + h + size * 0.18, 0)
     group.add(s.sprite)
     sprites.push(s)
@@ -92,7 +96,7 @@ export function buildPourLesson(o: PourOptions): LessonObject {
 
   const top = baseY + h * (1 + LIFT)
   const apply = (progress: number) => {
-    const { pour, lift, tilt, flow, level, inside } = pourState(progress)
+    const { pour, lift, tilt, flow, level, inside } = pourState(progress, pours, o.share)
     holder.position.set(cupX * lift, baseY + h * LIFT * lift, 0)
     holder.rotation.z = -0.35 * tilt
     bodyMaterial.opacity = 0.12 + 0.88 * inside
@@ -107,7 +111,7 @@ export function buildPourLesson(o: PourOptions): LessonObject {
       stream.scale.y = Math.max(from - to, 1e-3)
     }
     // 붓는 동안과 끝난 뒤 몇 번째인지 보인다. 단계 사이에 멈추면 지금까지 부은 번수
-    const count = progress >= DONE ? 2 : lift > 0 ? pour : pour - 1
+    const count = progress >= DONE ? pours - 1 : lift > 0 ? pour : pour - 1
     counts.forEach((c, k) => (c.visible = k === count))
   }
   apply(0)

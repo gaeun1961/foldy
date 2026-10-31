@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import type { RoundSize } from '../../shared/types.ts'
 import { fanIndex, gridIndex, sidePoint, thickLine, topDiscPoint, type CurvedShape, type Point } from '../curved.ts'
 import { clamp01, growingTube, textSprite } from './draw.ts'
+import { LENGTH_COLOR } from './formulas.ts'
 import type { LessonObject } from './index.ts'
 import { lengthText, piValue, slantText, type PiMode } from './lengthLabels.ts'
 
@@ -14,8 +15,8 @@ const BASE_COLOR = '#ffd982'
 const SIDE_COLOR = '#b9dcff'
 const INK = '#3c4048'
 const AROUND = '#c2255c' // 밑면 둘레 = 옆면 가로(호)
-const TALL = '#1c7ed6' // 높이(모선)
-const RADIUS = '#2f9e44' // 반지름
+const TALL = LENGTH_COLOR.h // 높이
+const RADIUS = LENGTH_COLOR.r // 반지름
 
 // 정점이 움직이는 면 (안팎 한 재질)
 function liveMesh(index: number[], count: number, material: THREE.Material) {
@@ -46,7 +47,7 @@ export function buildCurvedSurfaceLesson(shape: CurvedShape, size: RoundSize, pi
   const [baseMaterial, sideMaterial] = [face('#ffffff'), face('#ffffff')]
   const inkMaterial = new THREE.MeshBasicMaterial({ color: INK })
   const aroundMaterial = new THREE.MeshBasicMaterial({ color: AROUND })
-  const tallMaterial = new THREE.MeshBasicMaterial({ color: TALL })
+  const tallMaterial = new THREE.MeshBasicMaterial({ color: cone ? LENGTH_COLOR.l : TALL }) // 공식의 l, h 와 같은 색
   const radiusMaterial = new THREE.MeshStandardMaterial({ color: RADIUS })
   const [white, baseColor, sideColor] = ['#ffffff', BASE_COLOR, SIDE_COLOR].map((c) => new THREE.Color(c))
   const thin = extent * 0.0025
