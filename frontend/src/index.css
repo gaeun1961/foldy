@@ -141,7 +141,7 @@ h2 {
 }
 .view-popup .toggle-row button { flex: 1; }
 .view-popup .menu-button { min-height: var(--button-height); padding: 0 14px; font-size: 16px; text-align: left; }
-.view-popup .menu-button[aria-pressed='true'] { color: var(--ink); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.view-popup .menu-button[aria-pressed='true'] { color: var(--ink); font-weight: 700; }
 .view-popup .view-options { display: grid; gap: 0; padding: 0; }
 .view-popup .view-options legend { display: none; }
 
@@ -241,8 +241,6 @@ h2 {
   box-shadow: var(--pressed);
   color: var(--ink);
   font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 4px;
 }
 .line-controls > button.route { color: #2e9e4f; font-weight: 700; } /* 다른 길: 선분 색 글씨 */
 .face-marks .mark-picker { display: grid; grid-template-columns: repeat(6, 1fr); } /* 면 표시 고르기 두 줄 (ui.md 화면 배치 5번) */
@@ -352,7 +350,7 @@ h2 {
   transition: background 0.15s, box-shadow 0.15s;
 }
 /* 선택된 토글: 슬라이드 스위치처럼 흰색으로 튀어나오고, 잉크색 글씨 + 밑줄 (ui.md 컨셉) */
-.toggle-row button[aria-pressed='true'] { background: var(--face); box-shadow: var(--raised); color: var(--ink); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.toggle-row button[aria-pressed='true'] { background: var(--face); box-shadow: var(--raised); color: var(--ink); font-weight: 700; }
 
 /* 보기 옵션: 접기 패널 아래 한 줄 체크박스 (ui.md 화면 배치 6번) */
 .view-options {
