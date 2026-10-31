@@ -30,6 +30,7 @@ export interface ViewerProps {
   gallery?: ShapeScene[]
   galleryIndex?: number
   onPickGallery?: (index: number) => void
+  onReady?: () => void // 도형을 만들고 첫 프레임을 그렸을 때 (다시 만들 때마다). 사진을 읽은 뒤 UI가 빈 책을 걷는 때 (viewer.md ViewerProps)
   drawIn?: number // 펜으로 그려 내기: 이전에 그린 값과 다를 때 도형을 만들면 펜이 전개도와 왼쪽 쪽 글을 그려 낸다 (viewer.md "펜으로 그려 내기")
   onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
   faceMarking?: boolean // 면 표시 모드: 면을 누르면 마주 보는 면 보기 대신 onFaceMark (기본 false)

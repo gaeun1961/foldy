@@ -45,6 +45,8 @@ h2 {
 .layout.opening > :not(.stage) { opacity: 0; visibility: hidden; }
 .skip-opening { position: absolute; z-index: 2; right: 20px; bottom: 20px; min-height: 40px; padding: 0 18px; font-size: 16px; }
 .stage canvas { display: block; }
+/* 읽는 중 빈 책: 결과 뷰어가 아래에서 첫 프레임을 그릴 때까지 위에 덮는다 (App holding, viewer.md onReady) */
+.stage-cover { position: absolute; inset: 0; z-index: 1; }
 
 .make-card, .dock {
   position: absolute;

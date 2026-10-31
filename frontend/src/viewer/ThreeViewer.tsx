@@ -78,6 +78,7 @@ export function ThreeViewer({
   gallery,
   galleryIndex = 0,
   onPickGallery,
+  onReady,
   edgeDivisions = 2,
   onSceneChange,
   onDrawState,
@@ -91,7 +92,7 @@ export function ThreeViewer({
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson })
   const applyRef = useRef<(() => void) | null>(null)
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
-  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery })
+  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery, onReady })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
   const drawMarksRef = useRef<((scene: ShapeScene) => void) | null>(null)
   // 펜으로 그려 내기 (viewer.md "펜으로 그려 내기"): 지금 값과 마지막으로 그린 값. 다르면 도형을 만들 때 그린다
@@ -106,8 +107,8 @@ export function ThreeViewer({
     applyRef.current?.()
   }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson])
   useEffect(() => {
-    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery }
-  }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery])
+    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery, onReady }
+  }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery, onReady])
 
   // lines 만 바뀌면 선분만 다시 그린다. 선을 그을 때마다 카메라가 처음 구도로 돌아가지 않게 (viewer.md ViewerProps)
   useEffect(() => {
@@ -888,10 +889,15 @@ export function ThreeViewer({
     renderer.domElement.addEventListener('pointerup', onUp)
     renderer.domElement.addEventListener('pointermove', onMove)
 
+    let told = false // 첫 프레임을 그렸다고 알렸는가 (onReady, 다시 만들 때마다 한 번)
     renderer.setAnimationLoop(() => {
       penDraw?.update(performance.now())
       controls.update()
       renderer.render(world, camera)
+      if (!told) {
+        told = true
+        callbacksRef.current.onReady?.()
+      }
     })
 
     return () => {
