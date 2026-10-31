@@ -64,7 +64,14 @@ function pageTextOf(scene: ShapeScene, lesson: Lesson | null, explain: string | 
   if (note) return [title, note, ...(explain && explain !== note ? [explain] : [])]
   if (explain) return [title, explain]
   // 사진에서 읽은 문제 문장은 제목 아래에 (shape-scene.md problem, worksheets.md W7)
-  return hasResult ? [title] : [title, scene.problem ?? '', dims].filter(Boolean)
+  return hasResult ? [title] : [title, shortProblem(scene.problem), dims].filter(Boolean)
+}
+
+// 책 왼쪽 쪽에 쓰는 문제 글은 두 줄까지 (길면 아래 메뉴가 페이지 밖으로 밀린다). 전체는 만들기 카드의 인식 결과 아래에 있다
+const PROBLEM_ON_PAGE = 46
+function shortProblem(problem: string | null | undefined) {
+  if (!problem) return ''
+  return problem.length <= PROBLEM_ON_PAGE ? problem : `${problem.slice(0, PROBLEM_ON_PAGE - 1).trimEnd()}…`
 }
 
 // 다른 전개도 보기 (ui.md 화면 배치 6번, TODO-38): 같은 치수로 k번째 정육면체 전개도 모양의 grid. 선은 꼭짓점 번호가 달라져서 옮기지 않는다

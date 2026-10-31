@@ -247,6 +247,7 @@ h2 {
 .upload-status { margin: 0; font-size: 16px; color: #1f2430; }
 .upload-status.loading { color: var(--accent); }
 .upload-status.done { color: #2e7d4f; font-weight: 700; }
+.upload-problem { margin: 0; font-size: 15px; line-height: 1.5; color: #1f2430; } /* 읽은 문제 글 전체 (책 쪽에는 두 줄까지만) */
 .upload-status.error { color: #c92a2a; }
 .status-badge.wrong { color: #c92a2a; font-weight: 700; } /* 잘못 그린 전개도 (ui.md 상태 배지) */
 

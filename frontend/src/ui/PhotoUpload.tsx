@@ -273,6 +273,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual }: Props) {
           </>
         )}
       </p>
+      {state.kind === 'done' && state.scene.problem && <p className="upload-problem">문제: {state.scene.problem}</p>}
       {state.kind === 'done' && <NetPreview scene={state.scene} />}
     </div>
   )
