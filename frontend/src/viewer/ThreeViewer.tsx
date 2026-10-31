@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { bookView, buildBook, DESK_COLOR, LESSON_VIEW, readingRange, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookView, buildBook, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
@@ -195,9 +195,8 @@ export function ThreeViewer({
         bounds.expandByObject(tree.root)
       }
     }
-    const center = bounds.getCenter(new THREE.Vector3())
     const radius = bounds.getBoundingSphere(new THREE.Sphere()).radius
-    // 설명 모드는 입체만 보므로 바닥에 눕힌 자세 대신 입체를 바로 세우고(밑면이 바닥, 원래 좌표 그대로) 그 범위에 맞춰 카메라를 당긴다 (viewer.md "설명 모드")
+    // 설명 모드는 입체만 보므로 바닥에 눕힌 자세 대신 입체를 바로 세우고(밑면이 바닥, 원래 좌표 그대로) 책을 그 범위에 맞춘다 (viewer.md "설명 모드")
     const standUp = () => {
       tree.root.quaternion.identity()
       tree.root.position.set(0, -Math.min(...poly.positions.map((p) => p[1])), 0)
@@ -206,14 +205,7 @@ export function ThreeViewer({
     standUp()
     tree.root.updateMatrixWorld(true)
     const solidBounds = new THREE.Box3().expandByObject(tree.root)
-    const solidCenter = solidBounds.getCenter(new THREE.Vector3())
-    const solidRadius = solidBounds.getBoundingSphere(new THREE.Sphere()).radius
     layOnFloor(tree, poly, yaw)
-    // 카메라가 담는 범위: 보통은 접고 펼치는 전체(가운데는 아래 카메라에서 책등 쪽으로 옮긴다), 설명 모드는 바로 세운 입체
-    const floorFit = { center: center.clone(), radius }
-    const solidFit = { center: solidCenter, radius: solidRadius * 1.6 } // 아래 바가 설명 조작으로 높아져도 입체가 가리지 않게 넉넉히
-    const netFit = { center: new THREE.Vector3(), radius } // 전개도 설명('net')은 바닥에 펼친 전개도 범위. 아래에서 flatNet 으로 채운다
-    let fit = floorFit
     applyUnfold(tree, 1)
     const flatNet = new THREE.Box3().setFromObject(tree.root) // 다 펼친 전개도 범위(+ 사진). 책 페이지 크기를 정한다
 
@@ -459,15 +451,11 @@ export function ThreeViewer({
     // 펼침 값 적용 + 강조 + 보기 옵션. 단계 사이에 멈춰 있을 때는 마지막에 움직인 면을 계속 강조하고, 끝(0·1)에서는 끈다
     // 설명 모드 (viewer.md "설명 모드"): 종류가 바뀌면 새로 만들어 면 트리 루트(접힌 입체 좌표)에 붙이고, progress 만 바뀌면 apply 만.
     // 자세는 종류마다 다르다 (LESSON_POSE): 'solid' 는 바로 세운 입체에 면을 반투명으로, 'net' 은 바닥에 펼친 전개도 그대로
-    let refit: (() => void) | null = null // 카메라 범위를 다시 맞춘다 (아래 resize). 카메라를 만든 뒤에 채워진다
     let lessonObject: LessonObject | null = null
     let lessonKey: string | null = null // 종류(+ 닮음비). 바뀌면 설명 물체를 새로 만든다
-    let lessonFit: { center: THREE.Vector3; radius: number } | null = null // 설명이 bounds 를 주면 그 범위
     // 입체로 보는 설명은 책을 그 범위에 맞춰 다시 만든다 (전개도 크기의 책에서는 도형이 작아 보이고, 닮음의 큰 도형은 책 밖으로 나간다). null 이면 전개도 범위
     let bookRange: THREE.Box3 | null = null
-    let lowered = false
-    let aim: ((dir: THREE.Vector3) => void) | null = null // 카메라를 만든 뒤에 채워진다
-    let rebuildBook: (() => void) | null = null // 책을 만든 뒤에 채워진다
+    let rebuildBook: (() => void) | null = null // 책을 다시 만들고 빛·카메라를 맞춘다. 카메라를 만든 뒤에 채워진다
     const applyLesson = () => {
       const { lesson } = viewRef.current
       const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.cutKind ?? ''}` : null
@@ -478,17 +466,11 @@ export function ThreeViewer({
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
         else layOnFloor(tree, poly, yaw)
-        lessonFit = null
         if (lessonObject?.bounds) {
           tree.root.updateMatrixWorld(true)
-          const box = lessonObject.bounds.clone().applyMatrix4(tree.root.matrixWorld)
-          lessonFit = { center: box.getCenter(new THREE.Vector3()), radius: box.getBoundingSphere(new THREE.Sphere()).radius * 1.6 } // solidFit 과 같이 아래 바에 가리지 않게 넉넉히
-          bookRange = box
+          bookRange = lessonObject.bounds.clone().applyMatrix4(tree.root.matrixWorld)
         } else bookRange = lesson && LESSON_POSE[lesson.kind] === 'solid' ? solidBounds : null
         rebuildBook?.()
-        // 설명을 켜면 카메라를 LESSON_VIEW 로 낮추고, 끄면 돌아온다. 설명끼리 바꿀 때는 돌려 둔 방향 그대로
-        if (!!lessonObject !== lowered) aim?.(lessonObject ? LESSON_VIEW : VIEW_DIR)
-        lowered = !!lessonObject
       }
       lessonObject?.setCut?.(lesson?.cut ?? 0.5)
       lessonObject?.apply(lesson?.progress ?? 0)
@@ -499,12 +481,7 @@ export function ThreeViewer({
     const apply = () => {
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
       const { on: lessonOn, ghost } = applyLesson()
-      // 입체 설명은 입체 범위로, 전개도 설명은 펼친 전개도 범위로 카메라를 당긴다. 설명 중에는 설명과 상관없는 표시(꼭짓점·모서리 색·점선)를 잠시 숨긴다
-      const nextFit = lessonFit ?? (ghost ? solidFit : lessonOn ? netFit : floorFit)
-      if (nextFit !== fit) {
-        fit = nextFit
-        refit?.()
-      }
+      // 설명 중에는 설명과 상관없는 표시(꼭짓점·모서리 색·점선)를 잠시 숨긴다
       if (photoMesh) photoMesh.visible = !ghost // 사진은 루트에 붙어 있어서 입체를 세우면 같이 선다
       for (const { n, mesh } of divisionMarkers) mesh.visible = drawLines && n === edgeDivisions
       if (!drawLines) setFirstPick(null)
@@ -563,70 +540,42 @@ export function ThreeViewer({
     drawMarksRef.current = drawMarks
 
     // 책 장면: 바닥(y = 0)이 펼친 책의 오른쪽 페이지다 (viewer.md "책 장면")
-    flatNet.getCenter(netFit.center)
-    netFit.radius = flatNet.getBoundingSphere(new THREE.Sphere()).radius * 1.1 // 접는 중간 모양까지 담는 평소 범위보다 가깝다
     let book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
-    rebuildBook = () => {
-      world.remove(book.group)
-      book.dispose()
-      book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
-      world.add(book.group)
-    }
-    rebuildBookRef.current = rebuildBook
-    // 전개도로 보는 설명은 결과가 왼쪽 쪽에 나오므로, 카메라가 왼쪽 쪽 글까지 담는다
-    const netRange = flatNet.clone().expandByPoint(book.textCorner)
-    netRange.getCenter(netFit.center)
-    netFit.radius = netRange.getBoundingSphere(new THREE.Sphere()).radius * 1.1
     photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
     world.add(book.group)
-    world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22) // 멀리 있는 책상은 흐리게
+    const { ambient, light } = bookLights()
+    aimLight(light, book)
+    world.add(ambient, light, light.target)
 
-    // 밝고 따뜻한 조명: 위아래 은은한 환경광 + 비스듬한 위쪽 빛 하나. 그림자는 도형 둘레만 덮는다
-    // (책 전체를 덮으면 같은 그림자 지도로 넓은 곳을 덮어 도형 그림자가 흐릿해진다)
-    world.add(new THREE.HemisphereLight('#fffaf0', '#d9cbb3', 1.7))
-    const light = new THREE.DirectionalLight('#fff4e2', 1.5)
-    light.position.copy(center).add(new THREE.Vector3(-0.4, 1, 0.5).multiplyScalar(radius * 3))
-    light.target.position.copy(center)
-    light.castShadow = true
-    light.shadow.mapSize.set(2048, 2048)
-    light.shadow.radius = 4
-    light.shadow.bias = -0.0005
-    Object.assign(light.shadow.camera, { left: -radius * 1.5, right: radius * 1.5, top: radius * 1.5, bottom: -radius * 1.5, far: radius * 6 })
-    world.add(light, light.target)
-
-    // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다.
-    // 도형 가운데를 보되 책등 쪽으로 조금 옮겨 왼쪽 페이지가 살짝 보이게 한다
+    // 위에서 내려다보는 구도 (수평에서 62°, VIEW_DIR). 거리는 아래 resize 에서 잡는다
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
-    // 왼쪽 쪽에 메뉴·결과가 있으므로 평소에도 왼쪽 쪽 글까지 담는다. 빈 책과 같은 readingRange 라 차례에서 넘어와도 구도가 그대로다
-    const floorRange = bounds.clone().union(readingRange(book))
-    floorRange.getCenter(floorFit.center)
-    floorFit.radius = floorRange.getBoundingSphere(new THREE.Sphere()).radius
-    const target = floorFit.center.clone()
-    camera.position.copy(target).add(VIEW_DIR)
-
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.target.copy(target)
+    camera.position.copy(VIEW_DIR)
     controls.enableDamping = true
     controls.maxPolarAngle = Math.PI / 2 - 0.05 // 바닥 아래로는 돌아가지 않게
 
-    // 화면 비율이 바뀌면(휴대폰 세로 등) 가로·세로 중 좁은 시야에 맞춰 거리를 다시 잡는다. 보는 방향은 유지.
-    // 가로로 긴 화면은 아래 바(ui.md 화면 배치)가 3D 위에 떠 있어서, 보는 점을 앞쪽으로 옮겨 도형을 화면 위쪽에 둔다
-    // 설명 모드를 켜고 끌 때도 같은 식으로 범위(fit)만 바꿔 다시 맞춘다
+    // 카메라는 늘 책(readingRange)만 담는다: 차례·접기·설명 어디서든 책이 화면에서 같은 자리·크기로 보인다 (viewer.md "카메라").
+    // 화면 비율이 바뀌거나 설명으로 책을 다시 만들면 다시 맞춘다. 보는 방향은 유지
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       const dir = camera.position.clone().sub(controls.target).normalize()
-      const view = bookView(fit, camera)
+      const view = bookView(fitOf(readingRange(book)), camera)
       controls.target.copy(view.target)
       camera.position.copy(controls.target).addScaledVector(dir, view.distance)
+      world.fog = new THREE.Fog(DESK_COLOR, view.distance * 2, view.distance * 6) // 책 너머 책상만 흐리게
     }
-    refit = resize
-    aim = (dir) => {
-      camera.position.copy(controls.target).add(dir)
+    rebuildBook = () => {
+      world.remove(book.group)
+      book.dispose()
+      book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
+      world.add(book.group)
+      aimLight(light, book)
       resize()
     }
+    rebuildBookRef.current = rebuildBook
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()

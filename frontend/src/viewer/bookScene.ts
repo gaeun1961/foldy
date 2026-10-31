@@ -9,9 +9,6 @@ export const DESK_COLOR = '#c9a983' // 나무 책상 (index.css --desk 와 같�
 // 책 장면 카메라 방향: 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게.
 // 순서가 없는 도형(정다면체·각뿔)을 눕히는 방향(facingYaw)과 접는 순서(farFirstOrder)도 이 방향으로 정한다. 홀로그램 무대(stage.ts)도 같은 값을 써서 같은 순서로 접힌다
 export const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1)
-// 설명(왼쪽 쪽 메뉴) 중 카메라 방향: 수평에서 40°. 높이·단면이 보이게 모든 설명이 같은 각도로 본다.
-// 설명을 켤 때만 이 방향으로 옮기고, 설명끼리 바꿀 때는 돌려 둔 방향을 그대로 둔다
-export const LESSON_VIEW = new THREE.Vector3(0.3, 0.88, 1)
 const COVER_COLOR = '#b08d57' // 차분한 황토
 const PAPER_COLOR = '#faf6ee' // 따뜻한 미색
 const PAPER_EDGE = '#efe8da'
@@ -386,8 +383,9 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
   const w = net.max.x - net.min.x
   const d = net.max.z - net.min.z
   const margin = Math.max(w, d) * 0.15
-  const pageW = w + 2 * margin
-  const pageD = Math.max(d + 2 * margin, pageW * 1.3)
+  // 쪽 비율은 늘 가로 1 : 세로 1.3. 도형이 앞뒤로 길면 가로를 늘린다: 책 모양이 같아야 어느 화면이든 책이 같은 자리·크기로 보인다
+  const pageW = Math.max(w + 2 * margin, (d + 2 * margin) / 1.3)
+  const pageD = pageW * 1.3
   const cx = (net.min.x + net.max.x) / 2
   const cz = (net.min.z + net.max.z) / 2
   const spineX = cx - pageW / 2 // 책등: 오른쪽 페이지의 왼쪽 끝
@@ -474,8 +472,10 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
   // 책상 위 소품: 주사위·컴퍼스·삼각자·시계·필통·지우개 (deskProps.ts)
   group.add(buildDeskProps({ spineX, cz, pageD, bookHalfW: pageW + coverMargin, bookHalfD: pageD / 2 + coverMargin, matHalfW: halfW, matHalfD: halfD, matTop, deskY: matTop - matT, pencilX }, own))
   const wood = own(woodTexture())
-  const deskSize = size * 60
-  wood.repeat.set(deskSize / (size * 3), deskSize / (size * 3))
+  // 나뭇결 크기도 쪽에 맞춘다 (빈 책 쪽 가로 7.8 에서 결 한 장이 18): 책 크기가 화면마다 달라도 결 굵기가 같아 보인다
+  const grain = pageW * 2.3
+  const deskSize = grain * 20
+  wood.repeat.set(20, 20)
   const desk = add(new THREE.PlaneGeometry(deskSize, deskSize), own(new THREE.MeshStandardMaterial({ map: wood, roughness: 0.9 })), spineX, matTop - matT, cz)
   desk.rotation.x = -Math.PI / 2
 
@@ -483,6 +483,7 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     group,
     center: new THREE.Vector3(spineX, 0, cz), // 펼친 책의 가운데 (책등 위)
     textCorner: new THREE.Vector3(spineX - pageW * 0.88, 0, cz - pageD * 0.42), // 왼쪽 쪽 글이 시작하는 곳. 공식 결과를 보여 줄 때 카메라가 담는다
+    reach: Math.max(halfW, halfD) * 1.3, // 매트와 둘레 소품까지 담는 반경 (그림자 범위, aimLight)
     top, // 페이지 윗면 높이 (평평한 곳)
     page: { w: pageW, d: pageD }, // 한 쪽 크기 (오프닝에서 넘기는 종이)
     leftCover, // 표지 왼쪽 반 (오프닝에서 책을 덮었다 펼친다)
@@ -522,3 +523,22 @@ export function readingRange(book: { center: THREE.Vector3; textCorner: THREE.Ve
 
 // 범위 → bookView 에 넘길 구
 export const fitOf = (range: THREE.Box3) => ({ center: range.getCenter(new THREE.Vector3()), radius: range.getBoundingSphere(new THREE.Sphere()).radius })
+
+// 책 장면 빛: 위아래 은은한 환경광 + 비스듬한 위쪽 빛 하나 (그림자). 차례·도형 화면이 모두 같은 빛을 쓴다
+export function bookLights() {
+  const light = new THREE.DirectionalLight('#fff4e2', 1.5)
+  light.castShadow = true
+  light.shadow.mapSize.set(2048, 2048)
+  light.shadow.radius = 4
+  light.shadow.bias = -0.0005
+  return { ambient: new THREE.HemisphereLight('#fffaf0', '#d9cbb3', 1.7), light }
+}
+
+// 빛을 책에 맞춘다: 그림자가 매트와 소품(시계·필통 등)까지 덮게. 설명마다 책 크기가 달라서 책을 다시 만들 때마다 부른다
+export function aimLight(light: THREE.DirectionalLight, book: { center: THREE.Vector3; reach: number }) {
+  const r = book.reach
+  light.target.position.copy(book.center)
+  light.position.copy(book.center).add(new THREE.Vector3(-0.4, 1, 0.5).multiplyScalar(r * 2))
+  Object.assign(light.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: r * 0.1, far: r * 5 })
+  light.shadow.camera.updateProjectionMatrix()
+}

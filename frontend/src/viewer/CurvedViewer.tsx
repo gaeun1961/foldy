@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
-import { bookView, buildBook, DESK_COLOR, fitOf, LESSON_VIEW, readingRange, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookView, buildBook, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
 import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape } from './curved.ts'
 import { textSprite } from './lessons/draw.ts'
 import { buildCurvedLesson } from './lessons/curvedLessons.ts'
@@ -87,23 +87,9 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     const page = () => pageRef.current
     let book = buildBook(flatNet, radius, page().pageText, [], page().pageNumbers, page().pageResult, page().pageMenu)
     world.add(book.group)
-    const rebuildBook = () => {
-      world.remove(book.group)
-      book.dispose()
-      book = buildBook(bookRange ?? flatNet, radius, page().pageText, [], page().pageNumbers, page().pageResult, page().pageMenu)
-      world.add(book.group)
-    }
-    rebuildBookRef.current = rebuildBook
-
-    world.add(new THREE.HemisphereLight('#fffaf0', '#d9cbb3', 1.7))
-    const light = new THREE.DirectionalLight('#fff4e2', 1.5)
-    light.position.set(-0.4, 1, 0.5).multiplyScalar(radius * 3)
-    light.castShadow = true
-    light.shadow.mapSize.set(2048, 2048)
-    light.shadow.radius = 4
-    light.shadow.bias = -0.0005
-    Object.assign(light.shadow.camera, { left: -radius * 1.5, right: radius * 1.5, top: radius * 1.5, bottom: -radius * 1.5, far: radius * 6 })
-    world.add(light)
+    const { ambient, light } = bookLights()
+    aimLight(light, book)
+    world.add(ambient, light, light.target)
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -111,29 +97,34 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     controls.maxPolarAngle = Math.PI / 2 - 0.05
     camera.position.copy(VIEW_DIR)
 
-    // 왼쪽 쪽에 메뉴·결과가 있어서 카메라는 늘 왼쪽 쪽 글까지 담는다. 빈 책과 같은 readingRange 라 차례에서 넘어와도 구도가 그대로다
-    // 설명 중에는 높이를 빼고 책 바닥 범위로만 잡는다: 설명마다 도형 높이가 달라도 책이 화면에서 같은 크기로 보인다
+    // 카메라는 늘 책(readingRange)만 담는다: 차례·접기·설명 어디서든 책이 화면에서 같은 자리·크기로 보인다 (viewer.md "카메라")
     const resize = () => {
-      const range = bookRange ? new THREE.Box3(bookRange.min.clone().setY(0), bookRange.max.clone().setY(0)) : bounds.clone()
-      const fit = fitOf(range.union(readingRange(book)))
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       const dir = camera.position.clone().sub(controls.target).normalize()
-      const { target, distance } = bookView(fit, camera)
+      const { target, distance } = bookView(fitOf(readingRange(book)), camera)
       controls.target.copy(target)
       camera.position.copy(controls.target).addScaledVector(dir, distance)
-      // 안개는 책 너머 책상만 흐리게: 설명으로 카메라가 멀어져도 책이 뿌옇게 되지 않는다
-      world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6)
+      world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6) // 책 너머 책상만 흐리게
     }
+    // 설명마다 책 크기가 달라서 다시 만들면 빛·카메라도 다시 맞춘다
+    const rebuildBook = () => {
+      world.remove(book.group)
+      book.dispose()
+      book = buildBook(bookRange ?? flatNet, radius, page().pageText, [], page().pageNumbers, page().pageResult, page().pageMenu)
+      world.add(book.group)
+      aimLight(light, book)
+      resize()
+    }
+    rebuildBookRef.current = rebuildBook
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
 
     let lessonObject: LessonObject | null = null
     let lessonKey: string | null = null
-    let lowered = false
     const apply = () => {
       const { unfold, showMatchingEdges, showVertexLabels, lesson } = viewRef.current
       const nextKey = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.pi ?? 'pi'}:${lesson.cutKind ?? ''}` : null
@@ -143,11 +134,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
         lessonKey = nextKey
         if (lessonObject) world.add(lessonObject.group)
         bookRange = lessonObject?.bounds ?? null // 공식 화면에서는 책을 도형에 맞춘다: 도형이 오른쪽 쪽의 대부분을 차지하게 (ui.md 공식 시각화 규칙)
-        // 설명을 켜면 카메라를 LESSON_VIEW 로 낮추고, 끄면 돌아온다. 설명끼리 바꿀 때는 돌려 둔 방향 그대로
-        if (!!lessonObject !== lowered) camera.position.copy(controls.target).add(lessonObject ? LESSON_VIEW : VIEW_DIR)
-        lowered = !!lessonObject
         rebuildBook()
-        resize()
       }
       lessonObject?.setLayers?.(lesson?.layers ?? STAIR_LAYERS[0])
       lessonObject?.setCut?.(lesson?.cut ?? 0.5)
