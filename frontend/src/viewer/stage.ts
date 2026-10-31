@@ -153,7 +153,7 @@ function dressWithPhoto(tree: FaceTree, materials: THREE.MeshBasicMaterial[][], 
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(img, 0, 0)
       const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      glowPixels(data.data)
+      glowPixels(data.data, theme.looks.normal.opacity)
       ctx.putImageData(data, 0, 0)
       texture = new THREE.CanvasTexture(canvas)
     } else {
@@ -163,12 +163,12 @@ function dressWithPhoto(tree: FaceTree, materials: THREE.MeshBasicMaterial[][], 
     texture.colorSpace = THREE.SRGBColorSpace
     for (const m of materials.flat()) {
       m.map = texture
-      m.color.set('#ffffff')
       if (theme.photo === 'glow') {
+        // 면 색(facePalette)은 그대로 두고 투명도를 사진이 정한다: 면은 평소처럼 형형색색 반투명, 선·글자만 진하게 (viewer.md 토큰 photo)
         m.transparent = true
         m.opacity = 1
         m.depthWrite = false
-      }
+      } else m.color.set('#ffffff') // 종이 테마는 사진 색 그대로
       m.needsUpdate = true
     }
   }
