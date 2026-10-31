@@ -1,5 +1,5 @@
 // 사진 크기 줄이기 검사. 실행: frontend 폴더에서 `npm test` (canvas 가 없는 Node 라 fitSize 만)
-import { fitSize } from './photoPrep.ts'
+import { fitSize, rotatedSize } from './photoPrep.ts'
 
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
@@ -15,4 +15,9 @@ eq(fitSize(1600, 900, 1600), { w: 1600, h: 900 })
 // 아주 가늘어도 0 이 되지 않는다
 eq(fitSize(10000, 2, 1600), { w: 1600, h: 1 })
 
-console.log('ok: 사진 줄이기 (긴 변 맞춤, 비율 유지, 키우지 않음)')
+// 돌리기: 홀수 번이면 가로세로가 바뀐다
+eq(rotatedSize(1200, 1600, 1), { w: 1600, h: 1200 })
+eq(rotatedSize(1200, 1600, 2), { w: 1200, h: 1600 })
+eq(rotatedSize(1200, 1600, 3), { w: 1600, h: 1200 })
+
+console.log('ok: 사진 줄이기 (긴 변 맞춤, 비율 유지, 키우지 않음), 돌린 크기')

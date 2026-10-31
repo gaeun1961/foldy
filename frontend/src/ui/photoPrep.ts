@@ -16,6 +16,27 @@ export function canvasToFile(canvas: HTMLCanvasElement, name: string): Promise<F
   )
 }
 
+// 시계 방향으로 90° × turns 돌린 크기 (가로세로가 바뀌는지)
+export function rotatedSize(w: number, h: number, turns: number): { w: number; h: number } {
+  return turns % 2 === 0 ? { w, h } : { w: h, h: w }
+}
+
+// 학습지를 옆으로 놓고 찍은 사진을 바로 세우기 (worksheets.md W5, 버그 B2). EXIF 가 아니라 사진 속 종이가 누운 경우라 사람이 돌린다
+export async function rotatePhoto(file: File, turns = 1): Promise<File> {
+  const bitmap = await createImageBitmap(file)
+  const t = ((turns % 4) + 4) % 4
+  const { w, h } = rotatedSize(bitmap.width, bitmap.height, t)
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')!
+  ctx.translate(w / 2, h / 2)
+  ctx.rotate((t * Math.PI) / 2)
+  ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2)
+  bitmap.close()
+  return canvasToFile(canvas, 'photo.jpg')
+}
+
 // 줄이고 방향을 맞춘 사진. 이미 작은 JPEG·PNG 는 그대로, 브라우저가 읽지 못하는 형식이면 원본 그대로 돌려준다
 export async function prepPhoto(file: File, maxSide = MAX_SIDE): Promise<File> {
   let bitmap: ImageBitmap
