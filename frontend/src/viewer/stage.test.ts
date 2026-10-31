@@ -1,4 +1,4 @@
-// 무대 검사 (docs/proposals/hologram/spec.md "무대", 팀 합의 전).
+// 무대 검사 (docs/specs/viewer.md "홀로그램" 무대).
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/stage.test.ts)
 import * as THREE from 'three'
 import type { ShapeKind, ShapeScene } from '../shared/types.ts'

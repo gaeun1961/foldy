@@ -1,4 +1,4 @@
-// 홀로그램 화면 배치 검사 (docs/proposals/hologram/spec.md, 팀 합의 전).
+// 홀로그램 화면 배치 검사 (docs/specs/viewer.md "홀로그램" 화면 배치).
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/holoLayout.test.ts)
 import { fitDistance, regions, rightOf, uvOf } from './holoLayout.ts'
 

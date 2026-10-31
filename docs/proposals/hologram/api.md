@@ -1,6 +1,6 @@
 # 홀로그램 연동 API (초안, 구현 안 함)
 
-> 제안 다음 단계의 초안이다. 팀 합의 전이며 `docs/specs/api.md`가 아니다. 개요는 [README.md](README.md).
+> 홀로그램(TODO-43, [viewer.md](../../specs/viewer.md) "홀로그램") 다음 단계의 초안이다. 팀 협의 중이며 `docs/specs/api.md`가 아니다. 합의되면 새 TODO로 만들고 `docs/specs/api.md`로 옮긴다
 
 ## 왜 필요한가
 

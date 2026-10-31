@@ -1,4 +1,4 @@
-// 홀로그램 보기 (제안, 팀 합의 전: docs/proposals/hologram/spec.md "화면").
+// 홀로그램 보기 (docs/specs/ui.md "홀로그램 보기").
 // 아래 바의 "홀로그램"을 누르면 지금 도형이 화면 전체 홀로그램으로 바뀐다. 화면을 누르면 설정 판이 열리고 닫힌다.
 // 설정은 기기마다 다른 "가운데"(피라미드 꼭지 크기) 하나뿐이다. 기기에 남는다 (localStorage)
 import { useEffect, useRef, useState } from 'react'
