@@ -114,7 +114,8 @@ export default function App() {
   const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
   const [reading, setReading] = useState(false) // 사진을 읽는 중 (PhotoUpload onReading)
   // 여러 도형 문제 (worksheets.md 여러 도형): 읽은 도형들과 지금 접는 것. 고른 하나만 책에서 접고 홀로그램에도 그것만
-  const [gallery, setGallery] = useState<{ scene: ShapeScene; place: PhotoPlace | null }[] | null>(null)
+  // unfold: 그 도형을 마지막으로 접은 정도. 다른 도형을 골랐다 돌아와도 그대로 (휴대폰 실측: 고를 때마다 펼친 전개도로 돌아갔다)
+  const [gallery, setGallery] = useState<{ scene: ShapeScene; place: PhotoPlace | null; unfold?: number }[] | null>(null)
   const [galleryIndex, setGalleryIndex] = useState(0)
   const [drawIn, setDrawIn] = useState(0) // 사진 인식 결과가 올 때마다 1 늘린다. 책에 펜이 그려 낸다 (viewer.md "펜으로 그려 내기")
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
@@ -257,10 +258,14 @@ export default function App() {
   }
 
   // 여러 도형에서 접을 것 고르기 (아래 바 ①②…, 책에서 누르기)
+  // 도형마다 접은 정도를 기억한다. 접는 중에 고르면 애니메이션은 멈춘다(FoldControls key)
   const pickShape = (i: number) => {
     if (!gallery?.[i] || i === galleryIndex) return
+    setGallery(gallery.map((x, k) => (k === galleryIndex ? { ...x, unfold } : x)))
     setGalleryIndex(i)
+    setPlaying(false)
     showShape(gallery[i].scene, gallery[i].place, false)
+    setUnfold(gallery[i].unfold ?? 1)
   }
 
   const loadScene = (next: ShapeScene) => {
@@ -379,7 +384,7 @@ export default function App() {
               />
             )}
             <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} speed={speed} />
-            {!lesson && !noFold && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
+            {!lesson && !noFold && <FoldControls key={galleryIndex} unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
             <div className="dock-row">
               {!lesson && !curved && (
                 <LineControls
