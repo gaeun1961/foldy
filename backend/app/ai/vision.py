@@ -60,6 +60,27 @@ class VisionError(Exception):
         self.unavailable = unavailable
 
 
+class NotSolidError(VisionError):
+    """고른 문제가 입체도형(직육면체·정육면체) 전개도·겨냥도 문제가 아님 (모델이 {"notSolid": true} 로 답함, #163) → 422."""
+
+    def __init__(self, message: str = "입체도형 문제가 아님"):
+        super().__init__(message, unavailable=False)
+
+
+def to_scene(text: str) -> ShapeScene:
+    """모델 답 JSON → ShapeScene. {"notSolid": true} 면 NotSolidError, 모양이 틀리면 VisionError(422)."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        data = None
+    if isinstance(data, dict) and data.get("notSolid") is True:
+        raise NotSolidError()
+    try:
+        return ShapeScene.model_validate_json(text)
+    except ValidationError as e:
+        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+
+
 def recognize(image: bytes, content_type: str, model: str = MODEL) -> ShapeScene:
     key = os.environ.get("LLM_API_KEY")
     if not key:
@@ -82,10 +103,7 @@ def recognize(image: bytes, content_type: str, model: str = MODEL) -> ShapeScene
     # 시간 초과는 genai 가 httpx 예외 그대로 올린다
     except (genai.errors.APIError, httpx.TimeoutException) as e:
         raise VisionError(f"{type(e).__name__}: {e}") from e
-    try:
-        return ShapeScene.model_validate_json(text)
-    except ValidationError as e:
-        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+    return to_scene(text)
 
 
 _remembered: dict[
@@ -102,12 +120,7 @@ def cli_scene(stdout: str) -> ShapeScene:
         text = json.loads(stdout)["response"]
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         raise VisionError(f"Gemini CLI 출력이 이상하다: {stdout[:200]}") from e
-    try:
-        return ShapeScene.model_validate_json(
-            text[text.find("{") : text.rfind("}") + 1]
-        )
-    except ValidationError as e:
-        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+    return to_scene(text[text.find("{") : text.rfind("}") + 1])
 
 
 def recognize_cli(image: bytes, content_type: str) -> ShapeScene:
