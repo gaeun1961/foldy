@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
+import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
@@ -14,11 +14,10 @@ import { ManualInput } from './ManualInput'
 import { crossScene, crossToGrid, fitToBox, netPhoto, NO_FIT, SHAPES } from './manualScene.ts'
 import { PhotoUpload } from './PhotoUpload'
 import { ViewMenu } from './ViewMenu'
-import type { Speed } from './player'
+import { SPEEDS, type Speed } from './player'
 import type { ViewOptionValues } from './ViewOptions'
 
 const OPENING_SEEN = 'foldy-opening-seen' // 이 탭에서 오프닝을 봤으면 sessionStorage 에 남긴다 (새로고침은 그대로, 탭을 닫으면 지워진다)
-const OPENING_ALWAYS = true // 임시 (TODO-42 작업 중): 새로고침할 때마다 오프닝. PR 전에 이 줄과 아래 쓰는 곳을 지운다
 
 // 선 긋기 안내 문구 (ui.md "안내 문구")
 const DRAW_HINT: Record<DrawState, string> = {
@@ -38,7 +37,7 @@ function facePickHint({ text, opposite }: FacePick) {
 // 지금 고를 수 있는 것은 치수로 만들기의 도형(SHAPES)이고, 나머지는 나중에 넣을 도형 (2·3차).
 // 쪽 번호: 차례는 2·3쪽, 차례 k번째 도형은 (2k+4)·(2k+5)쪽 (k 는 0부터)
 const INTRO = ['foldy', '전개도를 접어 보는 책이에요. 오른쪽 차례에서 도형을 골라 보세요.']
-const CONTENTS = [...SHAPES.map((s, k) => ({ title: s.name, page: 2 * k + 4 })), ...['구'].map((title) => ({ title, page: null }))]
+const CONTENTS = SHAPES.map((s, k) => ({ title: s.name, page: 2 * k + 4 }))
 const CONTENTS_PAGES: [number, number] = [2, 3]
 function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
   const k = SHAPES.findIndex((s) => s.shape === scene.shape)
@@ -47,9 +46,12 @@ function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
 
 // 책 장면 왼쪽 페이지 글 (ui.md 공식 시각화 규칙): 제목과 한 줄 설명. 설명은 멈췄을 때의 공식 설명, 없으면 치수. 결과가 나오면 치수는 뺀다
 function pageTextOf(scene: ShapeScene, lesson: Lesson | null, explain: string | null, hasResult: boolean) {
+  const note = lesson && lessonNote(lesson, scene) // 앞에서 피타고라스로 구한 값은 계속 남긴다
   const size = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge' | 'sides' | 'radius', number>>
-  const dims = size.radius
-    ? `반지름 ${size.radius} · 높이 ${size.height}`
+  const dims = scene.shape === 'revolution'
+    ? ''
+    : size.radius
+    ? `반지름 ${size.radius}${size.height ? ` · 높이 ${size.height}` : ''}`
     : size.width
     ? `가로 ${size.width} · 세로 ${size.depth} · 높이 ${size.height}`
     : size.sides
@@ -57,7 +59,8 @@ function pageTextOf(scene: ShapeScene, lesson: Lesson | null, explain: string | 
       : size.edge
         ? `한 모서리 ${size.edge}`
         : ''
-  const title = `${shapeName(scene)}의 ${lesson ? LESSON_LABEL[lesson.kind] : '전개도'}`
+  const title = scene.shape === 'revolution' ? (lesson && lesson.kind !== 'revolve' ? `회전체의 ${LESSON_LABEL[lesson.kind]}` : '회전체') : lesson ? `${shapeName(scene)}의 ${LESSON_LABEL[lesson.kind]}` : scene.shape === 'sphere' ? shapeName(scene) : `${shapeName(scene)}의 전개도`
+  if (note) return [title, note, ...(explain && explain !== note ? [explain] : [])]
   if (explain) return [title, explain]
   return hasResult ? [title] : [title, dims].filter(Boolean)
 }
@@ -69,13 +72,16 @@ function variantScene(scene: ShapeScene, k: number): ShapeScene {
   return { ...scene, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'grid', faces: netVariant(k, dims) } } as ShapeScene
 }
 
+// 도형을 처음 열 때의 설명: 회전체는 돌리기가 메인이라 처음부터 돌리기 화면
+const firstLesson = (scene: ShapeScene): Lesson | null => (scene.shape === 'revolution' ? { kind: 'revolve', progress: 0 } : null)
+
 // 화면 (docs/specs/ui.md 화면 배치): 3D 책 장면(stage) + 아래 바(dock: 안내·접기·선 긋기·보기) + 만들기 카드(사진·직접 만들기) + 챗봇.
 // 넓은 화면은 stage 가 화면을 채우고 dock·카드가 그 위에 뜬다. 좁은 화면은 위 3D, 아래로 dock·카드
 export default function App() {
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
   // 오프닝은 앱을 열 때 한 번만 (ui.md "오프닝"). 주소에 ?opening 을 붙이면 다시 본다(시연용). 움직임 줄이기 설정이면 보이지 않는다
-  const [opening, setOpening] = useState(() => OPENING_ALWAYS || new URLSearchParams(location.search).has('opening') || (!sessionStorage.getItem(OPENING_SEEN) && !matchMedia('(prefers-reduced-motion: reduce)').matches))
+  const [opening, setOpening] = useState(() => new URLSearchParams(location.search).has('opening') || (!sessionStorage.getItem(OPENING_SEEN) && !matchMedia('(prefers-reduced-motion: reduce)').matches))
   const endOpening = () => {
     sessionStorage.setItem(OPENING_SEEN, '1')
     setOpening(false)
@@ -86,7 +92,7 @@ export default function App() {
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
   const [playing, setPlaying] = useState(false) // 접기 애니메이션 중이면 배지에서 숫자를 숨긴다
   const [speed, setSpeed] = useState<Speed>('normal')
-  const [piMode, setPiMode] = useState<PiMode>('pi') // 원이 들어간 값: 기본 π, 보기 메뉴에서 초등 3.14
+  const [piMode, setPiMode] = useState<PiMode>('pi') // 공식과 원이 들어간 값: 기본 중등(문자 공식, π), 아래 바에서 초등(말 공식, 3.14)
   const [view, setView] = useState<ViewOptionValues>({ showHiddenEdges: true, showVertexLabels: true, showMatchingEdges: true }) // 보기 옵션 체크박스, 기본값은 ui.md
   const [drawLines, setDrawLines] = useState(false)
   // 챗봇 화면 조작 (api.md "/chat 화면 조작"): 꼭짓점 강조, 접기 목표
@@ -98,7 +104,10 @@ export default function App() {
   const [marking, setMarking] = useState(false) // 면 표시 모드 (선 긋기와 함께 켜지지 않는다)
   const [mark, setMark] = useState<Mark>('◎')
   const canMark = scene?.net.layout === 'grid'
-  const curved = scene?.shape === 'cylinder' || scene?.shape === 'cone' // 곡면 도형은 아직 선을 그을 수 없다 (TODO-19·20)
+  const sphere = scene?.shape === 'sphere' // 전개도가 없어서 접기 패널이 없다
+  const revolution = scene?.shape === 'revolution' // 돌리는 것이 메인이라 접기 패널이 없다
+  const noFold = sphere || revolution
+  const curved = scene?.shape === 'cylinder' || scene?.shape === 'cone' || noFold // 곡면 도형에는 선을 긋지 않는다
   // 한 번 그은 선이 선분 몇 개로 저장됐는지 (면에 걸친 선은 2~3개). 선 지우기는 그은 선 하나를 통째로 지운다
   const [strokes, setStrokes] = useState<number[]>([])
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
@@ -110,7 +119,19 @@ export default function App() {
   const steps = scene ? foldStepCount(scene) : 0
   const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true, shapeName(scene)))
   // 공식 결과: 애니메이션이 끝나고 멈춘 뒤에만 (ui.md 친절한 설명 원칙), 왼쪽 쪽에
-  const result = scene && lesson && lesson.progress >= 1 && !playing ? lessonSummary(scene, lesson.kind, lesson.scale, piMode) : null
+  const result = scene && lesson && lesson.progress >= 1 && !playing ? lessonSummary(scene, lesson.kind, lesson.scale, piMode, lesson.cut) : null
+  // 결과는 한 줄씩: 일반 공식 → 숫자 식 → 답
+  const resultKey = result ? JSON.stringify(result) : ''
+  // 설명 줄이 있는 결과(구 단면 비교)는 슬라이더가 멈춘 뒤에 첫 줄부터. 값이 바뀌면 타이머를 지워서 움직이는 동안은 글이 없다
+  const stepped = result?.lines?.length ?? 0
+  const [revealed, setRevealed] = useState({ key: '', lines: 1 })
+  const reveal = revealed.key === resultKey ? revealed.lines : stepped ? 0 : 1
+  useEffect(() => {
+    if (!resultKey) return
+    const lines = stepped ? [...Array(stepped).keys()].map((k) => k + 1) : [2, 3] // 일반 공식 또는 닮음비 다음 두 줄
+    const timers = lines.map((n, k) => setTimeout(() => setRevealed({ key: resultKey, lines: n }), (k + 1) * 800))
+    return () => timers.forEach(clearTimeout)
+  }, [resultKey, stepped])
   const viewerLesson = useMemo(() => (lesson ? { ...lesson, pi: piMode } : null), [lesson, piMode])
   const explain = scene && viewerLesson ? lessonHint(viewerLesson, scene) : null // 공식 설명은 왼쪽 쪽에만 (멈췄을 때)
   const makeCard = useRef<HTMLDetailsElement>(null)
@@ -128,6 +149,13 @@ export default function App() {
       ]
   const pickMenu = (id: string) => {
     if (!scene) return
+    // 구 단면 비교의 "⅓ 왜?": 같은 반지름·높이의 원뿔 부피 끝(원판 쌓기)으로
+    if (id === CONE_THIRD_LINK && scene.shape === 'sphere') {
+      loadScene(crossScene('cone', { radius: scene.size.radius, height: scene.size.radius }))
+      setUnfold(0)
+      setLesson({ kind: 'volume', progress: 1 })
+      return
+    }
     if (id === 'variant') {
       // 같은 치수로 다음 모양을 펼친다. grid 라서 전개도 그리기 칸에도 채워진다
       const k = variant === null ? 0 : (variant + 1) % NET_VARIANTS.length
@@ -136,7 +164,8 @@ export default function App() {
       setVariant(k)
       return
     }
-    changeLesson(lesson?.kind === id ? null : { kind: id as LessonKind, progress: 0 })
+    // 회전체 겉넓이·부피는 움직임이 없어서 바로 결과를 쓴다
+    changeLesson(lesson?.kind === id ? null : { kind: id as LessonKind, progress: id === 'revolve-area' || id === 'revolve-volume' ? 1 : 0 })
   }
   const changeLesson = (next: Lesson | null) => {
     if (next && !lesson && makeCard.current) makeCard.current.open = false // 공식 결과가 나오는 왼쪽 쪽을 가리지 않게 접는다 (제목 줄을 누르면 다시 펼침)
@@ -152,12 +181,12 @@ export default function App() {
     setRoute(null)
     setHighlight([])
     setDrawState('idle')
-    setLesson(null)
+    setLesson(firstLesson(next))
     setVariant(next.net.layout === 'cross' ? 0 : null)
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
-  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing || lesson ? null : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : curved && view.showMatchingEdges ? '같은 색 선끼리 만나요' : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
+  const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing || lesson ? null : revolution ? '왼쪽 쪽에서 회전체를 골라 돌려 보세요' : sphere ? '왼쪽 쪽에서 겉넓이나 부피를 골라 보세요' : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : curved && view.showMatchingEdges ? '같은 색 선끼리 만나요' : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
     <div className={`layout${opening ? ' opening' : ''}`}>
@@ -169,7 +198,8 @@ export default function App() {
         )}
         {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
-              if (makeCard.current) makeCard.current.open = false // 왼쪽 쪽 메뉴를 가리지 않게 접는다
+              // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
+              if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
             }} />}
         {scene && (
           <Viewer
@@ -182,7 +212,7 @@ export default function App() {
             drawLines={drawLines}
             edgeDivisions={edgeDivisions}
             pageText={pageTextOf(scene, lesson, explain, !!result)}
-            pageResult={result ?? undefined}
+            pageResult={result ? { ...result, reveal } : undefined}
             pageMenu={pageMenu}
             onPageMenu={pickMenu}
             pageNumbers={pageNumbersOf(scene)}
@@ -221,12 +251,17 @@ export default function App() {
               {m.label}
             </button>
           ))}
+          {result?.lines && reveal >= 5 && (
+            <button type="button" data-page-menu={CONE_THIRD_LINK} onClick={() => pickMenu(CONE_THIRD_LINK)}>
+              원뿔이 원기둥의 ⅓인 이유 보기
+            </button>
+          )}
         </div>
         {hint && <p className="viewer-hint">{hint}</p>}
         {scene && (
           <>
             <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} speed={speed} />
-            {!lesson && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
+            {!lesson && !noFold && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
             <div className="dock-row">
               {!lesson && !curved && (
                 <LineControls
@@ -255,22 +290,66 @@ export default function App() {
                   }}
                 />
               )}
+              {/* 면 표시: 직육면체·정육면체만. 선 긋기와 같은 모양, 같은 줄 */}
+              {!lesson && (scene.shape === 'cuboid' || scene.shape === 'cube') && (
+                <div className="line-controls">
+                  <button
+                    type="button"
+                    className="toggle-button"
+                    aria-pressed={marking && canMark}
+                    disabled={!(canMark || (scene.net.layout === 'cross' && scene.lines.length === 0))}
+                    title={canMark || scene.lines.length === 0 ? undefined : '선을 지운 뒤에 쓸 수 있어요'}
+                    onClick={() => {
+                      const on = !(marking && canMark)
+                      setMarking(on)
+                      if (!on) return
+                      setDrawLines(false)
+                      if (!canMark) setScene(crossToGrid(scene)) // 십자형은 면 표시를 못 담아서 같은 모양의 grid 로 바꾼다
+                    }}
+                  >
+                    면 표시
+                  </button>
+                </div>
+              )}
+              {/* 빠르기와 과정 (ui.md 화면 배치): 보기·차례 왼쪽에 바로. 과정은 공식을 볼 때만. 구에는 심화가 있어 언제나 (셋 중 하나만 눌린다, 심화는 중등 내용) */}
+              <div className="toggle-row" role="group" aria-label="빠르기">
+                {(Object.keys(SPEEDS) as Speed[]).map((s) => (
+                  <button key={s} type="button" aria-pressed={speed === s} onClick={() => setSpeed(s)}>
+                    {SPEEDS[s].label}
+                  </button>
+                ))}
+              </div>
+              {(lesson || sphere) && !revolution && (
+                <div className="toggle-row" role="group" aria-label="과정">
+                  {(['3.14', 'pi'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={lesson?.kind !== 'sphere-section' && piMode === m}
+                      onClick={() => {
+                        setPiMode(m)
+                        if (lesson?.kind === 'sphere-section') changeLesson({ kind: 'volume', progress: 0 })
+                      }}
+                    >
+                      {m === 'pi' ? '중등' : '초등'}
+                    </button>
+                  ))}
+                  {sphere && (
+                    <button
+                      type="button"
+                      aria-pressed={lesson?.kind === 'sphere-section'}
+                      onClick={() => changeLesson(lesson?.kind === 'sphere-section' ? { kind: 'volume', progress: 0 } : { kind: 'sphere-section', progress: 0, cut: 0.5 })}
+                    >
+                      심화
+                    </button>
+                  )}
+                </div>
+              )}
               <ViewMenu
-                lessonOn={!!lesson}
-                pi={curved ? { mode: piMode, onChange: setPiMode } : null}
+                lessonOn={!!lesson || noFold} // 구·회전체에는 면 표시와 모서리 보기 옵션이 필요 없다
                 steps={steps}
                 mode={foldMode}
                 onModeChange={setFoldMode}
-                speed={speed}
-                onSpeedChange={setSpeed}
-                marking={marking && canMark}
-                markEnabled={canMark || (scene.net.layout === 'cross' && scene.lines.length === 0)}
-                onMarkingChange={(on) => {
-                  setMarking(on)
-                  if (!on) return
-                  setDrawLines(false)
-                  if (!canMark) setScene(crossToGrid(scene)) // 십자형은 면 표시를 못 담아서 같은 모양의 grid 로 바꾼다
-                }}
                 values={view}
                 onValues={setView}
               />
@@ -322,9 +401,9 @@ export default function App() {
                 if (next.net.layout !== scene.net.layout) setVariant(next.net.layout === 'cross' ? 0 : null)
                 // 도형을 바꾸면 공식 설명을 끈다. 켜 둔 공식이 없는 도형(정다면체 등)에서는 조작 버튼이 모두 사라진다
                 if (next.shape !== scene.shape) {
-                  setLesson(null)
+                  setLesson(firstLesson(next))
                   setUnfold(1)
-                }
+                } else if (lesson && lessonStepCount(next, lesson.kind) === 0) setLesson(firstLesson(next)) // 치수를 바꿨더니 보던 탭이 없어진 때 (떨어진 반원의 부피)
                 return setScene(next)
               }
               loadScene(next)

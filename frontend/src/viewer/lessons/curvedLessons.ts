@@ -4,14 +4,21 @@
 import * as THREE from 'three'
 import type { RoundSize } from '../../shared/types.ts'
 import type { CurvedShape } from '../curved.ts'
-import { clamp01, growingTube, layerTags, textSprite } from './draw.ts'
+import { clamp01, DONE, growingTube, layerTags, textSprite } from './draw.ts'
 import type { LessonKind } from './data.ts'
 import type { LessonObject } from './index.ts'
 import { lengthText, slantText, type PiMode } from './lengthLabels.ts'
 import { withPythagorasStep } from './pythagorasStep.ts'
+import { threadPlan } from './regularLayout.ts'
+import { buildRevolutionSectionLesson, buildRevolveLesson, type CutKind } from './revolve.ts'
+import { buildThreadLesson } from './thread.ts'
 import { buildPourLesson } from './pour.ts'
 import { buildCurvedSurfaceLesson } from './curvedSurface.ts'
 import { layerProgress, pieces, stackProgress } from './volumeLayout.ts'
+import { withStairStep } from './whyThird.ts'
+import { LENGTH_COLOR } from './formulas.ts'
+import { withEndLines } from './lengthLines.ts'
+import { curvedTerms, withTerms } from './lessonTerms.ts'
 
 const SEGMENTS = 64
 const INK = '#3c4048'
@@ -19,7 +26,7 @@ const ACTIVE = '#ffe8a8'
 const PIECE = ['#f08c00', '#1c7ed6', '#2f9e44']
 
 // 모양 틀: 위·아래 둘레와 세로 선 넷. y = 0 이 바닥, 축이 원점
-function outline(shape: CurvedShape, r: number, h: number) {
+export function outline(shape: CurvedShape, r: number, h: number) {
   const pts: THREE.Vector3[] = []
   const rim = (y: number) => {
     for (let i = 0; i < SEGMENTS; i++) {
@@ -40,29 +47,44 @@ function outline(shape: CurvedShape, r: number, h: number) {
 const solidMesh = (shape: CurvedShape, r: number, h: number) =>
   (shape === 'cylinder' ? new THREE.CylinderGeometry(r, r, h, SEGMENTS) : new THREE.ConeGeometry(r, h, SEGMENTS)).translate(0, h / 2, 0)
 
-export function buildCurvedLesson(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale: number, pi: PiMode = 'pi'): LessonObject | null {
+export function buildCurvedLesson(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale: number, pi: PiMode = 'pi', cutKind?: CutKind): LessonObject | null {
+  if (kind === 'section') return buildRevolutionSectionLesson({ figure: shape === 'cylinder' ? 'rectangle' : 'right-triangle', radius: size.radius, height: size.height, gap: 0 }, cutKind)
+  return withTerms(curvedBody(shape, size, kind, scale, pi), curvedTerms(shape, size, kind), Math.max(2 * size.radius, size.height) * 0.22)
+}
+
+function curvedBody(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale: number, pi: PiMode): LessonObject | null {
   if (kind === 'surface-area') {
-    const lesson = buildCurvedSurfaceLesson(shape, size, pi)
+    // 끝나면 밑면에 반지름 r. 옆면 가로·세로는 펼친 그림의 색이 그대로 공식과 맞는다
+    const reachAll = Math.max(2 * size.radius, size.height)
+    const lesson = withEndLines(buildCurvedSurfaceLesson(shape, size, pi), [{ from: new THREE.Vector3(0, reachAll * 0.004, 0), to: new THREE.Vector3(size.radius, reachAll * 0.004, 0), color: LENGTH_COLOR.r }], reachAll * 0.012)
     if (shape !== 'cone') return lesson
     // 원뿔: 세운 입체 안에 직각삼각형을 그려 모선을 먼저 구한다
     const plan = { hint: '', edge: `${slantText(size.radius, size.height)} cm`, leg: lengthText(size.radius), rise: lengthText(size.height) }
     const reach = Math.hypot(size.radius, size.height)
-    return withPythagorasStep(lesson, 3, plan, { foot: new THREE.Vector3(), end: new THREE.Vector3(size.radius, 0, 0), top: new THREE.Vector3(0, size.height, 0), out: new THREE.Vector3(reach * 0.1, 0, reach * 0.1), reach })
+    return withPythagorasStep(lesson, 3, plan, { foot: new THREE.Vector3(), end: new THREE.Vector3(size.radius, 0, 0), top: new THREE.Vector3(0, size.height, 0), out: new THREE.Vector3(reach * 0.1, 0, reach * 0.1), reach, edgeColor: LENGTH_COLOR.l }, 2)
   }
-  if (kind === 'volume') return shape === 'cylinder' ? stackLesson(size) : pourLesson(size)
+  if (kind === 'revolve') return buildRevolveLesson({ figure: shape === 'cylinder' ? 'rectangle' : 'right-triangle', radius: size.radius, height: size.height, gap: 0 })
+  if (kind === 'thread' && shape === 'cylinder') {
+    const extent = Math.max(2 * size.radius, size.height)
+    return withEndLines(buildThreadLesson(size, pi, threadPlan(size.radius, size.height, pi).label), [{ from: new THREE.Vector3(0, extent * 0.004, 0), to: new THREE.Vector3(size.radius, extent * 0.004, 0), color: LENGTH_COLOR.r }], extent * 0.012)
+  }
+  if (kind === 'volume' && shape === 'cylinder') {
+    const { radius: r, height: h } = size
+    return withEndLines(stackLesson(size), [{ from: new THREE.Vector3(0, h, 0), to: new THREE.Vector3(r, h, 0), color: LENGTH_COLOR.r }, { from: new THREE.Vector3(r, 0, 0), to: new THREE.Vector3(r, h, 0), color: LENGTH_COLOR.h }], Math.max(2 * r, h) * 0.012)
+  }
+  if (kind === 'volume') return withStairStep(pourLesson(size), size.radius, size.height, { cone: outline('cone', size.radius, size.height), cup: outline('cylinder', size.radius, size.height) })
   if (kind === 'similar') return similarLesson(shape, size, scale)
   return null
 }
 
 // 길이 글자를 만들고 지우는 도우미
 function labels(group: THREE.Group, width: number, items: [string, number, number, number][]) {
-  const sprites = items.map(([text, x, y, z]) => {
+  return items.map(([text, x, y, z]) => {
     const s = textSprite(text, width)
     s.sprite.position.set(x, y, z)
     group.add(s.sprite)
     return s
   })
-  return () => sprites.forEach((s) => s.dispose())
 }
 
 // 원기둥 부피: 높이 1 짜리 원판을 아래부터 쌓는다
@@ -89,7 +111,7 @@ function stackLesson({ radius: r, height: h }: RoundSize): LessonObject {
     return disc
   })
   const size = Math.max(2 * r, h)
-  const removeLabels = labels(group, size * 0.45, [
+  const [radiusLabel, heightLabel] = labels(group, size * 0.45, [
     [lengthText(r), r / 2, 0, r + size * 0.12],
     [lengthText(h), -r - size * 0.1, h / 2, r * 0.7],
   ])
@@ -103,6 +125,8 @@ function stackLesson({ radius: r, height: h }: RoundSize): LessonObject {
   const apply = (whole: number) => {
     const { base: painted, layersP: progress } = stackProgress(layers.length, whole)
     base.visible = painted > 0
+    radiusLabel.sprite.visible = painted >= 1 // 밑면을 칠하면 반지름, 다 쌓으면 높이
+    heightLabel.sprite.visible = whole >= DONE
     const per = layerProgress(layers.length, progress)
     let current = per.findIndex((q) => q > 0 && q < 1)
     if (current < 0 && progress > 0 && progress < 1) current = per.filter((q) => q >= 1).length - 1
@@ -122,7 +146,8 @@ function stackLesson({ radius: r, height: h }: RoundSize): LessonObject {
     view: new THREE.Vector3(0.3, 0.88, 1), // 수평에서 40°: 층이 쌓이는 높이가 보이게
     apply,
     dispose() {
-      removeLabels()
+      radiusLabel.dispose()
+      heightLabel.dispose()
       group.removeFromParent()
       tags.dispose()
       for (const g of [geometry, edges, frame, baseGeometry]) g.dispose()

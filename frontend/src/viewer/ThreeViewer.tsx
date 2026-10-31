@@ -469,10 +469,10 @@ export function ThreeViewer({
     let rebuildBook: (() => void) | null = null // 책을 만든 뒤에 채워진다
     const applyLesson = () => {
       const { lesson } = viewRef.current
-      const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}` : null
+      const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.cutKind ?? ''}` : null
       if (key !== lessonKey) {
         lessonObject?.dispose()
-        lessonObject = lesson ? buildLesson(scene, poly, tree, lesson.kind, radius, lesson.scale) : null
+        lessonObject = lesson ? buildLesson(scene, poly, tree, lesson.kind, radius, lesson.scale, lesson.cutKind) : null
         lessonKey = key
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
@@ -489,6 +489,7 @@ export function ThreeViewer({
         if (lessonObject?.view || lowered) aim?.(lessonObject?.view ?? VIEW_DIR)
         lowered = !!lessonObject?.view
       }
+      lessonObject?.setCut?.(lesson?.cut ?? 0.5)
       lessonObject?.apply(lesson?.progress ?? 0)
       return { on: lessonObject !== null, ghost: lessonObject !== null && LESSON_POSE[lesson!.kind] === 'solid' }
     }
@@ -546,6 +547,7 @@ export function ThreeViewer({
         active = null
       }
       for (const n of tree.nodes) {
+        n.mesh.visible = !(lessonOn && lessonObject?.hideSolid)
         // 잘못된 전개도는 다 접힌 쪽(접기 90% 이상)에서 겹친 면을 빨갛게. 색칠한 면은 평소 색 대신 색칠 색
         const base = faceSet.has(n.face) ? looks.opposite : overlapFaces.has(n.face) && unfold <= 0.1 ? looks.overlap : filledFaces.has(n.face) ? looks.filled : looks.normal
         const { faces, edge } = ghost ? looks.ghost : active === null ? base : n.face === active ? looks.active : looks.faded

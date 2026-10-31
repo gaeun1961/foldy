@@ -9,10 +9,11 @@ import { faceNormal, surfaceSteps, tileCells } from './surfaceLayout.ts'
 // ① 그 면을 칠한다 ② 길이가 자라며 값이 나온다 (같은 길이는 같은 색) ③ (직육면체·정육면체) 1×1 칸이 한 칸씩 깔린다 ④ 같은 모양의 나머지 면을 칠한다. 식은 왼쪽 쪽에.
 // 다음 묶음으로 가면 앞 묶음의 선·칸은 사라지고 칠한 색만 남는다 (한 번에 하나만). 전체 합은 끝난 뒤 왼쪽 쪽에
 const PAIR_COLORS = ['#ffd982', '#b9dcff', '#c9f0c2'] // 노랑, 하늘, 연두. 모서리 7색과 겹치지 않는 연한 색
-const LEG_COLORS = ['#c2255c', '#1c7ed6', '#2f9e44'] // 같은 길이는 같은 색 (가로·세로·높이)
+const LEG_COLORS = ['#c2255c', '#2f9e44', '#1c7ed6'] // 같은 길이는 같은 색
 
 // tiles: 1×1 칸을 깐다 (직육면체·정육면체, 면이 모두 직사각형)
-export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0], tiles = false): LessonObject {
+// lengthColors: 공식 글자와 맞출 길이의 색 (길이 toFixed(4) → 색). 나머지 길이는 LEG_COLORS 차례로. noLabel: 다른 곳에 이미 적힌 길이는 글자를 쓰지 않는다
+export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0], tiles = false, lengthColors = new Map<string, string>(), noLabel = new Set<string>()): LessonObject {
   const steps = surfaceSteps(poly, tiles)
   const white = new THREE.Color('#ffffff')
   const byFace = new Map<number, { materials: [THREE.Material, THREE.Material]; color: THREE.Color; step: number; first: boolean }>()
@@ -29,7 +30,7 @@ export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0
   const legMaterials = new Map<string, THREE.Material>()
   const legMaterial = (length: number) => {
     const key = length.toFixed(4)
-    if (!legMaterials.has(key)) legMaterials.set(key, new THREE.MeshStandardMaterial({ color: LEG_COLORS[legMaterials.size % LEG_COLORS.length] }))
+    if (!legMaterials.has(key)) legMaterials.set(key, new THREE.MeshStandardMaterial({ color: lengthColors.get(key) ?? LEG_COLORS[legMaterials.size % LEG_COLORS.length] }))
     return legMaterials.get(key)!
   }
   const tileMaterial = new THREE.MeshBasicMaterial({ color: '#ffe08a', side: THREE.DoubleSide })
@@ -54,7 +55,7 @@ export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0
       const tube = growingTube(a, b, size * 0.012, legMaterial(length))
       inner.add(tube.mesh)
       // 3D 라벨은 값만. 딱 떨어지지 않는 길이(√)는 숫자로 쓰지 않는다
-      return { tube, label: isExact(length) ? sprite(lengthText(length), size * 0.3, a.clone().lerp(b, 0.5).addScaledVector(normal, size * 0.06)) : null }
+      return { tube, label: isExact(length) && !noLabel.has(length.toFixed(4)) ? sprite(lengthText(length), size * 0.3, a.clone().lerp(b, 0.5).addScaledVector(normal, size * 0.06)) : null }
     })
     // 1×1 칸: 면의 한 귀퉁이에서 가로로 깔고, 다음 줄로 올라간다
     const cells = useTiles

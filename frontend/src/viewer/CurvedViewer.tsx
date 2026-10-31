@@ -2,17 +2,20 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
-import type { RoundSize } from '../shared/types.ts'
+import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
 import { buildBook, DESK_COLOR } from './bookScene.ts'
 import { buildCurvedNet, type CurvedShape } from './curved.ts'
 import { textSprite } from './lessons/draw.ts'
 import { buildCurvedLesson } from './lessons/curvedLessons.ts'
 import type { LessonObject } from './lessons/index.ts'
+import { STAIR_LAYERS } from './lessons/volumeLayout.ts'
+import { buildRevolutionBody, buildRevolutionLesson, heightOf, profileOf } from './lessons/revolve.ts'
+import { buildSphereBody, buildSphereLesson } from './lessons/sphereLessons.ts'
 
 const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1) // 위에서 내려다본다 (수평에서 62°, ThreeViewer 와 같음)
 
-// 곡면 도형(원기둥·원뿔) 화면 (docs/specs/viewer.md "곡면 도형"): 같은 책 위에서 옆면을 말고 밑면 원을 접는다.
-// 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 아직 그리지 않는다 (TODO-19)
+// 곡면 도형(원기둥·원뿔·구) 화면 (docs/specs/viewer.md "곡면 도형"): 같은 책 위에서 옆면을 말고 밑면 원을 접는다. 구는 전개도가 없어 입체만.
+// 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 scene.lines 그대로 그리고, 화면에서 긋는 입력은 없다
 export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef({ unfold, showMatchingEdges, showVertexLabels, lesson })
@@ -36,10 +39,12 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     rebuildBookRef.current?.()
   }, [pageKey])
 
+  const sphere = scene.shape === 'sphere'
   const shape = scene.shape as CurvedShape
-  const size = scene.size as RoundSize
+  const revolution = scene.shape === 'revolution' ? scene.size : null
+  const size: RoundSize = revolution ? { radius: Math.max(...profileOf(revolution).map((p) => p[0])), height: heightOf(revolution) } : scene.shape === 'sphere' ? { radius: scene.size.radius, height: 2 * scene.size.radius } : (scene.size as RoundSize) // 구는 지름을 높이로 (카메라·책 크기)
   const apexLabel = scene.vertexLabels[0] ?? null
-  const key = JSON.stringify({ shape, size, apexLabel, pageNumbers })
+  const key = JSON.stringify({ shape, size: scene.size, apexLabel, pageNumbers, lines: scene.lines, net: scene.net })
 
   useEffect(() => {
     const container = containerRef.current!
@@ -57,7 +62,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
       new THREE.MeshStandardMaterial({ ...faceStyle, color: '#e3f1fb', side: THREE.BackSide }),
     ]
     const roughSize = Math.max(2 * Math.PI * size.radius, size.height + 4 * size.radius)
-    const net = buildCurvedNet(shape, size, faces, roughSize * 0.004)
+    const net = revolution ? buildRevolutionBody(revolution, faces[0]) : sphere ? buildSphereBody(size.radius, faces[0]) : buildCurvedNet(shape, size, faces, roughSize * 0.004, scene.lines as Line<CylinderPoint | ConePoint>[], (scene.net as { seam?: number }).seam)
     // 전개도가 책 가운데 오게 옮긴다 (원뿔은 꼭짓점이 원점). 말아도 같은 자리
     const flat = new THREE.Box3().setFromObject(net.group)
     const shift = flat.getCenter(new THREE.Vector3()).setY(0).negate()
@@ -134,10 +139,10 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     let lowered = false
     const apply = () => {
       const { unfold, showMatchingEdges, showVertexLabels, lesson } = viewRef.current
-      const nextKey = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.pi ?? 'pi'}` : null
+      const nextKey = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.pi ?? 'pi'}:${lesson.cutKind ?? ''}` : null
       if (nextKey !== lessonKey) {
         lessonObject?.dispose()
-        lessonObject = lesson ? buildCurvedLesson(shape, size, lesson.kind, lesson.scale ?? 2, lesson.pi) : null
+        lessonObject = !lesson ? null : revolution ? buildRevolutionLesson(revolution, lesson.kind, lesson.cutKind) : sphere ? buildSphereLesson(size.radius, lesson.kind, lesson.cutKind) : buildCurvedLesson(shape, size, lesson.kind, lesson.scale ?? 2, lesson.pi, lesson.cutKind)
         lessonKey = nextKey
         if (lessonObject) world.add(lessonObject.group)
         bookRange = lessonObject?.bounds ?? null // 공식 화면에서는 책을 도형에 맞춘다: 도형이 오른쪽 쪽의 대부분을 차지하게 (ui.md 공식 시각화 규칙)
@@ -147,6 +152,8 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
         rebuildBook()
         resize()
       }
+      lessonObject?.setLayers?.(lesson?.layers ?? STAIR_LAYERS[0])
+      lessonObject?.setCut?.(lesson?.cut ?? 0.5)
       lessonObject?.apply(lesson?.progress ?? 0)
       net.group.visible = !lessonObject
       net.apply(unfold)

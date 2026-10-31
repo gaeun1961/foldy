@@ -25,8 +25,11 @@ AI(사진 인식)는 ShapeScene JSON을 **만들고**, 뷰어·UI는 그것을 *
 | `pyramid` | 각뿔 (밑면 정다각형) | `{ sides, edge, height }` | `sides` + 1 | 다면체형 | `{ layout: "default" }` |
 | `cylinder` | 원기둥 | `{ radius, height }` | 0 (빈 배열) | 원기둥형 | `{ layout: "default", seam? }` |
 | `cone` | 원뿔 | `{ radius, height }` | 1 (꼭짓점) | 원뿔형 | `{ layout: "default", seam? }` |
+| `sphere` | 구 | `{ radius }` | 0 (빈 배열) | 없음 (`lines`는 빈 배열) | `{ layout: "default" }` (전개도 없음) |
+| `revolution` | 회전체 | `{ figure, radius, height, top?, gap }` | 0 (빈 배열) | 없음 (`lines`는 빈 배열) | `{ layout: "default" }` |
 
 - `size`의 값은 모두 0보다 크고, 단위는 학습지 그대로(cm 등)다. `width` = 가로(x), `depth` = 깊이(z), `height` = 높이(y), `edge` = 한 모서리 길이(각기둥·각뿔은 밑면 한 변), `radius` = 밑면 반지름, `sides` = 각기둥·각뿔 밑면 정다각형의 변 수(정수 3~12, 삼각기둥 3, 오각뿔 5)
+- 회전체 `size`: `figure`는 돌리는 평면도형(`rectangle` 직사각형, `right-triangle` 직각삼각형, `semicircle` 반원, `trapezoid` 사다리꼴). `radius`는 바닥 쪽 가로(직사각형 가로, 삼각형 밑변, 사다리꼴 아랫변, 반원은 반지름), `height`는 높이(반원은 쓰지 않음), `top`은 사다리꼴 윗변, `gap`은 회전축에서 떨어진 거리(0 이상, 0이면 축에 붙음)
 - `vertexLabels`: 꼭짓점마다 라벨(예: "ㄱ"), 없으면 `null`. 인덱스는 아래 꼭짓점 규칙을 따른다
 - `lines`: `{ from, to }` 목록. 다면체는 두 끝점이 같은 면 위, 곡면 도형은 옆면(곡면) 위의 선만 다룬다 (밑면 원 위의 선은 지원하지 않음)
 - `net.layout`: `cross`는 아래 십자형, `grid`는 학습지 전개도 그대로(아래 "전개도 grid", 직육면체·정육면체만), `default`는 도형별 기본 전개도(다면체는 `frontend/src/viewer/polyhedra.ts`의 면 트리, 곡면 도형은 아래 곡면 전개도 규칙)
@@ -61,7 +64,7 @@ AI(사진 인식)는 ShapeScene JSON을 **만들고**, 뷰어·UI는 그것을 *
 
 **각뿔 (sides + 1)**: 밑면 0 ~ sides−1 은 각기둥과 같고, sides 번이 꼭대기(밑면 가운데 바로 위).
 
-**원뿔 (1)**: 0 꼭짓점(apex). **원기둥**: 꼭짓점 없음.
+**원뿔 (1)**: 0 꼭짓점(apex). **원기둥·구**: 꼭짓점 없음.
 
 정다면체 4종의 면 목록(어느 꼭짓점끼리 한 면인지)은 `frontend/src/viewer/polyhedra.ts`의 데이터가 기준이다.
 

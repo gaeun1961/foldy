@@ -41,6 +41,25 @@ export function volumeLayout(width: number, depth: number, height: number) {
   return { cubes, layers: ys.length, perLayer: xs.length * zs.length }
 }
 
+// 원뿔 계단 (whyThird.ts): 고를 수 있는 원판 수와, 원판 부피의 합 ÷ 같은 밑면·높이의 원기둥 부피
+export const STAIR_LAYERS = [4, 10, 50, 100] as const
+export function stairRatio(layers: number, r = 1, h = 1) {
+  let sum = 0
+  for (let k = 0; k < layers; k++) sum += Math.PI * (r * (layers - k) / layers) ** 2 * (h / layers)
+  return sum / (Math.PI * r * r * h)
+}
+
+// 정육면체(0~a)를 위쪽 구석 (0, a, 0) 에서 잘라 똑같은 사각뿔 3개로: 밑면은 그 구석이 없는 세 면. 첫째가 바닥 면, 나머지는 dir 쪽에서 들어온다
+export function cubePyramids(a: number) {
+  const apex: [number, number, number] = [0, a, 0]
+  const pieces: { base: [number, number, number][]; dir: [number, number, number] }[] = [
+    { base: [[0, 0, 0], [a, 0, 0], [a, 0, a], [0, 0, a]], dir: [0, 0, 0] },
+    { base: [[a, 0, 0], [a, a, 0], [a, a, a], [a, 0, a]], dir: [1, 0, 0] },
+    { base: [[0, 0, a], [a, 0, a], [a, a, a], [0, a, a]], dir: [0, 0, 1] },
+  ]
+  return pieces.map((p) => ({ apex, ...p }))
+}
+
 // 쌓기 진행률 (ui.md 공식 시각화 규칙): 첫 단계는 밑면을 칠하고, 그다음 n 층을 쌓는다. p 는 전체 0~1, layersP 는 층만의 0~1
 export function stackProgress(layers: number, p: number) {
   const steps = layers + 1

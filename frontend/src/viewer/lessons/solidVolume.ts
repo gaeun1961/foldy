@@ -4,19 +4,20 @@
 import * as THREE from 'three'
 import type { PolygonSize, ShapeScene } from '../../shared/types.ts'
 import { polyhedronOf, type Polyhedron } from '../polyhedra.ts'
-import { layerTags, solidGeometry } from './draw.ts'
+import { clamp01, layerTags, rightTriangleOverlay, solidGeometry } from './draw.ts'
 import type { LessonObject } from './index.ts'
 import { lengthText } from './lengthLabels.ts'
 import { buildPourLesson } from './pour.ts'
-import { layerProgress, pieces, stackProgress } from './volumeLayout.ts'
+import { layerProgress, pieces } from './volumeLayout.ts'
 
 const FILL = '#ffffff'
 const ACTIVE = '#ffe8a8'
 const GAP = 0.04 // 층 사이 틈 (층이 하나하나 보이게)
 const prismOf = (size: PolygonSize) => polyhedronOf({ shape: 'prism', size, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene)!
 
-// 각기둥: 높이 1 짜리 판(밑면 모양)을 아래부터 쌓는다. 지금 쌓이는 판은 연한 노랑
-export function buildPrismVolumeLesson(poly: Polyhedron, { height: h }: PolygonSize): LessonObject {
+// 각기둥: 높이 1 짜리 판(밑면 모양)을 아래부터 쌓는다. 지금 쌓이는 판은 연한 노랑. 다 쌓은 뒤 맨 위 면에서 밑넓이를 구한다.
+// triangle: 삼각기둥 윗면의 직각삼각형 (피타고라스). 오각형부터는 가운데에서 삼각형으로 나눈다
+export function buildPrismVolumeLesson(poly: Polyhedron, { sides: n, height: h }: PolygonSize, triangle?: Parameters<typeof rightTriangleOverlay>[1]): LessonObject {
   const group = new THREE.Group()
   const geometry = solidGeometry(poly) // 가운데가 원점, 높이 h. y 로 줄여 판을 만든다
   const edges = new THREE.EdgesGeometry(geometry)
@@ -34,19 +35,29 @@ export function buildPrismVolumeLesson(poly: Polyhedron, { height: h }: PolygonS
     y += sy
     return slab
   })
-  // 밑면 (밑넓이): 층을 쌓기 전에 먼저 칠한다
+  // 맨 위 면 (밑넓이): 다 쌓은 뒤에 칠한다
+  const topY = h / 2 - GAP + 0.012
   const baseMaterial = new THREE.MeshBasicMaterial({ color: '#ffb74d' })
   const base = new THREE.Mesh(geometry, baseMaterial)
   base.scale.set(1, 0.004 / h, 1)
-  base.position.y = -h / 2 + 0.01
+  base.position.y = topY
   group.add(base)
+  const overlay = triangle ? rightTriangleOverlay(group, triangle) : null
+  const center = new THREE.Vector3(0, topY + 0.01, 0)
+  const cutGeometry = new THREE.BufferGeometry().setFromPoints(n >= 5 ? poly.positions.slice(n).flatMap((p) => [center, new THREE.Vector3(p[0], topY + 0.01, p[2])]) : [])
+  const cuts = new THREE.LineSegments(cutGeometry, edgeMaterial)
+  group.add(cuts)
   const reach = Math.max(...poly.positions.map((p) => Math.hypot(p[0], p[2])))
   let tagY = -h / 2
   const tagYs = layers.map((sy) => ((tagY += sy), tagY - sy / 2))
   const tags = layerTags(group, layers.length, Math.max(reach * 2, h) * 0.16, (k) => new THREE.Vector3(reach * 1.25, tagYs[k], 0))
   const apply = (whole: number) => {
-    const { base: painted, layersP: progress } = stackProgress(layers.length, whole)
+    const at = whole * (layers.length + 1)
+    const progress = clamp01(at / layers.length)
+    const painted = clamp01(at - layers.length)
     base.visible = painted > 0
+    cuts.visible = painted > 0
+    overlay?.show(painted)
     const per = layerProgress(layers.length, progress)
     let current = per.findIndex((q) => q > 0 && q < 1)
     if (current < 0 && progress > 0 && progress < 1) current = per.filter((q) => q >= 1).length - 1
@@ -65,6 +76,8 @@ export function buildPrismVolumeLesson(poly: Polyhedron, { height: h }: PolygonS
     apply,
     dispose: () => {
       tags.dispose()
+      overlay?.dispose()
+      cutGeometry.dispose()
       group.removeFromParent()
       geometry.dispose()
       edges.dispose()

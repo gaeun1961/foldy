@@ -1,5 +1,6 @@
 // 책 장면 (docs/specs/viewer.md "책 장면"): 나무 책상 · 데스크 매트 · 펼친 책. 바닥(y = 0)이 오른쪽 페이지라서
 // 전개도가 페이지 위에 눕고, 접으면 페이지에서 일어선다. 이미지 파일 없이 상자·평면과 캔버스 텍스처로만 만든다
+import { colorTokens } from './lessons/formulas.ts'
 import * as THREE from 'three'
 
 // 색은 docs/specs/ui.md 색 기준 "3D 뷰 배경"
@@ -16,7 +17,9 @@ export const FONT = "'Pretendard Variable', Pretendard, system-ui, sans-serif"
 // 빈 책 오른쪽 쪽의 차례 한 줄 (viewer.md "빈 책")
 // 공식 결과: 왼쪽 쪽에서 한 줄 설명 자리에 식과 값을 찍는다
 // value 없음: 교과서에서 계산하지 않는 값이라 식만. table: 표 (이름, 값) 열
-export type BookResult = { formula: string; value?: string; table?: string[][] }
+// general: 일반 공식 (글자별 색). reveal: 지금까지 나타난 줄 수 (일반 공식 → 숫자 식 → 답, 자리는 처음부터 잡아 둔다)
+// lines: 글자별 색으로 쓰는 설명 줄들 (한 줄씩 reveal), link 는 그 줄 옆의 작은 링크 (왼쪽 쪽 메뉴처럼 누른다)
+export type BookResult = { formula: string; value?: string; table?: string[][]; general?: string; ratios?: { label: string; value: string; note: string }[]; reveal?: number; lines?: { text: string; link?: { id: string; label: string } }[] }
 // 왼쪽 쪽 메뉴 한 줄 (viewer.md "책 장면"). 누르면 onPageMenu(id)
 export type BookMenuItem = { id: string; label: string; active: boolean; enabled: boolean }
 export type BookContent = { title: string; page: number | null } // page: 그 도형의 왼쪽 쪽 번호, 아직 없는 도형이면 null
@@ -112,12 +115,58 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
   ctx.font = `600 42px ${FONT}`
   for (const line of text.slice(1)) {
     for (const row of wrap(ctx, line, maxWidth)) {
-      ctx.fillText(row, x, y)
+      drawMath(ctx, row, x, y)
       y += 64
     }
     y += 24
   }
-  if (result?.table) {
+  if (result?.lines) {
+    const rowHeight = 58
+    const font = `600 38px ${FONT}`
+    const linkFont = `bold 30px ${FONT}`
+    ctx.font = font
+    // 먼저 줄을 나눠 자리를 잡는다: 글이 나타나도 메뉴가 움직이지 않게
+    const laid = result.lines.map((line) => {
+      const rows = wrap(ctx, line.text, maxWidth)
+      ctx.font = linkFont
+      const linkWidth = line.link ? ctx.measureText(line.link.label).width + 24 : 0
+      ctx.font = font
+      const inline = !line.link || drawMath(ctx, rows[rows.length - 1], x, y, false, false) + linkWidth <= maxWidth
+      return { ...line, rows, linkWidth, inline }
+    })
+    const total = laid.reduce((sum, l) => sum + (l.rows.length + (l.inline ? 0 : 1)) * rowHeight + 10, 0)
+    const reveal = result.reveal ?? laid.length
+    if (reveal > 0) {
+      ctx.fillStyle = '#fff0a8'
+      ctx.beginPath()
+      ctx.roundRect(x - 24, y - 46, maxWidth + 48, total + 16, 16)
+      ctx.fill()
+    }
+    laid.forEach((line, k) => {
+      const on = k < reveal
+      for (const row of line.rows) {
+        if (on) {
+          ctx.font = font
+          ctx.fillStyle = INK
+          drawMath(ctx, row, x, y, true)
+        }
+        y += rowHeight
+      }
+      if (line.link) {
+        if (line.inline) y -= rowHeight
+        if (on) {
+          ctx.font = linkFont
+          ctx.fillStyle = RED
+          const linkX = x + maxWidth - line.linkWidth + 24
+          ctx.fillText(line.link.label, linkX, y)
+          ctx.fillRect(linkX, y + 6, line.linkWidth - 24, 2)
+          menuRows.push({ id: line.link.id, top: (y - 40) / h, bottom: (y + 14) / h, enabled: true })
+        }
+        y += rowHeight
+      }
+      y += 10
+    })
+  } else if (result?.table) {
     const columns = result.table
     const width = maxWidth / columns.length
     ctx.fillStyle = '#fff0a8'
@@ -142,21 +191,53 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
   } else if (result) {
     ctx.font = `600 42px ${FONT}`
     const rows = wrap(ctx, result.formula, maxWidth)
+    let line = 0
+    const shown = () => ++line <= (result.reveal ?? 3)
     // 노란 형광펜: 식과 값 뒤를 칠해 눈에 띄게
     ctx.fillStyle = '#fff0a8'
     ctx.beginPath()
-    ctx.roundRect(x - 24, y - 52, maxWidth + 48, rows.length * 64 + (result.value ? 148 : 16), 16)
+    ctx.roundRect(x - 24, y - 52, maxWidth + 48, (result.general ? 76 : 0) + rows.length * 64 + (result.value ? 148 : 16) + (result.ratios?.length ?? 0) * 96, 16)
     ctx.fill()
+    if (result.general) {
+      if (shown()) {
+        // 글자별 색. 넘치면 줄여서 한 줄에
+        ctx.font = `bold 46px ${FONT}`
+        const fit = Math.min(1, maxWidth / drawMath(ctx, result.general, x, y, true, false))
+        ctx.font = `bold ${46 * fit}px ${FONT}`
+        ctx.fillStyle = INK
+        drawMath(ctx, result.general, x, y, true)
+        ctx.font = `600 42px ${FONT}`
+      }
+      y += 76
+    }
     ctx.fillStyle = INK
+    const showFormula = shown()
     for (const row of rows) {
-      ctx.fillText(row, x, y)
+      if (showFormula) drawMath(ctx, row, x, y)
       y += 64
+    }
+    // 같은 크기로 강조하는 줄들: 이름, 큰 값, 작은 계산값
+    for (const { label, value, note } of result.ratios ?? []) {
+      y += 30
+      if (shown()) {
+        ctx.fillStyle = INK
+        ctx.font = `600 42px ${FONT}`
+        ctx.fillText(label, x, y)
+        ctx.fillStyle = RED
+        ctx.font = `bold 76px ${FONT}`
+        ctx.fillText(value, x + 200, y)
+        const end = x + 200 + ctx.measureText(value).width + 24
+        ctx.fillStyle = INK
+        ctx.font = `600 38px ${FONT}`
+        ctx.fillText(note, end, y)
+      }
+      y += 66
     }
     if (result.value) {
       y += 40
       ctx.fillStyle = RED
       ctx.font = `bold 84px ${FONT}`
-      ctx.fillText(result.value, x, y, maxWidth)
+      if (shown()) ctx.fillText(result.value, x, y, maxWidth)
       y += 40
     }
   }
@@ -178,6 +259,39 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
 }
 
 // 띄어쓰기 단위로 줄을 나눈다
+// 수식 글자를 쓴다. 분수(⅓ ⅔ ⁴⁄₃)는 글꼴에서 작게 뭉개져서 위아래로 직접 그린다. colored: 글자별 색. 돌려주는 값은 쓴 너비 (draw = false 면 재기만)
+const FRACTIONS: Record<string, [string, string]> = { '⅓': ['1', '3'], '⅔': ['2', '3'], '⁴⁄₃': ['4', '3'] }
+function drawMath(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, colored = false, draw = true) {
+  const font = ctx.font
+  const ink = ctx.fillStyle
+  const px = parseFloat(/([\d.]+)px/.exec(font)![1])
+  const smallFont = font.replace(/[\d.]+px/, `${px * 0.68}px`)
+  let at = x
+  for (const part of text.split(/(⅓|⅔|⁴⁄₃)/).filter(Boolean)) {
+    const fraction = FRACTIONS[part]
+    if (fraction) {
+      ctx.fillStyle = ink
+      ctx.font = smallFont
+      const width = Math.max(...fraction.map((n) => ctx.measureText(n).width)) + px * 0.24
+      if (draw) {
+        const bar = y - px * 0.3
+        fraction.forEach((n, k) => ctx.fillText(n, at + (width - ctx.measureText(n).width) / 2, k === 0 ? bar - px * 0.08 : bar + px * 0.58))
+        ctx.fillRect(at + px * 0.04, bar, width - px * 0.08, Math.max(2, px * 0.05))
+      }
+      ctx.font = font
+      at += width + px * 0.06
+      continue
+    }
+    for (const { text: piece, color } of colored ? colorTokens(part) : [{ text: part, color: undefined }]) {
+      ctx.fillStyle = color ?? ink
+      if (draw) ctx.fillText(piece, at, y)
+      at += ctx.measureText(piece).width
+    }
+  }
+  ctx.fillStyle = ink
+  return at - x
+}
+
 function wrap(ctx: CanvasRenderingContext2D, line: string, maxWidth: number) {
   const rows: string[] = []
   let row = ''
