@@ -212,6 +212,7 @@ stageSupported(scene: ShapeScene): boolean // 다면체(면 트리, 면 2개 이
 interface Stage {
   object: THREE.Group // 바닥(y = 0)에 놓인 도형. 원점 = 다 접은 입체의 수평 가운데
   steps: number // 단계별 접기 단계 수. 0 이면 한 번에만 접힌다 (원기둥·원뿔) 또는 접지 않는다 (구)
+  order: number[] // 단계별로 접는 면 순서 (책 장면과 같다). 곡면 도형·구는 빈 배열
   foldable: boolean // 구는 false
   apply(s: number, mode?: 'all' | 'step'): void // s: 0 = 입체, 1 = 전개도
   solid: THREE.Box3 // 다 접은 입체의 범위
@@ -221,8 +222,8 @@ interface Stage {
 }
 ```
 
-- 다면체: 책 장면과 같은 면 트리(`buildFaceTree`·`applyUnfold`·`stepUnfold`), 같은 자세(`layOnFloor`, 순서가 없는 도형은 `facingYaw`), 같은 접는 순서(`foldOrderOf`, 없으면 `farFirstOrder`). 굵은 선 테마면 모서리를 `Line2`로 덧그린다
-- 원기둥·원뿔: 책 장면과 같은 `buildCurvedNet`에 토큰 색을 넘긴다. 맞닿는 선 색은 켠다. 선 관 굵기는 굵은 선 테마에서 두 배
+- 다면체: 책 장면과 같은 면 트리(`buildFaceTree`·`applyUnfold`·`stepUnfold`), 같은 자세(`layOnFloor`, 순서가 없는 도형은 `facingYaw`), 같은 접는 순서(`foldOrderOf`, 없으면 `farFirstOrder`). 방향은 책 장면과 같은 `VIEW_DIR`(`bookScene.ts`)이고 `Stage.order`로 검사한다. 굵은 선 테마면 모서리를 `Line2`로 덧그린다
+- 원기둥·원뿔: 책 장면과 같은 `buildCurvedNet`·`roundSizeOf`·`curvedLineRadius`·`seamOf`(`curved.ts`)에 토큰 색을 넘긴다. 맞닿는 선 색은 켠다. 선 관 굵기는 굵은 선 테마에서 두 배
 - 구: 책 장면과 같은 `buildSphereBody`. 접지 않는다
 - 자리 잡기: 다 접은 입체의 가장 낮은 곳을 y = 0, 수평 가운데를 원점에 둔다. 그래서 세로축으로 돌리면 제자리에서 돈다
 - 범위는 꼭짓점으로 잰다 (`boundsOf`). `Box3.expandByObject`는 기울어진 면의 상자를 다시 돌려 담아서 실제보다 크다: 펼친 전개도에 두께가 생기고 정팔면체가 바닥 아래로 내려가 보인다. 인스턴스로 그린 관(곡면 선)은 조각마다 잰다
