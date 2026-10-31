@@ -1,5 +1,6 @@
 // 책 장면 (docs/specs/viewer.md "책 장면"): 나무 책상 · 데스크 매트 · 펼친 책. 바닥(y = 0)이 오른쪽 페이지라서
 // 전개도가 페이지 위에 눕고, 접으면 페이지에서 일어선다. 이미지 파일 없이 상자·평면과 캔버스 텍스처로만 만든다
+import { buildDeskProps } from './deskProps.ts'
 import { colorTokens } from './lessons/formulas.ts'
 import * as THREE from 'three'
 
@@ -467,6 +468,8 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     pencil.position.set(pencilX + (k - 1.5) * pencilR * 3.4, matTop + pencilR, cz + (k - 1.5) * pencilR * 2)
     group.add(pencil)
   })
+  // 책상 위 소품: 주사위·컴퍼스·삼각자·시계·필통·지우개 (deskProps.ts)
+  group.add(buildDeskProps({ spineX, cz, pageD, bookHalfW: pageW + coverMargin, bookHalfD: pageD / 2 + coverMargin, matHalfW: halfW, matHalfD: halfD, matTop, deskY: matTop - matT, pencilX }, own))
   const wood = own(woodTexture())
   const deskSize = size * 60
   wood.repeat.set(deskSize / (size * 3), deskSize / (size * 3))
