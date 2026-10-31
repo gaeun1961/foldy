@@ -731,10 +731,7 @@ export function ThreeViewer({
     const raycaster = new THREE.Raycaster()
     let down: { x: number; y: number } | null = null
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
-    const menuHit = () => {
-      const page = book.leftPage()
-      return page ? book.menuAt(raycaster.intersectObjects([...faceTargets, page], false)[0]) : null
-    }
+    const menuHit = () => book.menuAt(raycaster.intersectObjects([...faceTargets, ...book.menuTargets()], false)[0])
     // 여러 도형: 펼쳐 놓은 다른 도형을 누르면 그것을 고른다
     const galleryTargets = galleryNets.flatMap((g) => g.tree.nodes.map((n) => n.mesh))
     const galleryHit = (): number | null => (galleryTargets.length ? (raycaster.intersectObjects(galleryTargets, false)[0]?.object.userData.gallery ?? null) : null)
