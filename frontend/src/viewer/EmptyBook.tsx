@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { buildBook, DESK_COLOR, type BookContent } from './bookScene.ts'
-import { buildOpening, OPENING_SECONDS } from './opening.ts'
+import { buildOpening, LOW_ANGLE, OPENING_SECONDS } from './opening.ts'
 
 // 빈 책 (docs/specs/viewer.md "빈 책"): 도형이 없을 때 같은 책 장면을 도형 없이 그린다.
 // 왼쪽 쪽은 pageText, 오른쪽 쪽은 차례(contents, 줄 끝에 쪽 번호). 쪽 번호가 있는 줄을 누르면 onPick(번호)
@@ -121,8 +121,12 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, opening = f
       if (intro) {
         if (last >= 0) t += Math.min(now - last, 1000 / 30) / 1000
         last = now
-        const dir = camera.position.clone().sub(controls.target).normalize()
+        // 보는 방향: 오프닝 동안 낮게(LOW_ANGLE) 보다가 속표지가 넘어가는 동안 원래 높이각(책등 위 앞쪽, 위 1.88 : 앞 1)으로 올라간다
+        const final = Math.atan2(1.88, 1)
+        const pitch = intro.low(t) * THREE.MathUtils.degToRad(LOW_ANGLE) + (1 - intro.low(t)) * final
+        const dir = new THREE.Vector3(0, Math.sin(pitch), Math.cos(pitch))
         if (!openingRef.current || t >= OPENING_SECONDS) {
+          dir.set(0, Math.sin(final), Math.cos(final))
           intro.finish()
           intro = null
           light.castShadow = false

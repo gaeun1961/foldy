@@ -18,6 +18,11 @@ const POP = 2.8 // 도형이 하나씩 떠오르기 시작. 그 뒤로 곡선을
 const TURN = [5.6, 7.4] // 속표지가 넘어간다. 넘어가기 시작하면 도형이 종이가 지나가는 순서대로 하나씩 흡수된다
 export const OPENING_SECONDS = 7.6
 const SIZES = [2.2, 1.4, 1.9, 1.6, 1.3, 2.0, 1.5, 2.4, 1.7, 1.25, 1.85] // 도형마다 다른 크기 (배)
+// 도형마다 다른 자리: 책등에서 떨어진 정도(쪽 너비 배), 방향 흔들기(라디안), 떠 있는 높이
+const SPREAD = [0.55, 0.78, 0.38, 0.7, 0.48, 0.82, 0.62, 0.42, 0.74, 0.58, 0.66]
+const TWIST = [0.2, -0.25, 0.1, 0.3, -0.15, 0.05, -0.3, 0.25, -0.1, 0.15, -0.2]
+const HEIGHTS = [2.0, 3.6, 2.7, 4.2, 1.7, 3.1, 2.3, 3.9, 2.9, 1.5, 3.4]
+export const LOW_ANGLE = 24 // 오프닝 동안 카메라 높이각(도): 낮게 봐야 공중에 뜬 높이가 보인다. 속표지가 넘어가는 동안 원래 각도로 올라간다
 const WANDER = 1.0 // 날아다니는 폭
 const ABSORB_TIME = 0.7 // 오른쪽 도형: 넘어가는 종이에 흡수되는 시간 (종이가 그 도형에 닿을 때 끝난다)
 const ABSORB_MIN = 0.35 // 넘기기 시작하자마자 닿는 도형도 이만큼은 날아 들어간다
@@ -202,9 +207,10 @@ export function buildOpening(book: Book, size: number) {
     const mesh = new THREE.Mesh(own(geometry), own(new THREE.MeshStandardMaterial({ color: COLORS[k % COLORS.length], flatShading: true, roughness: 0.6 })))
     mesh.castShadow = true
     mesh.add(new THREE.LineSegments(own(new THREE.EdgesGeometry(geometry, 20)), edgeMaterial))
-    const angle = (k / all.length) * Math.PI * 2
-    const ground = new THREE.Vector3(spine.x + Math.cos(angle) * w * 0.62, book.top, spine.z + Math.sin(angle) * d * 0.3)
-    const air = ground.clone().setY(2.2 + (k % 3) * 0.9)
+    const angle = (k / all.length) * Math.PI * 2 + TWIST[k % TWIST.length]
+    const r = SPREAD[k % SPREAD.length]
+    const ground = new THREE.Vector3(spine.x + Math.cos(angle) * w * r, book.top, spine.z + Math.sin(angle) * d * r * 0.5)
+    const air = ground.clone().setY(HEIGHTS[k % HEIGHTS.length])
     // 3. 흡수. 책등을 축으로 도는 종이가 이 도형이 떠 있는 방향(θ)에 닿는 시각
     const dx = air.x - spine.x
     const dy = air.y - book.top
@@ -310,5 +316,7 @@ export function buildOpening(book: Book, size: number) {
   }
 
   update(0)
-  return { update, finish, dispose: () => owned.forEach((x) => x.dispose()) }
+  // 카메라를 낮게 둘 정도 (1 = LOW_ANGLE, 0 = 원래 각도). 속표지가 넘어가는 동안 올라간다
+  const low = (t: number) => 1 - easeInOut(span(t, TURN[0], TURN[1]))
+  return { update, finish, low, dispose: () => owned.forEach((x) => x.dispose()) }
 }
