@@ -123,6 +123,7 @@ export function ThreeViewer({
     const container = containerRef.current!
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
+    renderer.localClippingEnabled = true // 학습지 사진을 책 페이지 안으로 자른다
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.shadowMap.enabled = true // 기본 PCF. 가장자리는 light.shadow.radius 로 흐리게
     container.appendChild(renderer.domElement)
@@ -228,7 +229,19 @@ export function ThreeViewer({
       photoMesh.receiveShadow = true
       tree.root.add(photoMesh)
       tree.root.updateMatrixWorld(true)
-      for (const [x, y] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) flatNet.expandByPoint(photoMesh.localToWorld(new THREE.Vector3(x, y, 0)))
+      // 페이지는 전개도 둘레 여백까지만 (사진 전체를 담으면 사진을 키울수록 책·카메라가 멀어져 도형이 작아진다, #129). 사진은 그 밖을 자른다
+      const span = flatNet.getSize(new THREE.Vector3())
+      const pad = Math.max(span.x, span.z) * 0.35
+      const page = flatNet.clone().expandByVector(new THREE.Vector3(pad, 0, pad))
+      const photoRange = flatNet.clone()
+      for (const [x, y] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) photoRange.expandByPoint(photoMesh.localToWorld(new THREE.Vector3(x, y, 0)))
+      flatNet.copy(photoRange.intersect(page))
+      photoMesh.material.clippingPlanes = [
+        new THREE.Plane(new THREE.Vector3(1, 0, 0), -flatNet.min.x),
+        new THREE.Plane(new THREE.Vector3(-1, 0, 0), flatNet.max.x),
+        new THREE.Plane(new THREE.Vector3(0, 0, 1), -flatNet.min.z),
+        new THREE.Plane(new THREE.Vector3(0, 0, -1), flatNet.max.z),
+      ]
       new THREE.TextureLoader().load(pic.src, (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace
         texture.anisotropy = 8
@@ -621,7 +634,13 @@ export function ThreeViewer({
       const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect))
       const dir = camera.position.clone().sub(controls.target).normalize()
       controls.target.copy(fit.center).add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? fit.radius * 0.45 : 0))
-      camera.position.copy(controls.target).addScaledVector(dir, (fit.radius / Math.sin(fov / 2)) * 1.15)
+      const distance = (fit.radius / Math.sin(fov / 2)) * 1.15
+      camera.position.copy(controls.target).addScaledVector(dir, distance)
+      // 안개는 카메라 거리에 맞춘다: 멀리 있는 책상만 흐리고 책·도형은 선명하게 (도형 크기에 맞추면 사진이 클 때 다 뿌옜다, #129)
+      if (world.fog instanceof THREE.Fog) {
+        world.fog.near = distance * 1.6
+        world.fog.far = distance * 5
+      }
     }
     refit = resize
     aim = (dir) => {
