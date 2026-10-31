@@ -15,7 +15,8 @@ const SERIF = "'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif"
 
 // 빈 책 오른쪽 쪽의 차례 한 줄 (viewer.md "빈 책")
 // 공식 결과: 왼쪽 쪽에서 한 줄 설명 자리에 식과 값을 찍는다
-export type BookResult = { formula: string; value: string }
+// value 없음: 교과서에서 계산하지 않는 값이라 식만. table: 표 (이름, 값) 열
+export type BookResult = { formula: string; value?: string; table?: string[][] }
 // 왼쪽 쪽 메뉴 한 줄 (viewer.md "책 장면"). 누르면 onPageMenu(id)
 export type BookMenuItem = { id: string; label: string; active: boolean; enabled: boolean }
 export type BookContent = { title: string; page: number | null } // page: 그 도형의 왼쪽 쪽 번호, 아직 없는 도형이면 null
@@ -116,24 +117,48 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
     }
     y += 24
   }
-  if (result) {
+  if (result?.table) {
+    const columns = result.table
+    const width = maxWidth / columns.length
+    ctx.fillStyle = '#fff0a8'
+    ctx.beginPath()
+    ctx.roundRect(x - 24, y - 52, maxWidth + 48, 232, 16)
+    ctx.fill()
+    ctx.textAlign = 'center'
+    columns.forEach(([name, value], k) => {
+      const middle = x + width * (k + 0.5)
+      ctx.fillStyle = INK
+      ctx.font = `600 42px ${SERIF}`
+      ctx.fillText(name, middle, y, width)
+      ctx.fillStyle = RED
+      ctx.font = `bold 84px ${SERIF}`
+      ctx.fillText(value, middle, y + 120, width)
+    })
+    ctx.textAlign = 'left'
+    ctx.fillStyle = '#cfc6b6'
+    ctx.fillRect(x, y + 22, maxWidth, 3)
+    for (let k = 1; k < columns.length; k++) ctx.fillRect(x + width * k, y - 40, 3, 200)
+    y += 200
+  } else if (result) {
     ctx.font = `600 42px ${SERIF}`
     const rows = wrap(ctx, result.formula, maxWidth)
     // 노란 형광펜: 식과 값 뒤를 칠해 눈에 띄게
     ctx.fillStyle = '#fff0a8'
     ctx.beginPath()
-    ctx.roundRect(x - 24, y - 52, maxWidth + 48, rows.length * 64 + 148, 16)
+    ctx.roundRect(x - 24, y - 52, maxWidth + 48, rows.length * 64 + (result.value ? 148 : 16), 16)
     ctx.fill()
     ctx.fillStyle = INK
     for (const row of rows) {
       ctx.fillText(row, x, y)
       y += 64
     }
-    y += 40
-    ctx.fillStyle = RED
-    ctx.font = `bold 84px ${SERIF}`
-    ctx.fillText(result.value, x, y, maxWidth)
-    y += 40
+    if (result.value) {
+      y += 40
+      ctx.fillStyle = RED
+      ctx.font = `bold 84px ${SERIF}`
+      ctx.fillText(result.value, x, y, maxWidth)
+      y += 40
+    }
   }
   // 메뉴: 글 아래 한 줄씩. 고른 줄은 굵게 + 표시, 못 고르는 줄은 흐리게 (색만으로 구분하지 않기)
   if (menu.length) {

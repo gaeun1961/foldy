@@ -21,4 +21,4 @@
 - [ ] ui.md 친절한 설명 원칙을 따른다
 
 ## 참고
-- 관련 문서: `docs/specs/ui.md` (친절한 설명 원칙), `docs/todo/21-curved-area-volume.md`
+- 관련 문서: `docs/specs/ui.md` (친절한 설명 원칙), `frontend/src/viewer/lessons/pour.ts` (뿔 물 붓기, 같은 방식)

@@ -1,4 +1,5 @@
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
+import type { BookResult } from './bookScene'
 import type { Lesson } from './lessons/data'
 
 // 뷰어 구현이 지켜야 할 props (docs/specs/viewer.md). UI는 이 인터페이스와 아래 Viewer, foldStepCount 만 사용한다.
@@ -17,7 +18,7 @@ export interface ViewerProps {
   onSceneChange?: (scene: ShapeScene) => void // 선분이 더해진 새 scene. UI가 다시 scene 으로 넘긴다
   onDrawState?: (state: DrawState) => void // 선 긋기 진행 상태 (안내 문구용)
   pageText?: string[] // 책 장면 왼쪽 페이지 글. 첫 줄 제목, 나머지 본문 (UI가 정한다, viewer.md "책 장면")
-  pageResult?: { formula: string; value: string } // 공식 결과. 왼쪽 쪽에서 한 줄 설명 자리에 찍는다 (viewer.md "책 장면")
+  pageResult?: BookResult // 공식 결과. 왼쪽 쪽에서 한 줄 설명 자리에 찍는다 (viewer.md "책 장면")
   pageMenu?: PageMenuItem[] // 왼쪽 쪽 메뉴 (공식, 다른 전개도 보기). 고르는 일은 UI 가 한다 (viewer.md "책 장면")
   onPageMenu?: (id: string) => void // 왼쪽 쪽 메뉴의 줄을 눌렀을 때
   pageNumbers?: [number, number] // 책 아래 귀퉁이 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음, UI가 차례에 맞춰 정한다)
@@ -38,11 +39,11 @@ export type NetPhoto = { src: string; x: number; y: number; size: number; angle:
 export type PageMenuItem = { id: string; label: string; active: boolean; enabled: boolean }
 export type DrawState = 'idle' | 'picked' | 'no-path'
 
-export { ThreeViewer as Viewer } from './ThreeViewer'
+export { Viewer } from './Viewer'
 export { EmptyBook } from './EmptyBook' // 도형이 없을 때 빈 책 + 차례 (viewer.md "빈 책")
 export type { BookContent } from './bookScene'
 export { foldStepCount, netCheck } from './polyhedra'
 export { NET_VARIANTS, netVariant } from './gridNet' // 정육면체 전개도 11가지 → 치수에 맞춘 grid 면 (viewer.md "전개도 grid")
-export { LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonHint, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './lessons/data'
+export { LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonStepCount, lessonSummary, lessonTabs, type Lesson, type LessonKind, type PiMode } from './lessons/data'
 export { SIMILAR_SCALES } from './lessons/similarLayout'
 export { RELATION_COLORS } from './lessons/edgeRelationsLayout'

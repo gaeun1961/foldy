@@ -7,6 +7,15 @@ export interface LengthLabel {
   at: Vec3
 }
 
+// 원이 들어간 값의 표기 (ui.md 공식 시각화 규칙): 기본은 π 를 그대로 둔다(48π), 초등은 3.14 로 계산한다
+export type PiMode = 'pi' | '3.14'
+const short = (n: number) => +n.toFixed(2)
+export const piValue = (coef: number, mode: PiMode) => (mode === 'pi' ? `${coef === 1 ? '' : short(coef)}π` : String(short(coef * 3.14)))
+// 소수 둘째 자리까지 딱 떨어지는 값인가. 아니면 숫자로 계산하지 않는다 (√)
+export const isExact = (n: number) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6
+// 모선: 딱 떨어지지 않으면 √ 그대로
+export const slantText = (r: number, h: number) => (isExact(Math.hypot(r, h)) ? String(short(Math.hypot(r, h))) : `√${short(r * r + h * h)}`)
+
 export const lengthText = (n: number) => `${+n.toFixed(2)} cm`
 // 계산해서 나온 길이: 딱 떨어지면 그대로, 아니면 약 (대각선)
 export const computedLengthText = (n: number) => (Math.abs(n - Math.round(n)) < 1e-9 ? lengthText(Math.round(n)) : `약 ${lengthText(n)}`)
@@ -33,7 +42,7 @@ export function solidLengthLabels(poly: Polyhedron): LengthLabel[] {
       const seen = best.get(key)
       if (!seen || a[2] + b[2] > seen.a[2] + seen.b[2]) best.set(key, { a, b, len })
     })
-  return [...best.values()].map(({ a, b, len }) => {
+  return [...best.values()].filter(({ len }) => isExact(len)).map(({ a, b, len }) => {
     const mid = [0, 1, 2].map((k) => (a[k] + b[k]) / 2)
     return { text: lengthText(len), at: mid.map((m, k) => m + (m - center[k]) * 0.18) as Vec3 }
   })
