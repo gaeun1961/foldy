@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
+import { bookGlide, buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
@@ -77,11 +77,16 @@ export function ThreeViewer({
   onFacePick,
   faceMarking = false,
   onFaceMark,
+  fromContents = false,
 }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 도형을 새로 만들 때 지금 값으로 시작하려고
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson })
   const applyRef = useRef<(() => void) | null>(null)
+  const fromRef = useRef(fromContents) // 처음 만들 때만 읽는다
+  useEffect(() => {
+    fromRef.current = fromContents
+  }, [fromContents])
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
   const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
@@ -612,6 +617,8 @@ export function ThreeViewer({
     // 화면 비율이 바뀌면(휴대폰 세로 등) 가로·세로 중 좁은 시야에 맞춰 거리를 다시 잡는다. 보는 방향은 유지.
     // 가로로 긴 화면은 아래 바(ui.md 화면 배치)가 3D 위에 떠 있어서, 보는 점을 앞쪽으로 옮겨 도형을 화면 위쪽에 둔다
     // 설명 모드를 켜고 끌 때도 같은 식으로 범위(fit)만 바꿔 다시 맞춘다
+    // 차례에서 넘어왔으면 빈 책 구도에서 이 구도로 다가간다 (glide)
+    let glide: ReturnType<typeof bookGlide> | null = null
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
@@ -622,6 +629,7 @@ export function ThreeViewer({
       const dir = camera.position.clone().sub(controls.target).normalize()
       controls.target.copy(fit.center).add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? fit.radius * 0.45 : 0))
       camera.position.copy(controls.target).addScaledVector(dir, (fit.radius / Math.sin(fov / 2)) * 1.15)
+      glide?.sync()
     }
     refit = resize
     aim = (dir) => {
@@ -631,6 +639,7 @@ export function ThreeViewer({
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
+    if (fromRef.current) glide = bookGlide(book, camera, controls)
 
     // 꼭짓점·모서리 누르기: 끌어서 돌린 것은 클릭이 아니다. 같은 것을 다시 누르거나 빈 곳을 누르면 풀린다.
     // 꼭짓점과 모서리 쌍은 하나만 고른다. 면도 같이 맞혀서, 면에 가려진 뒤쪽 꼭짓점·모서리는 고르지 않는다
@@ -733,7 +742,8 @@ export function ThreeViewer({
     renderer.domElement.addEventListener('pointerup', onUp)
     renderer.domElement.addEventListener('pointermove', onMove)
 
-    renderer.setAnimationLoop(() => {
+    renderer.setAnimationLoop((now) => {
+      if (glide && !glide.step(now)) glide = null
       controls.update()
       renderer.render(world, camera)
     })

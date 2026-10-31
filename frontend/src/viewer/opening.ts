@@ -2,7 +2,7 @@
 // 1 표지가 열리고 종이 여러 장이 넘어온다 → 2 도형들이 페이지에서 떠올라 날아다닌다 → 3 속표지가 넘어가며 도형을 하나씩 흡수한다 → 4 빈 책
 // 이미지 파일 없이 책 장면의 상자·캔버스 텍스처와 three.js 기본 도형으로만 만든다
 import * as THREE from 'three'
-import { FONT, INK, pageTexture, type buildBook } from './bookScene'
+import { FONT, INK, pageTexture, type BookMenuItem, type buildBook } from './bookScene'
 
 type Book = ReturnType<typeof buildBook>
 type Own = <T extends { dispose(): void }>(x: T) => T
@@ -119,6 +119,37 @@ function turningPage(book: Book, front: THREE.Texture, back: THREE.Texture, own:
   set(0, 0)
   group.position.y = book.top - ys[N]
   return { group, set }
+}
+
+// 차례에서 도형을 고를 때 (TODO-44): 오프닝의 속표지처럼 종이가 넘어가 왼쪽에 눕는다. 차례에서 고른 도형까지 지나가는 도형마다 한 장씩
+// (spreads: 차례 0번째 도형부터 고른 도형까지의 쪽) 장마다 PAGE_TURN_GAP 늦게 넘어간다. 맨 위 장 앞면은 차례, 장 i 뒷면은 i번째 도형의 왼쪽 쪽,
+// 다음 장 앞면은 그 도형의 오른쪽 쪽(쪽 번호만). 아래에는 고른 도형의 오른쪽 쪽을 미리 찍어 도형 화면으로 바뀔 때 글이 갑자기 생기지 않게 한다
+const PAGE_TURN_TIME = 1.0 // 한 장 넘김
+const PAGE_TURN_GAP = 0.12
+export function buildPageTurn(book: Book, size: number, spreads: { text: string[]; pageNumbers?: [number, number]; menu?: BookMenuItem[] }[]) {
+  const owned: { dispose(): void }[] = []
+  const own: Own = (x) => (owned.push(x), x)
+  const { w, d } = book.page
+  const face = (book.pages()[0].material as THREE.MeshStandardMaterial[])[2]
+  const right = (k: number) => own(pageTexture(w, d, 'right', [], [], [], spreads[k].pageNumbers?.[1]))
+  const eps = size * 0.002
+  const sheets = spreads.length
+  // k = 0 이 맨 위라 먼저 넘어가고, 왼쪽에서는 나중에 넘어간 장이 위에 쌓인다
+  const pages = spreads.map(({ text, pageNumbers, menu }, k) => ({
+    page: turningPage(book, k === 0 ? face.map! : right(k - 1), own(pageTexture(w, d, 'left', text, [], [], pageNumbers?.[0], undefined, menu)), own),
+    right: eps * (sheets - k),
+    left: eps * (k + 1),
+    start: k * PAGE_TURN_GAP,
+  }))
+  face.map = right(sheets - 1)
+  const update = (t: number) => {
+    for (const { page, right, left, start } of pages) {
+      const p = span(t, start, start + PAGE_TURN_TIME)
+      page.set(p, lerp(right, left, p))
+    }
+  }
+  update(0)
+  return { update, seconds: (sheets - 1) * PAGE_TURN_GAP + PAGE_TURN_TIME, dispose: () => owned.forEach((x) => x.dispose()) }
 }
 
 export function buildOpening(book: Book, size: number) {

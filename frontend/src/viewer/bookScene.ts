@@ -500,3 +500,40 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     dispose: () => owned.forEach((x) => x.dispose()),
   }
 }
+
+// 빈 책 구도 (EmptyBook): 펼친 두 쪽이 다 들어오게. 가로로 긴 화면은 아래 바가 위에 떠 있어서 보는 점을 앞으로 옮긴다
+// 반지름은 쪽 너비에 비례한다 (빈 책 쪽 너비 7.8 에서 8.5). 그래서 책 크기가 달라도 화면에 같은 크기로 보인다
+export function wholeBookView(book: { center: THREE.Vector3; page: { w: number } }, camera: THREE.PerspectiveCamera) {
+  const radius = (book.page.w * 8.5) / 7.8
+  const vfov = THREE.MathUtils.degToRad(camera.fov)
+  const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect))
+  return { target: book.center.clone().add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? radius * 0.2 : 0)), distance: (radius / Math.sin(fov / 2)) * 1.05 }
+}
+
+// 차례에서 넘어왔을 때 (TODO-44): 빈 책 구도에서 이 화면 구도로 다가간다. 보는 방향은 그대로, 보는 점과 거리만.
+// 화면 구도를 잡은(resize) 직후에 만들고, 구도를 다시 잡을 때마다 sync, 프레임마다 step. 다가가는 동안 돌리기는 꺼 둔다
+const GLIDE_SECONDS = 0.9
+export function bookGlide(book: { center: THREE.Vector3; page: { w: number } }, camera: THREE.PerspectiveCamera, controls: { target: THREE.Vector3; enabled: boolean }) {
+  const end = { target: controls.target.clone(), position: camera.position.clone() }
+  const from = wholeBookView(book, camera)
+  let start = -1
+  controls.enabled = false
+  const sync = () => {
+    end.target.copy(controls.target)
+    end.position.copy(camera.position)
+  }
+  const step = (now: number) => {
+    if (start < 0) start = now
+    const u = Math.min(1, (now - start) / (GLIDE_SECONDS * 1000))
+    const p = 1 - (1 - u) ** 3 // 빨리 출발해 천천히 자리 잡는다
+    const dir = end.position.clone().sub(end.target)
+    const distance = from.distance + (dir.length() - from.distance) * p
+    controls.target.lerpVectors(from.target, end.target, p)
+    camera.position.copy(controls.target).addScaledVector(dir.normalize(), distance)
+    if (u >= 1) controls.enabled = true
+    return u < 1
+  }
+  controls.target.copy(from.target)
+  camera.position.copy(from.target).addScaledVector(end.position.clone().sub(end.target).normalize(), from.distance)
+  return { sync, step }
+}
