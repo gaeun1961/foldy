@@ -20,6 +20,7 @@ VERTEX_COUNT = {
     # 각기둥·각뿔은 밑면 변 수에 따라 다르다 (_vertex_count)
     "cylinder": 0,
     "cone": 1,
+    "sphere": 0,
 }
 
 Positive = Annotated[float, Field(gt=0)]
@@ -41,6 +42,10 @@ class PolygonSize(BaseModel):
     sides: Annotated[int, Field(ge=3, le=12)]  # 밑면 정다각형의 변 수
     edge: Positive  # 밑면 한 변
     height: Positive
+
+
+class SphereSize(BaseModel):
+    radius: Positive
 
 
 class RoundSize(BaseModel):
@@ -265,6 +270,13 @@ class ConeScene(_Scene):
     net: CurvedNet
 
 
+class SphereScene(_Scene):
+    shape: Literal["sphere"]  # 전개도가 없고 선도 없다
+    size: SphereSize
+    lines: Annotated[list[PolyhedronLine], Field(max_length=0)]
+    net: DefaultNet
+
+
 class ShapeScene(RootModel):
     """shape 값으로 어느 형식인지 고른다. ShapeScene.model_validate(json) 으로 검증."""
 
@@ -274,6 +286,7 @@ class ShapeScene(RootModel):
         | RegularPolyhedronScene
         | PolygonSolidScene
         | CylinderScene
-        | ConeScene,
+        | ConeScene
+        | SphereScene,
         Field(discriminator="shape"),
     ]

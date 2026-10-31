@@ -6,7 +6,7 @@ import type { LessonObject } from './index.ts'
 import type { SlantPlan } from './regularLayout.ts'
 import { faceNormal, surfaceSteps } from './surfaceLayout.ts'
 
-type Points = { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number }
+type Points = { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; edgeColor?: string }
 
 // lesson 은 원래 단계가 stepsAfter 개. 전체를 한 단계 늘려 첫 단계에 직각삼각형을 보인다
 export function withPythagorasStep(lesson: LessonObject, stepsAfter: number, plan: SlantPlan, points: Points): LessonObject {

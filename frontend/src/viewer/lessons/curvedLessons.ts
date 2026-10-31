@@ -12,6 +12,9 @@ import { withPythagorasStep } from './pythagorasStep.ts'
 import { buildPourLesson } from './pour.ts'
 import { buildCurvedSurfaceLesson } from './curvedSurface.ts'
 import { layerProgress, pieces, stackProgress } from './volumeLayout.ts'
+import { withStairStep } from './whyThird.ts'
+import { LENGTH_COLOR } from './formulas.ts'
+import { withEndLines } from './lengthLines.ts'
 
 const SEGMENTS = 64
 const INK = '#3c4048'
@@ -19,7 +22,7 @@ const ACTIVE = '#ffe8a8'
 const PIECE = ['#f08c00', '#1c7ed6', '#2f9e44']
 
 // 모양 틀: 위·아래 둘레와 세로 선 넷. y = 0 이 바닥, 축이 원점
-function outline(shape: CurvedShape, r: number, h: number) {
+export function outline(shape: CurvedShape, r: number, h: number) {
   const pts: THREE.Vector3[] = []
   const rim = (y: number) => {
     for (let i = 0; i < SEGMENTS; i++) {
@@ -42,14 +45,20 @@ const solidMesh = (shape: CurvedShape, r: number, h: number) =>
 
 export function buildCurvedLesson(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale: number, pi: PiMode = 'pi'): LessonObject | null {
   if (kind === 'surface-area') {
-    const lesson = buildCurvedSurfaceLesson(shape, size, pi)
+    // 끝나면 밑면에 반지름 r. 옆면 가로·세로는 펼친 그림의 색이 그대로 공식과 맞는다
+    const reachAll = Math.max(2 * size.radius, size.height)
+    const lesson = withEndLines(buildCurvedSurfaceLesson(shape, size, pi), [{ from: new THREE.Vector3(0, reachAll * 0.004, 0), to: new THREE.Vector3(size.radius, reachAll * 0.004, 0), color: LENGTH_COLOR.r }], reachAll * 0.012)
     if (shape !== 'cone') return lesson
     // 원뿔: 세운 입체 안에 직각삼각형을 그려 모선을 먼저 구한다
     const plan = { hint: '', edge: `${slantText(size.radius, size.height)} cm`, leg: lengthText(size.radius), rise: lengthText(size.height) }
     const reach = Math.hypot(size.radius, size.height)
-    return withPythagorasStep(lesson, 3, plan, { foot: new THREE.Vector3(), end: new THREE.Vector3(size.radius, 0, 0), top: new THREE.Vector3(0, size.height, 0), out: new THREE.Vector3(reach * 0.1, 0, reach * 0.1), reach })
+    return withPythagorasStep(lesson, 3, plan, { foot: new THREE.Vector3(), end: new THREE.Vector3(size.radius, 0, 0), top: new THREE.Vector3(0, size.height, 0), out: new THREE.Vector3(reach * 0.1, 0, reach * 0.1), reach, edgeColor: LENGTH_COLOR.l })
   }
-  if (kind === 'volume') return shape === 'cylinder' ? stackLesson(size) : pourLesson(size)
+  if (kind === 'volume' && shape === 'cylinder') {
+    const { radius: r, height: h } = size
+    return withEndLines(stackLesson(size), [{ from: new THREE.Vector3(0, h, 0), to: new THREE.Vector3(r, h, 0), color: LENGTH_COLOR.r }, { from: new THREE.Vector3(r, 0, 0), to: new THREE.Vector3(r, h, 0), color: LENGTH_COLOR.h }], Math.max(2 * r, h) * 0.012)
+  }
+  if (kind === 'volume') return withStairStep(pourLesson(size), size.radius, size.height, { cone: outline('cone', size.radius, size.height), cup: outline('cylinder', size.radius, size.height) })
   if (kind === 'similar') return similarLesson(shape, size, scale)
   return null
 }

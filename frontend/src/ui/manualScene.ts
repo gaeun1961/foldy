@@ -1,10 +1,10 @@
 // 직접 만들기 (docs/specs/ui.md 화면 배치 3번): 치수로 만들기 · 전개도 그리기 → ShapeScene. 사진 인식(LLM) 없이 쓰는 기본 길
-import { vertexCountOf, type BoxSize, type EdgeSize, type NetFace, type PolygonSize, type RoundSize, type ShapeScene } from '../shared/types.ts'
+import { vertexCountOf, type BoxSize, type EdgeSize, type NetFace, type PolygonSize, type RoundSize, type ShapeScene, type SphereSize } from '../shared/types.ts'
 import type { NetPhoto } from '../viewer'
 
 // 도형 드롭다운과 슬라이더 목록 (직육면체·정육면체, 정다면체 4종, 각기둥·각뿔. 다른 도형은 여기에 한 줄씩 더한다). 순서가 빈 책 차례 순서다.
 // 각기둥·각뿔은 밑면 정다각형 변 수(sides)를 드롭다운으로 고른다 (SIDES)
-// 기본 치수는 서로 다른 양이 같은 숫자로 나오지 않게 고른다 (ui.md 공식 시각화 규칙: 원기둥 r = 3 은 밑넓이 9π, 둘레 6π, 사각뿔 6·4 는 옆면 높이 5)
+// 기본 치수는 서로 다른 양이 같은 숫자로 나오지 않게 고른다 (ui.md 공식 시각화 규칙: 원기둥 r = 3 은 밑넓이 9π, 둘레 6π, 사각뿔 6·4 는 옆면 높이 5, 구 r = 6 은 겉넓이 144π·부피 288π. r = 3 이면 둘 다 36π 라 헷갈린다)
 // 슬라이더 범위: 1 ~ 10 (학습지 cm 그대로), 0.5 단위
 export const SLIDER = { min: 1, max: 10, step: 0.5 }
 export const SHAPES = [
@@ -27,6 +27,7 @@ export const SHAPES = [
   { shape: 'pyramid', name: '각뿔', sliders: [{ key: 'edge', label: '밑면 한 변' }, { key: 'height', label: '높이' }], size: { sides: 4, edge: 6, height: 4 } as PolygonSize },
   { shape: 'cylinder', name: '원기둥', sliders: [{ key: 'radius', label: '반지름' }, { key: 'height', label: '높이' }], size: { radius: 3, height: 5 } as RoundSize },
   { shape: 'cone', name: '원뿔', sliders: [{ key: 'radius', label: '반지름' }, { key: 'height', label: '높이' }], size: { radius: 3, height: 4 } as RoundSize },
+  { shape: 'sphere', name: '구', sliders: [{ key: 'radius', label: '반지름' }], size: { radius: 6 } as SphereSize },
 ] as const
 export const SIDES = [3, 4, 5, 6, 7, 8] // 각기둥·각뿔 밑면 드롭다운 (삼각형 ~ 팔각형)
 export type BoxShape = (typeof SHAPES)[number]['shape']
@@ -36,7 +37,7 @@ const DEFAULT_LABELS = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ'] 
 // 치수로 만들기: 직육면체·정육면체는 십자형 전개도, 그 밖(정다면체·각기둥·각뿔)은 기본 전개도에 라벨 없음.
 // 선은 그대로 둔다(꼭짓점 번호는 치수와 상관없음, 같은 꼭짓점 번호를 쓰는 도형끼리만: 각기둥·각뿔은 밑면 변 수도 같아야).
 // 직육면체·정육면체는 라벨이 하나도 없으면 ㄱ~ㅇ
-export function crossScene(shape: BoxShape, size: BoxSize | EdgeSize | PolygonSize | RoundSize, keep?: ShapeScene | null): ShapeScene {
+export function crossScene(shape: BoxShape, size: BoxSize | EdgeSize | PolygonSize | RoundSize | SphereSize, keep?: ShapeScene | null): ShapeScene {
   if (shape !== 'cuboid' && shape !== 'cube') {
     const sameSides = !('sides' in size) || (keep?.size as Partial<PolygonSize> | undefined)?.sides === size.sides
     const lines = keep?.shape === shape && keep.net.layout === 'default' && sameSides ? keep.lines : []
