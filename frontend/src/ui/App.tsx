@@ -15,6 +15,7 @@ import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
 import { crossScene, crossToGrid, fitToBox, netPhoto, NO_FIT, SHAPES } from './manualScene.ts'
 import { PhotoUpload, type PhotoPlace } from './PhotoUpload'
+import { recordEvent } from './recordLog'
 import { ShapeTabs } from './ShapeTabs'
 import { ViewMenu } from './ViewMenu'
 import { SPEEDS, type Speed } from './player'
@@ -535,7 +536,7 @@ export default function App() {
             </button>
           )}
           {!manualOpen && (
-            <button type="button" className="secondary-button" style={{ width: '100%' }} onClick={() => setManualFor(photo)}>
+            <button type="button" className="secondary-button" style={{ width: '100%' }} onClick={() => (setManualFor(photo), recordEvent('manual'))}>
               인식이 틀렸나요? 직접 고치기 ▸
             </button>
           )}
