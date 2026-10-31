@@ -44,7 +44,7 @@ export { EmptyBook } from './EmptyBook' // 도형이 없을 때 빈 책 + 차례
 export type { BookContent } from './bookScene'
 export { foldStepCount, netCheck } from './polyhedra'
 export { NET_VARIANTS, netVariant } from './gridNet' // 정육면체 전개도 11가지 → 치수에 맞춘 grid 면 (viewer.md "전개도 grid")
-export { CONE_THIRD_LINK, LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonStepCount, lessonSummary, lessonTabs, type Lesson, type LessonKind, type PiMode } from './lessons/data'
+export { CONE_THIRD_LINK, LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, type Lesson, type LessonKind, type PiMode } from './lessons/data'
 export { SIMILAR_SCALES } from './lessons/similarLayout'
 export { RELATION_COLORS } from './lessons/edgeRelationsLayout'
 export { STAIR_LAYERS } from './lessons/volumeLayout'

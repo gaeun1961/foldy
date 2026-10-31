@@ -3,7 +3,7 @@
 // 위치를 섞지 않고 굽힌 정도를 바꿔서 길이가 늘거나 줄지 않는다. 아래 점 함수들은 옆면 가운데 선이 바닥에 붙은 자세이고,
 // 화면에서는 밑면 원이 바닥에 남도록 전체를 그 원의 접선으로 돌린다(standPoint). 그래서 다 접으면 입체가 똑바로 선다
 import * as THREE from 'three'
-import type { RoundSize } from '../shared/types.ts'
+import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
 
 export type Point = [x: number, y: number, z: number]
 export type CurvedShape = 'cylinder' | 'cone'
@@ -125,11 +125,36 @@ export interface CurvedNet {
   dispose(): void
 }
 
+// 곡면 위 선 (shape-scene.md 곡면 전개도): 끝점을 전개도 평면의 (x, z) 로 바꿔 곧게 잇고, 나눈 점마다 옆면과 같은 변환을 건다. 그래서 펴면 직선, 말면 곡면을 따라 감긴다.
+// 돌려주는 함수: 펼침 값 s → 점들. 좌표는 옆면 점 함수와 같다 (cylinderPoint, conePoint)
+export function curvedLinePoints(shape: CurvedShape, size: RoundSize, line: Line<CylinderPoint | ConePoint>, seam = 0, count = 64) {
+  const { radius: r, height: h } = size
+  const L = slantOf(size)
+  const sector = (2 * Math.PI * r) / L
+  const t = (angle: number) => (angle - seam) / 360 - 0.5 // 옆면 가운데 선에서 잰 비율 (−½ ~ ½)
+  const flat = (p: CylinderPoint | ConePoint): [number, number] => {
+    if (shape === 'cylinder') {
+      const [angle, up] = 'top' in p ? [p.top, 1] : 'bottom' in p ? [p.bottom, 0] : [(p as { surface: { angle: number; h: number } }).surface.angle, (p as { surface: { angle: number; h: number } }).surface.h]
+      return [t(angle) * 2 * Math.PI * r, (0.5 - up) * h]
+    }
+    if ('apex' in p) return [0, 0]
+    const [angle, d] = 'base' in p ? [p.base, L] : [(p as { surface: { angle: number; r: number } }).surface.angle, (p as { surface: { angle: number; r: number } }).surface.r * L]
+    return [d * Math.sin(t(angle) * sector), d * Math.cos(t(angle) * sector)]
+  }
+  const [a, b] = [flat(line.from), flat(line.to)]
+  return (s: number) =>
+    [...Array(count + 1).keys()].map((i): Point => {
+      const [x, z] = [a[0] + ((b[0] - a[0]) * i) / count, a[1] + ((b[1] - a[1]) * i) / count]
+      return shape === 'cylinder' ? cylinderPoint(x, z, s, r) : conePoint(Math.hypot(x, z), Math.atan2(x, z), s, r, L)
+    })
+}
+
 // 만나는 선 색 (ui.md 색 기준): 자른 선 둘, 위 둘레와 위 원, 아래 둘레와 아래 원
 const PAIR = { seam: '#e5484d', top: '#3e63dd', bottom: '#3e63dd' } // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
 const PLAIN = '#3c4048'
+const DRAWN = '#7048e8' // 곡면 위 선 (실 감기와 같은 색)
 
-export function buildCurvedNet(shape: CurvedShape, size: RoundSize, faces: [THREE.Material, THREE.Material], lineRadius: number): CurvedNet {
+export function buildCurvedNet(shape: CurvedShape, size: RoundSize, faces: [THREE.Material, THREE.Material], lineRadius: number, drawn: Line<CylinderPoint | ConePoint>[] = [], seam = 0): CurvedNet {
   const { radius: r, height: h } = size
   const L = slantOf(size)
   const group = new THREE.Group()
@@ -141,7 +166,7 @@ export function buildCurvedNet(shape: CurvedShape, size: RoundSize, faces: [THRE
   inner.position.z = -hingeAt
   pivot.add(inner)
   group.add(pivot)
-  const materials = { seam: new THREE.MeshBasicMaterial(), top: new THREE.MeshBasicMaterial(), bottom: new THREE.MeshBasicMaterial() }
+  const materials = { seam: new THREE.MeshBasicMaterial(), top: new THREE.MeshBasicMaterial(), bottom: new THREE.MeshBasicMaterial(), drawn: new THREE.MeshBasicMaterial({ color: DRAWN }) }
   const lines: { line: ReturnType<typeof thickLine>; points: (s: number) => Point[] }[] = []
   const addLine = (segments: number, material: THREE.Material, points: (s: number) => Point[]) => {
     const line = thickLine(segments, lineRadius, material)
@@ -188,6 +213,7 @@ export function buildCurvedNet(shape: CurvedShape, size: RoundSize, faces: [THRE
     apex = new THREE.Mesh(new THREE.SphereGeometry(lineRadius * 2.5, 12, 8), new THREE.MeshBasicMaterial({ color: PLAIN }))
     inner.add(apex)
   }
+  for (const line of drawn) addLine(64, materials.drawn, curvedLinePoints(shape, size, line, seam))
   const side = surfaceMesh(gridIndex(ALONG, ARC), (ALONG + 1) * (ARC + 1), faces)
   inner.add(side.mesh)
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { lengthText } from './lengthLabels.ts'
 import type { BoxSize } from '../../shared/types.ts'
 import type { FaceTree } from '../faceTree.ts'
 import type { Polyhedron } from '../polyhedra.ts'
@@ -85,6 +86,8 @@ export function buildShortestPathLesson(poly: Polyhedron, tree: FaceTree, radius
   const r = radius * 0.012
   const materials: THREE.Material[] = []
   const attached: THREE.Object3D[] = []
+  const sprites: ReturnType<typeof textSprite>[] = []
+  const labelWidth = Math.max(...poly.positions.flatMap((p) => p.map(Math.abs))) * 0.9 // 면마다 찍지 않고 필요한 변에만 크게
   const attach = (face: number, o: THREE.Object3D) => {
     meshOf(face).add(o)
     attached.push(o)
@@ -104,12 +107,20 @@ export function buildShortestPathLesson(poly: Polyhedron, tree: FaceTree, radius
       attach(s.face, t.mesh)
       return t
     })
+    // 직각삼각형의 변 길이: 이 길을 보는 동안만
+    const labels = route.legs.flat().map((s) => {
+      const label = textSprite(lengthText(v3(s.from).distanceTo(v3(s.to))), labelWidth)
+      label.sprite.position.copy(v3(s.from).lerp(v3(s.to), 0.5))
+      attach(s.face, label.sprite)
+      sprites.push(label)
+      return label.sprite
+    })
     const { face, at, dirs } = route.corner
     const mark = rightAngleMark(v3(at), v3(dirs[0]), v3(dirs[1]), radius * 0.06, r * 0.5, line)
     attach(face, mark)
     const total = segments.reduce((sum, t) => sum + t.length, 0)
     return {
-      apply(qLine: number, qLegs: number) {
+      apply(qLine: number, qLegs: number, current: boolean) {
         // 길은 시작 꼭짓점에서 끝까지 이어서 자란다 (면을 넘어가도 한 줄)
         let done = 0
         for (const t of segments) {
@@ -118,13 +129,14 @@ export function buildShortestPathLesson(poly: Polyhedron, tree: FaceTree, radius
         }
         for (const t of legs) t.grow(qLegs)
         mark.visible = qLegs >= DONE
+        for (const label of labels) label.visible = current && qLegs >= DONE
       },
     }
   })
 
   const apply = (progress: number) => {
     const n = built.length * 2
-    built.forEach((b, k) => b.apply(clamp01(progress * n - 2 * k), clamp01(progress * n - 2 * k - 1)))
+    built.forEach((b, k) => b.apply(clamp01(progress * n - 2 * k), clamp01(progress * n - 2 * k - 1), progress * n - 2 * k - 2 <= 1e-6))
   }
   apply(0)
 
@@ -132,9 +144,10 @@ export function buildShortestPathLesson(poly: Polyhedron, tree: FaceTree, radius
     group: new THREE.Group(), // 선분은 면 메시에 붙이므로 루트에 붙일 물체는 없다
     apply,
     dispose: () => {
+      sprites.forEach((s) => s.dispose())
       for (const o of attached) {
         o.removeFromParent()
-        o.traverse((c) => (c as THREE.Mesh).geometry?.dispose())
+        if (!(o instanceof THREE.Sprite)) o.traverse((c) => (c as THREE.Mesh).geometry?.dispose())
       }
       for (const m of materials) m.dispose()
     },

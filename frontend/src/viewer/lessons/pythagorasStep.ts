@@ -8,12 +8,12 @@ import { faceNormal, surfaceSteps } from './surfaceLayout.ts'
 
 type Points = { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; edgeColor?: string }
 
-// lesson 은 원래 단계가 stepsAfter 개. 전체를 한 단계 늘려 첫 단계에 직각삼각형을 보인다
-export function withPythagorasStep(lesson: LessonObject, stepsAfter: number, plan: SlantPlan, points: Points): LessonObject {
+// lesson 은 원래 단계가 stepsAfter 개. 전체를 한 단계 늘려 첫 단계에 직각삼각형을 보이고, 끝까지 남긴다. hideAfter: 이 단계 뒤로 지운다 (원뿔은 옆면을 펴면 입체가 없어진다)
+export function withPythagorasStep(lesson: LessonObject, stepsAfter: number, plan: SlantPlan, points: Points, hideAfter = Infinity): LessonObject {
   const overlay = rightTriangleOverlay(lesson.group, { ...points, text: { edge: plan.edge, leg: plan.leg, rise: plan.rise } })
   const apply = (progress: number) => {
     const at = progress * (stepsAfter + 1)
-    overlay.show(at < 1 + 1e-6 ? clamp01(at) : 0) // 다음 단계가 시작하면 사라진다
+    overlay.show(at > hideAfter + 1e-6 ? 0 : clamp01(at))
     lesson.apply(clamp01((at - 1) / stepsAfter))
   }
   apply(0)

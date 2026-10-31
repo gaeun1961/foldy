@@ -34,8 +34,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | 단계 | TODO | 이슈 | 선행 |
 |---|---|---|---|
-| 3차 | **TODO-19** [곡면 도형 위 선 그리기 (전개도 직선이 곡면을 따라 감기게)](19-curved-lines.md) | [#27](https://github.com/gaeun1961/foldy/issues/27) | 없음 |
-| 3차 | **TODO-20** [곡면 도형 선 입력 (전개도 상태에서 클릭)](20-curved-line-input.md) | [#28](https://github.com/gaeun1961/foldy/issues/28) | TODO-19, TODO-6 |
-| 3차 | **TODO-27** [원의 넓이 유도 시각화](27-circle-area.md) | [#42](https://github.com/gaeun1961/foldy/issues/42) | 없음 |
+| 3차 | **TODO-20** [곡면 도형 선 입력 (전개도 상태에서 클릭)](20-curved-line-input.md) | [#28](https://github.com/gaeun1961/foldy/issues/28) | 없음 |
 | 3차 | **TODO-32** [회전체 만들기](32-solid-of-revolution.md) | [#48](https://github.com/gaeun1961/foldy/issues/48) | 없음 |
 | 3차 | **TODO-33** [단면 보기](33-cross-section.md) | [#49](https://github.com/gaeun1961/foldy/issues/49) | TODO-32 |

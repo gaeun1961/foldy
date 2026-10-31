@@ -2,7 +2,7 @@
 import type { ShapeScene } from '../../shared/types.ts'
 import { NET_VARIANTS, netVariant } from '../gridNet.ts'
 import { polyhedronOf } from '../polyhedra.ts'
-import { boxCenterOf, boxSizeOf, CONE_THIRD_LINK, lessonGrade, lessonHint, lessonStepCount, lessonSummary, lessonTabs, sphereSectionLines } from './data.ts'
+import { boxCenterOf, boxSizeOf, CONE_THIRD_LINK, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, sphereSectionLines } from './data.ts'
 import { defaultEdge, edgeRelations, edgesOf, meetPoint } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { similarLayout, similarSteps } from './similarLayout.ts'
@@ -143,7 +143,7 @@ const check = (ok: boolean, msg: string) => {
     check(L.boxes.filter((b) => b.layer === 0).every((b, i) => b.index === i), `k=${k}: 층 안 순서`)
     check(lessonStepCount(cuboid, 'similar', k) === similarSteps(k) && similarSteps(k) === 2 + k, `k=${k}: 단계 = 길이 + 한 면 + 층 ${k}`)
     const s = lessonSummary(cuboid, 'similar', k)!
-    check(s.formula === `겉넓이 1 : ${k}² = 1 : ${k * k},  부피 1 : ${k}³` && s.value === `1 : ${k ** 3}`, `k=${k}: 닮음 공식, 실제 ${s.formula} = ${s.value}`)
+    check(s.formula === `닮음비 1 : ${k}` && s.ratios![0].value === `1 : ${k}²` && s.ratios![0].note === `= 1 : ${k * k}` && s.ratios![1].value === `1 : ${k}³` && s.ratios![1].note === `= 1 : ${k ** 3}`, `k=${k}: 닮음 공식, 실제 ${s.formula}`)
     check(lessonHint({ kind: 'similar', progress: 2 / similarSteps(k), scale: k }) === `한 면은 ${k * k}배였어요. 부피는 몇 배일까요?`, `k=${k}: 부피 직전에 묻는다`)
   }
   check(lessonHint({ kind: 'similar', progress: 0 })!.includes('2배'), '닮음비 기본 2')
@@ -216,7 +216,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
     check(caps.length === 1 && faceNormal(p, caps[0].face)[1] > 0.99, `${scene.shape} 윗면으로 보여줌`)
   }
   // 도형별 탭
-  check(lessonTabs(cube).join() === 'surface-area,volume,edge-relations,diagonal' && lessonTabs(prism).join() === 'surface-area,volume' && lessonTabs(pyramid).join() === 'surface-area,volume' && lessonTabs(ico).join() === 'counts,surface-area,volume', '도형별 탭')
+  check(lessonTabs(cube).join() === 'surface-area,volume,edge-relations,diagonal,similar,shortest-path' && lessonTabs(prism).join() === 'surface-area,volume' && lessonTabs(pyramid).join() === 'surface-area,volume' && lessonTabs(ico).join() === 'counts,surface-area,volume', '도형별 탭')
   // 단위는 최종 값에만: 식에는 단위가 없고, 값이 없으면 안 쓴다
   const triangular = solid('prism', { sides: 3, edge: 2, height: 4 })
   check(lessonSummary(triangular, 'surface-area')!.formula === '3 × 8 + 2 × √3' && lessonSummary(triangular, 'surface-area')!.value === '24 + 2√3 cm²', `삼각기둥 겉넓이 ${lessonSummary(triangular, 'surface-area')!.formula}`)
@@ -253,6 +253,24 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(!lessonTabs(ball).includes('sphere-section') && lessonStepCount(ball, 'sphere-section') === 1 && lessonGrade({ kind: 'sphere-section', progress: 0 }, ball) === '중2 이상 · 심화' && lessonSummary(ball, 'sphere-section', 2, 'pi', 0.5)!.lines!.length === 6, '심화 보기')
   check(lessonHint({ kind: 'sphere-section', progress: 1 }, ball) === null && lessonHint({ kind: 'sphere-section', progress: 0 }, ball)!.includes('단면'), '슬라이더 중에는 안내 글 없음')
   check(colorTokens('단면 반지름² = r² − h²')[0].color === SECTION_RADIUS_COLOR, '단면 반지름 색')
+}
+
+// 실 감기: 원기둥을 한 바퀴 감은 실은 직각삼각형의 빗변
+{
+  const shape = (s: string, radius: number, height: number) => ({ shape: s, size: { radius, height }, vertexLabels: s === 'cone' ? [null] : [], lines: [], net: { layout: 'default' } }) as unknown as ShapeScene
+  const pipe = shape('cylinder', 3, 5)
+  check(lessonSummary(pipe, 'thread')!.value === '√(36π² + 25) cm' && lessonSummary(pipe, 'thread')!.formula === '√((6π)² + 5²)' && lessonSummary(pipe, 'thread')!.general === '√((2πr)² + h²)', `원기둥 실 ${lessonSummary(pipe, 'thread')!.value}`)
+  check(lessonSummary(pipe, 'thread', 2, '3.14')!.value === `약 ${+Math.hypot(18.84, 5).toFixed(2)} cm` && lessonStepCount(pipe, 'thread') === 3 && lessonTabs(pipe).join() === 'surface-area,volume,thread', '원기둥 실 3.14, 탭')
+  check(lessonStepCount(shape('cone', 3, 4), 'thread') === 0 && !lessonTabs(shape('cone', 3, 4)).includes('thread'), '원뿔에는 실 감기가 없다')
+  check(lessonGrade({ kind: 'thread', progress: 0 }, pipe) !== null && !lessonTabs({ shape: 'prism', size: { sides: 4, edge: 3, height: 5 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene).includes('similar'), '학년 표시, 닮음은 직육면체·정육면체에만')
+}
+
+// 피타고라스로 구한 값은 겉넓이가 끝날 때까지 왼쪽 쪽에 남는다
+{
+  const coneScene = { shape: 'cone', size: { radius: 3, height: 4 }, vertexLabels: [null], lines: [], net: { layout: 'default' } } as unknown as ShapeScene
+  const tetraScene = { shape: 'regular-tetrahedron', size: { edge: 3 }, vertexLabels: Array(4).fill(null), lines: [], net: { layout: 'default' } } as unknown as ShapeScene
+  check(lessonNote({ kind: 'surface-area', progress: 1 / 4 }, coneScene) === null && lessonNote({ kind: 'surface-area', progress: 1 }, coneScene) === '모선 = √(3² + 4²) = 5 cm', '원뿔 모선이 끝까지')
+  check(lessonNote({ kind: 'surface-area', progress: 1 }, tetraScene)!.startsWith('높이 = √(3² − 1.5²)') && lessonNote({ kind: 'surface-area', progress: 2 / 3 }, tetraScene) === null && lessonNote({ kind: 'volume', progress: 1 }, coneScene) === null, '정사면체 높이가 끝까지, 부피에는 없음')
 }
 
 // 뿔이 왜 ⅓인지: 원판 합 ÷ 원기둥이 ⅓로 가까워지고, 정육면체는 똑같은 사각뿔 3개로 빈틈없이 나뉜다
@@ -295,7 +313,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(lessonSummary(cone, 'volume')!.value === '12π cm³' && lessonStepCount(cone, 'volume') === 4, `원뿔 부피 ${lessonSummary(cone, 'volume')!.value}`)
   check(lessonSummary(cylinder, 'surface-area')!.value === '28π cm²' && lessonSummary(cylinder, 'surface-area')!.formula === '밑면 2 × 4π + 옆면 20π' && lessonSummary(cylinder, 'surface-area', 2, '3.14')!.value === '87.92 cm²', `원기둥 겉넓이 ${lessonSummary(cylinder, 'surface-area')!.value}`)
   check(lessonSummary(cone, 'surface-area')!.value === '24π cm²' && lessonSummary(round('cone', 3, 5), 'surface-area')!.value === '9π + 3√34π cm²', `원뿔 겉넓이 (모선 5) ${lessonSummary(cone, 'surface-area')!.value}`)
-  check(lessonSummary(cone, 'similar')!.value === '1 : 8' && lessonStepCount(cone, 'similar') === 4, '원뿔 닮음')
+  check(lessonSummary(cone, 'similar')!.ratios![1].value === '1 : 2³' && lessonStepCount(cone, 'similar') === 4, '원뿔 닮음')
   for (const k of ['diagonal', 'shortest-path', 'edge-relations'] as const) check(lessonStepCount(cylinder, k) === 0, `원기둥 ${k} 없음`)
 }
 

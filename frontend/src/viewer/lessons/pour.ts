@@ -37,6 +37,7 @@ interface PourOptions {
   heightLabel: string
   pours?: number // 몇 번 붓는지 (기본 3)
   share?: number // 한 번에 통의 얼마가 차는지 (기본 ⅓)
+  heightFromStart?: boolean // 통 높이 글자를 처음부터 보인다 (구: 통 부피부터 구한다). 아니면 다 부은 뒤에
 }
 
 export function buildPourLesson(o: PourOptions): LessonObject {
@@ -64,7 +65,7 @@ export function buildPourLesson(o: PourOptions): LessonObject {
   water.position.x = cupX
   group.add(frame, water)
   const tickGeometry = new THREE.BufferGeometry().setFromPoints([...o.rim, o.rim[0]])
-  const sprites = ['⅓', '⅔'].map((text, k) => {
+  const tickLabels = ['⅓', '⅔'].map((text, k) => {
     const y = baseY + (h * (k + 1)) / 3
     const tick = new THREE.Line(tickGeometry, tickMaterial).computeLineDistances()
     tick.position.set(cupX, y, 0)
@@ -74,6 +75,7 @@ export function buildPourLesson(o: PourOptions): LessonObject {
     group.add(s.sprite)
     return s
   })
+  const sprites = [...tickLabels]
   const heightLabel = textSprite(o.heightLabel, size * 0.45)
   heightLabel.sprite.position.set(cupX, baseY, R + size * 0.18)
   group.add(heightLabel.sprite)
@@ -101,6 +103,8 @@ export function buildPourLesson(o: PourOptions): LessonObject {
     holder.rotation.z = -0.35 * tilt
     bodyMaterial.opacity = 0.12 + 0.88 * inside
     water.visible = level > 0
+    tickLabels.forEach((s, k) => (s.sprite.visible = level >= (k + 1) / 3 - 1e-6)) // 물이 거기까지 차면
+    heightLabel.sprite.visible = !!o.heightFromStart || progress >= DONE
     water.scale.set(1, Math.max(level * h, 1e-3) / o.fillHeight, 1)
     water.position.y = baseY + (level * h) / 2
     const pouring = flow > 0 && flow < 1

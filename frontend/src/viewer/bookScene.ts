@@ -19,7 +19,7 @@ const FONT = "'Pretendard Variable', Pretendard, system-ui, sans-serif"
 // value 없음: 교과서에서 계산하지 않는 값이라 식만. table: 표 (이름, 값) 열
 // general: 일반 공식 (글자별 색). reveal: 지금까지 나타난 줄 수 (일반 공식 → 숫자 식 → 답, 자리는 처음부터 잡아 둔다)
 // lines: 글자별 색으로 쓰는 설명 줄들 (한 줄씩 reveal), link 는 그 줄 옆의 작은 링크 (왼쪽 쪽 메뉴처럼 누른다)
-export type BookResult = { formula: string; value?: string; table?: string[][]; general?: string; reveal?: number; lines?: { text: string; link?: { id: string; label: string } }[] }
+export type BookResult = { formula: string; value?: string; table?: string[][]; general?: string; ratios?: { label: string; value: string; note: string }[]; reveal?: number; lines?: { text: string; link?: { id: string; label: string } }[] }
 // 왼쪽 쪽 메뉴 한 줄 (viewer.md "책 장면"). 누르면 onPageMenu(id)
 export type BookMenuItem = { id: string; label: string; active: boolean; enabled: boolean }
 export type BookContent = { title: string; page: number | null } // page: 그 도형의 왼쪽 쪽 번호, 아직 없는 도형이면 null
@@ -196,7 +196,7 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
     // 노란 형광펜: 식과 값 뒤를 칠해 눈에 띄게
     ctx.fillStyle = '#fff0a8'
     ctx.beginPath()
-    ctx.roundRect(x - 24, y - 52, maxWidth + 48, (result.general ? 76 : 0) + rows.length * 64 + (result.value ? 148 : 16), 16)
+    ctx.roundRect(x - 24, y - 52, maxWidth + 48, (result.general ? 76 : 0) + rows.length * 64 + (result.value ? 148 : 16) + (result.ratios?.length ?? 0) * 96, 16)
     ctx.fill()
     if (result.general) {
       if (shown()) {
@@ -215,6 +215,23 @@ function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text:
     for (const row of rows) {
       if (showFormula) drawMath(ctx, row, x, y)
       y += 64
+    }
+    // 같은 크기로 강조하는 줄들: 이름, 큰 값, 작은 계산값
+    for (const { label, value, note } of result.ratios ?? []) {
+      y += 30
+      if (shown()) {
+        ctx.fillStyle = INK
+        ctx.font = `600 42px ${FONT}`
+        ctx.fillText(label, x, y)
+        ctx.fillStyle = RED
+        ctx.font = `bold 76px ${FONT}`
+        ctx.fillText(value, x + 200, y)
+        const end = x + 200 + ctx.measureText(value).width + 24
+        ctx.fillStyle = INK
+        ctx.font = `600 38px ${FONT}`
+        ctx.fillText(note, end, y)
+      }
+      y += 66
     }
     if (result.value) {
       y += 40

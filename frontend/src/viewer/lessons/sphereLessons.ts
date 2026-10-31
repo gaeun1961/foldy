@@ -160,6 +160,7 @@ function volumeLesson(r: number): LessonObject {
     height: h,
     heightLabel: lengthText(h),
     pours: 1,
+    heightFromStart: true,
     share: 2 / 3,
   })
   // ① 구가 통에 꼭 들어가는 모습: 흐린 구를 통 안에 보인다
