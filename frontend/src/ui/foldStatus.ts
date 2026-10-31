@@ -13,6 +13,7 @@ export const SHAPE_NAME: Record<ShapeKind, string> = {
   cylinder: '원기둥',
   cone: '원뿔',
   sphere: '구',
+  revolution: '회전체',
 }
 
 // 화면에 쓰는 도형 이름. 각기둥·각뿔은 밑면 변 수로 (오각기둥, 사각뿔)
@@ -49,6 +50,7 @@ function subjectParticle(word: string) {
 // name: 화면에 쓸 이름 (각기둥·각뿔은 shapeName 으로 넘긴다)
 export function foldStatus(shape: ShapeKind, unfold: number, playing = false, closed = true, name = SHAPE_NAME[shape]) {
   if (shape === 'sphere') return { done: false, text: '구는 전개도가 없어요' }
+  if (shape === 'revolution') return { done: false, text: '회전체' }
   const percent = foldPercent(unfold)
   if (playing && percent > 0 && percent < 100) return { done: false, text: `${name} · 접는 중` }
   if (percent >= 100 && !closed) return { done: false, wrong: true, text: `${name} 전개도가 아니에요 · 면이 겹치거나 비어요` }

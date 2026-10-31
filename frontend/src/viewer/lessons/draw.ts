@@ -33,7 +33,7 @@ export function solidGeometry(poly: Polyhedron) {
 }
 
 // 길이 글자: 바탕이 흰 작은 표. 깊이 검사를 꺼서 다른 면에 가려져도 보인다. width 는 글자 표의 3D 가로 길이
-export function textSprite(text: string, width: number, long = false) {
+export function textSprite(text: string, width: number, long = false, color = '#1f2430') {
   const canvas = document.createElement('canvas')
   canvas.width = long ? 512 : 256 // long: 식처럼 긴 글. 글자가 줄어들지 않게 표를 넓게
   canvas.height = 96
@@ -42,7 +42,7 @@ export function textSprite(text: string, width: number, long = false) {
   ctx.roundRect(4, 8, canvas.width - 8, 80, 24)
   ctx.fill()
   ctx.font = "bold 56px 'Pretendard Variable', Pretendard, system-ui, sans-serif"
-  ctx.fillStyle = '#1f2430'
+  ctx.fillStyle = color
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(text, canvas.width / 2, 50, canvas.width - 24)

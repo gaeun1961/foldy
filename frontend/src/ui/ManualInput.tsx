@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import type { NetFace, ShapeScene } from '../shared/types'
 import { polygonName } from './foldStatus.ts'
-import { CELL, SIDES, crossScene, gridScene, overlaps, PHOTO_W, rectOf, SHAPES, SLIDER, type BoxShape, type PhotoFit } from './manualScene.ts'
+import type { RevolutionFigure } from '../shared/types'
+import { CELL, FIGURES, revolutionSliders, SIDES, crossScene, gridScene, overlaps, PHOTO_W, rectOf, SHAPES, SLIDER, type BoxShape, type PhotoFit } from './manualScene.ts'
 
 // 직접 만들기 (docs/specs/ui.md 화면 배치 3번). 사진 인식(LLM) 없이 쓰는 기본 길.
 // ① 치수로 만들기: 도형 드롭다운 + 치수 슬라이더 → 십자형. ② 전개도 그리기: 칸 위를 끌어 직사각형 면을 그린다 → 그대로 접힌다.
@@ -50,6 +51,7 @@ function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scen
   const shape = current ? (current.shape as BoxShape) : draft.shape
   const size = (current ? current.size : draft.size) as Record<string, number>
   const def = SHAPES.find((s) => s.shape === shape)!
+  const figure = (size as unknown as { figure?: RevolutionFigure }).figure
   const change = (nextShape: BoxShape, nextSize: Record<string, number>) => {
     if (current) onScene(crossScene(nextShape, nextSize as never, current))
     else setDraft({ shape: nextShape, size: nextSize })
@@ -59,7 +61,7 @@ function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scen
     <div className="size-form">
       <label className="shape-select">
         입체도형
-        <select value={shape} onChange={(e) => change(e.target.value as BoxShape, { ...SHAPES.find((s) => s.shape === e.target.value)!.size })}>
+        <select value={shape} onChange={(e) => change(e.target.value as BoxShape, { ...(SHAPES.find((s) => s.shape === e.target.value)!.size as unknown as Record<string, number>) })}>
           {SHAPES.map((s) => (
             <option key={s.shape} value={s.shape}>
               {s.name}
@@ -79,12 +81,24 @@ function SizeForm({ scene, onScene }: { scene: ShapeScene | null; onScene: (scen
           </select>
         </label>
       )}
-      {def.sliders.map(({ key, label }) => (
+      {'figure' in size && (
+        <label className="shape-select">
+          돌릴 도형
+          <select value={figure} onChange={(e) => change(shape, { ...(FIGURES.find((f) => f.figure === e.target.value)!.size as unknown as Record<string, number>), gap: size.gap })}>
+            {FIGURES.map((f) => (
+              <option key={f.figure} value={f.figure}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {(figure ? revolutionSliders(figure) : def.sliders).map(({ key, label }) => (
         <label key={key} className="slider-row">
           <span>{label}</span>
           <input
             type="range"
-            min={SLIDER.min}
+            min={key === 'gap' ? 0 : SLIDER.min}
             max={SLIDER.max}
             step={SLIDER.step}
             value={size[key]}

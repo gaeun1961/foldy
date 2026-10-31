@@ -40,7 +40,7 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed
     const { stepMs, pauseMs } = SPEEDS[speed]
     // 겉넓이(재기·칠하기·식)와 뿔 물 붓기는 한 단계에 할 일이 많아서 두 배 천천히
     // 개수는 하나씩 세어야 해서 더 천천히 (모서리 30개까지)
-    const slow = lesson.kind === 'counts' ? 6 : lesson.kind === 'surface-area' || lesson.kind === 'thread' || (lesson.kind === 'volume' && (scene.shape === 'cone' || scene.shape === 'pyramid' || scene.shape === 'sphere')) ? 2 : 1
+    const slow = lesson.kind.startsWith('revolve') || lesson.kind === 'section' ? 3 : lesson.kind === 'counts' ? 6 : lesson.kind === 'surface-area' || lesson.kind === 'thread' || (lesson.kind === 'volume' && (scene.shape === 'cone' || scene.shape === 'pyramid' || scene.shape === 'sphere')) ? 2 : 1
     cancel.current = animate(progress, list, stepMs * steps * slow, pauseMs * 3, set, () => {
       onPlayingChange(false)
     })
@@ -62,6 +62,39 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed
             <input type="range" min={0} max={12} step={1} value={Math.round((lesson.cut ?? 0.5) * 12)} onChange={(e) => onChange({ ...lesson, cut: +e.target.value / 12 })} />
           </label>
         )}
+        {/* 단면: 방향을 고르고, 가로·비스듬히는 높이를 움직인다 */}
+        {lesson.kind === 'section' && (
+          <div className="toggle-row" role="group" aria-label="자르는 방향">
+            {(['vertical', 'horizontal', 'tilted'] as const).map((k) => (
+              <button key={k} type="button" aria-pressed={(lesson.cutKind ?? 'vertical') === k} onClick={() => onChange({ ...lesson, cutKind: k })}>
+                {k === 'vertical' ? '세로' : k === 'horizontal' ? '가로' : '비스듬히'}
+              </button>
+            ))}
+          </div>
+        )}
+        {lesson.kind === 'section' && (lesson.cutKind ?? 'vertical') !== 'vertical' && (
+          <label className="stair-layers">
+            자르는 높이
+            <input type="range" min={0} max={20} step={1} value={Math.round((lesson.cut ?? 0.5) * 20)} onChange={(e) => onChange({ ...lesson, cut: +e.target.value / 20 })} />
+          </label>
+        )}
+        {/* 회전체: 각도를 직접 돌린다. progress 가 곧 각도 */}
+        {lesson.kind === 'revolve' && (
+          <label className="stair-layers">
+            회전 각도 {Math.round(progress * 360)}°
+            <input
+              type="range"
+              min={0}
+              max={360}
+              step={5}
+              value={Math.round(progress * 360)}
+              onChange={(e) => {
+                stop()
+                onChange({ ...lesson, progress: +e.target.value / 360 })
+              }}
+            />
+          </label>
+        )}
         {/* 원뿔: 원판 계단부터 원판 수를 바꿔 ⅓에 가까워지는 것을 본다 (ui.md 공식 시각화 규칙) */}
         {lesson.kind === 'volume' && scene.shape === 'cone' && progress >= 0.8 - 1e-6 && (
           <label className="stair-layers">
@@ -79,7 +112,7 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed
           </div>
         )}
       </div>
-      {lesson && (
+      {lesson && lesson.kind !== 'revolve-area' && lesson.kind !== 'revolve-volume' && (
         <>
           <div className="fold-buttons">
             <button type="button" className="secondary" disabled={progress <= 0} onClick={() => go('back')}>

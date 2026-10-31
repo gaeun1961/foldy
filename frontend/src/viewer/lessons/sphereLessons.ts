@@ -8,8 +8,10 @@ import type { LessonKind } from './data.ts'
 import type { LessonObject } from './index.ts'
 import { LENGTH_COLOR } from './formulas.ts'
 import { lengthText } from './lengthLabels.ts'
+import { withTerms, type LessonTerm } from './lessonTerms.ts'
 import { withEndLines } from './lengthLines.ts'
 import { buildPourLesson } from './pour.ts'
+import { buildRevolutionSectionLesson, buildRevolveLesson, type CutKind } from './revolve.ts'
 import { buildSphereSectionLesson } from './sphereSection.ts'
 
 const SEGMENTS = 64
@@ -190,9 +192,16 @@ function volumeLesson(r: number): LessonObject {
   )
 }
 
-export function buildSphereLesson(r: number, kind: LessonKind): LessonObject | null {
+export function buildSphereLesson(r: number, kind: LessonKind, cutKind?: CutKind): LessonObject | null {
+  if (kind === 'section') return buildRevolutionSectionLesson({ figure: 'semicircle', radius: r, height: 2 * r, gap: 0 }, cutKind)
+  const terms: LessonTerm[] = kind === 'surface-area' || kind === 'volume' ? [{ word: '반지름', at: [r * 0.5, 2 * r + r * 0.25, r * 0.5] }, { word: '구', at: [-r * 0.6, 2 * r + r * 0.15, 0] }] : kind === 'sphere-section' ? [{ word: '단면', at: [-r * 1.2, r * 1.3, r * 0.6] }] : []
+  return withTerms(sphereBody(r, kind), terms, 2 * r * 0.22)
+}
+
+function sphereBody(r: number, kind: LessonKind): LessonObject | null {
   if (kind === 'surface-area') return surfaceLesson(r)
   if (kind === 'sphere-section') return buildSphereSectionLesson(r)
+  if (kind === 'revolve') return buildRevolveLesson({ figure: 'semicircle', radius: r, height: 2 * r, gap: 0 })
   return kind === 'volume' ? volumeLesson(r) : null
 }
 

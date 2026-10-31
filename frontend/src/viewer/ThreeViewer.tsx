@@ -469,10 +469,10 @@ export function ThreeViewer({
     let rebuildBook: (() => void) | null = null // 책을 만든 뒤에 채워진다
     const applyLesson = () => {
       const { lesson } = viewRef.current
-      const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}` : null
+      const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.cutKind ?? ''}` : null
       if (key !== lessonKey) {
         lessonObject?.dispose()
-        lessonObject = lesson ? buildLesson(scene, poly, tree, lesson.kind, radius, lesson.scale) : null
+        lessonObject = lesson ? buildLesson(scene, poly, tree, lesson.kind, radius, lesson.scale, lesson.cutKind) : null
         lessonKey = key
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
@@ -489,6 +489,7 @@ export function ThreeViewer({
         if (lessonObject?.view || lowered) aim?.(lessonObject?.view ?? VIEW_DIR)
         lowered = !!lessonObject?.view
       }
+      lessonObject?.setCut?.(lesson?.cut ?? 0.5)
       lessonObject?.apply(lesson?.progress ?? 0)
       return { on: lessonObject !== null, ghost: lessonObject !== null && LESSON_POSE[lesson!.kind] === 'solid' }
     }
