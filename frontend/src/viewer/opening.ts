@@ -15,11 +15,14 @@ const FLUTTER_TIME = 1.0 // 레퍼런스(KOKUYO Turn the page) 한 장 넘김 �
 const FIRST_TIME = 1.8 // 첫 장은 천천히: 왼쪽에 처음 펴지는 종이가 갑자기 생기는 것처럼 보이지 않게. 다음 장들은 그만큼 늦게 출발
 const PAGES = 5 // 넘어오는 종이 장 수
 const POP = 2.8 // 도형이 하나씩 떠오르기 시작
-const GATHER = 5.2 // 도형이 왼쪽 쪽 위 자리로 모여 선다 (팝업처럼)
-const TURN = [6.0, 7.0] // 속표지가 넘어가며 왼쪽 쪽의 도형을 눌러 접는다
-export const OPENING_SECONDS = 7.2
+const ENTER = 5.0 // 도형이 하나씩 곡선을 그리며 책 속(왼쪽 쪽)으로 들어가기 시작 (ENTER_GAP 간격, ENTER_TIME 동안)
+const ENTER_GAP = 0.08
+const ENTER_TIME = 0.7 // 마지막 도형이 속표지가 왼쪽 쪽을 덮기 전에 내려앉게
+const TURN = [6.0, 7.2] // 속표지가 넘어간다. 도형이 들어가는 것과 겹쳐서, 넘어오는 종이가 들어간 도형을 덮어 누른다
+export const OPENING_SECONDS = 7.4
 const SHAPE_SIZE = 1.8 // 떠 있을 때 도형 크기 (배)
-const SLOT_SIZE = 1.25 // 왼쪽 쪽에 모여 섰을 때 크기 (한 쪽에 11개가 들어가게)
+const SLOT_SIZE = 1.25 // 왼쪽 쪽에 들어갔을 때 크기 (한 쪽에 11개가 들어가게)
+const ENTER_FOLD = 0.3 // 들어가 내려앉을 때 높이 (반쯤 접힌 팝업). 나머지는 덮어 오는 종이가 누른다
 
 // 넘기는 종이 모양 (레퍼런스 C 구간): 바로 출발해 후반에 감속하고, 휨은 0 → 최대 → 0. 책등 쪽이 앞서고 바깥 끝이 뒤처진다
 const TURN_EASE = 1.6 // 넘어가는 각도 = π·(1 − (1 − p)^TURN_EASE). 2 면 power2.out. 1.6 이면 진행률 약 35% 에 수직
@@ -204,19 +207,27 @@ export function buildOpening(book: Book, size: number) {
     mesh.add(new THREE.LineSegments(own(new THREE.EdgesGeometry(geometry, 20)), edgeMaterial))
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
-    const half = box.max.y * SLOT_SIZE // 자리에 똑바로 섰을 때 높이의 반
+    const half = box.max.y * SLOT_SIZE // 들어간 자리에서 똑바로 섰을 때 높이의 반
     const reach = Math.max(box.max.x, box.max.z) * SLOT_SIZE * 1.2 // 돌아도 닿는 가로 반경
     const angle = (k / all.length) * Math.PI * 2
     const ground = new THREE.Vector3(spine.x + Math.cos(angle) * w * 0.62, book.top, spine.z + Math.sin(angle) * d * 0.3)
     const air = ground.clone().setY(2 + (k % 3) * 0.9)
-    // 3. 모여 설 자리: 왼쪽 쪽 위 3 × 4 칸 (책등에서 떨어진 거리, 앞뒤)
-    const slot = new THREE.Vector3(spine.x - w * [0.22, 0.5, 0.78][k % 3], book.top + half, spine.z + d * [-0.3, -0.1, 0.1, 0.3][Math.floor(k / 3)])
     mesh.scale.setScalar(0)
     book.group.add(mesh)
-    return { mesh, ground, air, slot, half, reach, start: new THREE.Vector3() }
+    return { mesh, ground, air, half, reach, enter: 0, from: new THREE.Vector3(), via: new THREE.Vector3(), slot: new THREE.Vector3() }
+  })
+  // 3. 들어가는 순서와 자리: 오른쪽에 떠 있던 것부터(일어서는 속표지에 걸리기 전에 지나가게) 책등 가까운 칸부터 채운다.
+  // 자리는 왼쪽 쪽 위 3 × 4 칸. 떠 있던 곳에서 위로 솟았다 내려앉는 곡선(2차 베지어)으로 간다
+  const slots = [0.22, 0.5, 0.78].flatMap((s) => [-0.3, -0.1, 0.1, 0.3].map((z) => new THREE.Vector3(spine.x - w * s, book.top, spine.z + d * z)))
+  const order = shapes.map((_, k) => k).sort((a, b) => shapes[b].ground.x - shapes[a].ground.x)
+  order.forEach((k, n) => {
+    const shape = shapes[k]
+    shape.enter = ENTER + n * ENTER_GAP
+    shape.from.copy(shape.air).y += Math.sin(shape.enter * 2 + k) * 0.15 // 떠 있던 마지막 자리
+    shape.slot.copy(slots[n]).y += shape.half * ENTER_FOLD
+    shape.via.lerpVectors(shape.from, shape.slot, 0.5).add(new THREE.Vector3(0, 2.5, 1.5)) // 위로, 보는 쪽으로 부풀어 곡선이 보이게
   })
 
-  let dived = false
   let done = false
   const update = (t: number) => {
     flap.rotation.z = -Math.PI * (1 - easeInOut(span(t, COVER[0], COVER[1])))
@@ -230,30 +241,28 @@ export function buildOpening(book: Book, size: number) {
     stack(landed / PAGES)
     const turn = span(t, TURN[0], TURN[1])
     title.set(turn, lerp(eps, eps * (PAGES + 1), turn))
-    if (t >= GATHER && !dived) {
-      dived = true
-      for (const s of shapes) s.start.copy(s.mesh.position)
-    }
-    shapes.forEach(({ mesh, ground, air, slot, half, reach, start }, k) => {
-      // 돌던 것은 모일 때 부드럽게 멈춘다 (세로축 회전만 남는다)
-      const settle = easeInOut(span(t, GATHER, TURN[0]))
-      const spin = 0.8 * Math.min(t, GATHER) + 0.28 * (1 - Math.exp(-Math.max(0, t - GATHER) / 0.35))
-      mesh.rotation.set(Math.sin(t + k) * 0.4 * (1 - settle), k + spin, 0)
-      if (t < GATHER) {
+    shapes.forEach(({ mesh, ground, air, half, reach, enter, from, via, slot }, k) => {
+      const a = easeInOut(span(t, enter, enter + ENTER_TIME))
+      // 돌던 것은 들어가면서 기울기가 풀리고 천천히 멈춘다
+      mesh.rotation.set(Math.sin(t + k) * 0.4 * (1 - a), k + 0.8 * Math.min(t, enter) + 0.6 * a, 0)
+      if (a === 0) {
         const p = easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))
         mesh.position.lerpVectors(ground, air, p).y += Math.sin(t * 2 + k) * 0.15 * span(t, POP + 1, POP + 2)
         mesh.scale.setScalar(Math.max(0, p) * SHAPE_SIZE)
         return
       }
-      // 3. 팝업북처럼: 왼쪽 쪽 위 자리에 내려와 서고, 속표지가 넘어와 닫히는 만큼 눌려 납작하게 접힌다.
-      // 도형의 책등 쪽 끝 바로 위 종이 높이까지만 설 수 있다
-      mesh.position.lerpVectors(start, slot, settle)
+      // 3. 팝업북처럼: 곡선을 그리며 왼쪽 쪽으로 들어가 반쯤 접힌 채 내려앉고, 넘어오는 속표지가 덮는 만큼 마저 눌려 납작해진다.
+      // 도형의 책등 쪽 끝 바로 위 종이 높이까지만 설 수 있다 (종이를 뚫지 않게)
+      const b = 1 - a
+      mesh.position.set(0, 0, 0).addScaledVector(from, b * b).addScaledVector(via, 2 * a * b).addScaledVector(slot, a * a)
+      const size = lerp(SHAPE_SIZE, SLOT_SIZE, a)
       const room = title.heightAt(mesh.position.x + reach) - book.top - eps * 2
-      const q = Math.min(1, Math.max(0, room / (2 * half)))
-      const size = lerp(SHAPE_SIZE, SLOT_SIZE, settle)
-      mesh.visible = q > 0.03
-      mesh.scale.set(size, size * q, size)
-      if (settle === 1) mesh.position.y = book.top + half * q // 아랫면은 페이지 위 그대로
+      // 덮어 오는 종이 아래에 있게: 종이가 도형 위까지 내려왔으면 그 높이로 눌러 내린다
+      const pressed = room < mesh.position.y - book.top + half * lerp(1, ENTER_FOLD, a)
+      const fold = Math.min(lerp(1, ENTER_FOLD, a), Math.max(0, room / (2 * half)))
+      mesh.visible = fold > 0.08 // 거의 납작하면 모서리 선만 남아 보여서 숨긴다
+      mesh.scale.set(size, size * fold, size)
+      if (a === 1 || pressed) mesh.position.y = book.top + half * fold // 아랫면은 페이지 위
     })
   }
 
