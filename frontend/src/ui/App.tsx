@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PerfMeter } from './PerfMeter'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, hologramSupported, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
+import { canLayTogether, CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, hologramSupported, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { HologramMode } from './HologramMode'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
@@ -219,11 +219,18 @@ export default function App() {
   useEffect(() => {
     if (reading) readStart.current = { scene: sceneNow.current }
   }, [reading])
+  // 여러 도형에 원기둥·원뿔·구가 섞이면 다면체만 같이 놓고 곡면 도형은 뺀다 (책에 같이 못 놓는다, viewer.md "여러 도형").
+  // 모두 곡면이면 첫 도형 하나만. 뺀 도형은 만들기 카드에 한 줄로 알린다
+  const [leftOut, setLeftOut] = useState<string | null>(null)
   const show = (list: Found) => {
     setPendingResult(null)
-    setGallery(list.length > 1 ? list : null)
+    const flat = list.filter((x) => canLayTogether(x.scene))
+    const keep = list.length > 1 ? (flat.length ? flat : [list[0]]) : list
+    const dropped = list.filter((x) => !keep.includes(x))
+    setLeftOut(dropped.length ? `함께 놓을 수 없어서 뺀 도형: ${dropped.map((d) => shapeName(d.scene)).join(', ')}. 따로 감싸서 읽어 주세요` : null)
+    setGallery(keep.length > 1 ? keep : null)
     setGalleryIndex(0)
-    showShape(list[0].scene, list[0].place)
+    showShape(keep[0].scene, keep[0].place)
   }
   const arrive = (list: Found) => {
     const changed = readStart.current !== null && readStart.current.scene !== sceneNow.current
@@ -476,11 +483,17 @@ export default function App() {
               setFit(NO_FIT)
               setGallery(null)
               setPendingResult(null)
+              setLeftOut(null)
               setScene(null) // 새 사진이면 이전 도형을 내린다 (이전 전개도 밑에 새 사진이 어긋나 깔리지 않게, 코드 검토)
             }}
             onManual={() => setManualFor(photo)}
             onReading={setReading}
           />
+          {leftOut && (
+            <p className="upload-problem" role="status">
+              {leftOut}
+            </p>
+          )}
           {pendingResult && (
             // 읽는 동안 학생이 직접 도형을 바꿨으면 결과로 덮지 않고 묻는다 (코드 검토)
             <button type="button" className="primary-button" style={{ width: '100%' }} onClick={() => show(pendingResult)}>
