@@ -4,7 +4,7 @@
 - 작성자: Phodo
 - 에이전트: Claude Code
 - 영역: 3D 뷰어 (`frontend/src/viewer/`)
-- 이슈: 아직 없음 (프론트 담당이 가져갈 때 `[버그]` 이슈를 만든다)
+- 이슈: [#128](https://github.com/gaeun1961/foldy/issues/128) (assignee 없음, 프론트 담당이 가져간다)
 - 선행 TODO: 없음
 
 ## 증상

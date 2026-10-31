@@ -1,6 +1,6 @@
 # 내 학습지 (보관함 · 팀 테스트용 인식 엔진 · 문제 글 · 홀로그램 사진)
 
-[mobile.md](mobile.md) 다음 단계의 계획과 명세입니다. **상태: 계획 (2026-10-31, 구현 전)**. 팀원 작업과 겹치지 않게 경계·변경 지도를 먼저 정한다.
+[mobile.md](mobile.md) 다음 단계의 계획과 명세입니다. **상태: 구현 (2026-10-31, 브랜치 `feature/worksheets`, push 전)**. 이슈 [#127](https://github.com/gaeun1961/foldy/issues/127)(기능), [#125](https://github.com/gaeun1961/foldy/issues/125)(계약 problem·photoBox), [#130](https://github.com/gaeun1961/foldy/issues/130)(홀로그램 사진). 팀원 작업과 겹치지 않게 경계·변경 지도를 먼저 정한다.
 
 - 결정 (사용자, 2026-10-31)
   - 사진 인식은 API 비용이 커서 **팀 테스트에서는 Antigravity CLI(`agy`)로** 읽는다. 학생이 쓰는 배포 서버에서는 켜지 않는다
