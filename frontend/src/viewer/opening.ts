@@ -27,6 +27,7 @@ const HEIGHTS = [2.0, 3.6, 2.7, 4.2, 1.7, 3.1, 2.3, 3.9, 2.9, 1.5, 3.4]
 export const LOW_ANGLE = 24 // 오프닝 동안 카메라 높이각(도): 낮게 봐야 공중에 뜬 높이가 보인다. 속표지가 넘어가는 동안 원래 각도로 올라간다
 const WANDER = 1.0 // 날아다니는 폭
 const ABSORB_TIME = 0.7 // 오른쪽 도형: 넘어가는 종이에 흡수되는 시간 (종이가 그 도형에 닿을 때 끝난다)
+const STRETCH = 8 // 블랙홀처럼 빨려 들어갈 때 늘어나는 정도 (최대 1 + STRETCH 배)
 const ABSORB_MIN = 0.35 // 넘기기 시작하자마자 닿는 도형도 이만큼은 날아 들어간다
 const SINK_TIME = 1.0 // 왼쪽 도형: 곡선을 그리며 왼쪽 쪽 안으로 들어가는 시간 (종이가 오기 전에 끝나게 줄어들 수 있다)
 const SINK_GAP = 0.06 // 왼쪽 도형이 하나씩 들어가는 간격 (넘기기 시작할 때부터)
@@ -309,9 +310,9 @@ export function buildOpening(book: Book, size: number) {
       // 늘어나는 방향 = 곡선의 진행 방향 (처음엔 왼쪽 위, 끝으로 갈수록 종이 쪽)
       dir.subVectors(via, from).multiplyScalar(b).addScaledVector(to.clone().sub(via), a)
       if (dir.lengthSq() > 1e-6) holder.quaternion.setFromUnitVectors(UP, dir.normalize())
-      const long = 1 + 2.5 * u * u
+      const long = 1 + STRETCH * u * u
       holder.scale.set(1 / Math.sqrt(long), long, 1 / Math.sqrt(long))
-      mesh.scale.setScalar(size * (1 - smooth(0.45, 1, u)))
+      mesh.scale.setScalar(size * (1 - smooth(0.7, 1, u))) // 늘어난 모습이 보이게 끝 무렵에야 작아진다
     })
   }
 
