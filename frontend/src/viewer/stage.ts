@@ -12,6 +12,7 @@ import type { ShapeScene } from '../shared/types.ts'
 import { VIEW_DIR } from './bookScene.ts'
 import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape } from './curved.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facingYaw, farFirstOrder, layOnFloor, stepUnfold, type FaceTree } from './faceTree.ts'
+import { buildRevolutionBody } from './lessons/revolve.ts'
 import { buildSphereBody } from './lessons/sphereLessons.ts'
 import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
 import type { Theme3D } from './theme.ts'
@@ -28,12 +29,12 @@ export interface Stage {
   dispose(): void
 }
 
-// 무대가 그릴 수 있는 도형인지. 다면체(면 트리, 면이 2개 이상), 원기둥·원뿔, 구.
+// 무대가 그릴 수 있는 도형인지. 다면체(면 트리, 면이 2개 이상), 원기둥·원뿔, 구, 회전체.
 // 면이 하나뿐인 학습지 전개도(전개도 고르기 문제 등)는 접을 입체가 없어서 false. 학습지에서 모르는 도형이 와도 false 라서 홀로그램 버튼이 꺼진다
 export function stageSupported(scene: ShapeScene) {
   const poly = polyhedronOf(scene)
   if (poly) return poly.faces.length >= 2
-  return scene.shape === 'cylinder' || scene.shape === 'cone' || scene.shape === 'sphere'
+  return scene.shape === 'cylinder' || scene.shape === 'cone' || scene.shape === 'sphere' || scene.shape === 'revolution'
 }
 
 
@@ -161,26 +162,36 @@ function polyhedronStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   }
 }
 
-// 원기둥·원뿔(말기)과 구. 선은 굵기가 있는 관(thickLine)이라 화면 크기와 상관없다
+// 원기둥·원뿔(말기)과 구·회전체(접지 않는 입체). 선은 굵기가 있는 관(thickLine)이라 화면 크기와 상관없다
 function roundStage(scene: ShapeScene, theme: Theme3D): Stage | null {
-  if (scene.shape !== 'cylinder' && scene.shape !== 'cone' && scene.shape !== 'sphere') return null
+  if (scene.shape !== 'cylinder' && scene.shape !== 'cone' && scene.shape !== 'sphere' && scene.shape !== 'revolution') return null
   const sphere = scene.shape === 'sphere'
+  const revolution = scene.shape === 'revolution' ? scene.size : null
   const size = roundSizeOf(scene)
   const normal = theme.looks.normal
   const faces: [THREE.Material, THREE.Material] = [faceMaterial(normal.outside, THREE.FrontSide, normal.opacity), faceMaterial(normal.inside, THREE.BackSide, normal.opacity)]
   // 선 관 굵기는 책 장면과 같은 식, 굵은 선 테마(홀로그램)는 두 배
   const lineRadius = curvedLineRadius(size, theme.edgeWidth > 0 ? 2 : 1)
-  const net = sphere ? buildSphereBody(size.radius, faces[0], theme.sphereRing) : buildCurvedNet(scene.shape as CurvedShape, size, faces, lineRadius, [], seamOf(scene), theme.curved) // 그은 선은 그리지 않는다 (viewer.md "홀로그램")
+  const net = revolution
+    ? buildRevolutionBody(revolution, faces[0])
+    : sphere
+      ? buildSphereBody(size.radius, faces[0], theme.sphereRing)
+      : buildCurvedNet(scene.shape as CurvedShape, size, faces, lineRadius, [], seamOf(scene), theme.curved) // 그은 선은 그리지 않는다 (viewer.md "홀로그램")
+  // 회전체 몸통에는 모서리 선이 없다. 꺾인 모서리(30° 넘게 꺾인 곳, 윗면·밑면 둘레 등)를 모서리 색으로 덧그려 윤곽이 보이게
+  const outline = revolution
+    ? new THREE.LineSegments(new THREE.EdgesGeometry((net.group.children[0] as THREE.Mesh).geometry, 30), new THREE.LineBasicMaterial({ color: normal.edge }))
+    : null
+  if (outline) net.group.children[0].add(outline)
   net.setPaired(true)
   const object = new THREE.Group()
   object.add(net.group)
-  const { solid, all } = settle(object, net.group, (s) => net.apply(s), sphere ? 1 : 16)
+  const { solid, all } = settle(object, net.group, (s) => net.apply(s), sphere || revolution ? 1 : 16)
 
   return {
     object,
     steps: 0,
     order: [],
-    foldable: !sphere,
+    foldable: !sphere && !revolution,
     apply: (s) => net.apply(s),
     solid,
     all,
@@ -189,6 +200,8 @@ function roundStage(scene: ShapeScene, theme: Theme3D): Stage | null {
       object.removeFromParent()
       net.dispose()
       faces.forEach((m) => m.dispose())
+      outline?.geometry.dispose()
+      ;(outline?.material as THREE.Material | undefined)?.dispose()
     },
   }
 }

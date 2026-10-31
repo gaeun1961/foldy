@@ -32,6 +32,7 @@ const KINDS: Record<ShapeKind, { name: string; scene: ShapeScene; steps: number;
   cylinder: { name: '원기둥', scene: scene('cylinder', { radius: 3, height: 5 }), steps: 0 },
   cone: { name: '원뿔', scene: scene('cone', { radius: 3, height: 4 }), steps: 0 },
   sphere: { name: '구', scene: scene('sphere', { radius: 6 }), steps: 0 },
+  revolution: { name: '회전체', scene: scene('revolution', { figure: 'rectangle', radius: 3, height: 5, gap: 0 }), steps: 0 },
 }
 const SCENES: [string, ShapeScene, number][] = Object.values(KINDS)
   .filter((k) => {
@@ -50,7 +51,7 @@ for (const theme of [PAPER, HOLOGRAM]) {
     check(stage !== null, `${what}: 무대가 만들어져야`)
     if (!stage) continue
     check(stage.steps === steps, `${what}: 단계 수 ${stage.steps} != ${steps}`)
-    check(stage.foldable === (s.shape !== 'sphere'), `${what}: 접는 도형인지`)
+    check(stage.foldable === (s.shape !== 'sphere' && s.shape !== 'revolution'), `${what}: 접는 도형인지`)
 
     // 다 접은 입체: 바닥(y = 0)에 놓이고, 수평 가운데가 원점 (돌려도 제자리)
     const solid = stage.solid
@@ -71,6 +72,26 @@ for (const theme of [PAPER, HOLOGRAM]) {
       }
     }
     stage.resize(800, 300)
+    stage.dispose()
+  }
+}
+
+// 회전체: 평면도형 네 가지(ui/manualScene.ts FIGURES 기본 치수) × 축에 붙임·띄움. 접지 않고 바닥에 서고 가운데가 원점
+for (const size of [
+  { figure: 'rectangle', radius: 3, height: 5 },
+  { figure: 'right-triangle', radius: 3, height: 4 },
+  { figure: 'semicircle', radius: 6, height: 12 },
+  { figure: 'trapezoid', radius: 5, height: 4, top: 2 },
+]) {
+  for (const gap of [0, 2]) {
+    const what = `회전체 ${size.figure} 축에서 ${gap}`
+    const s = scene('revolution', { ...size, gap })
+    check(stageSupported(s), `${what}: 홀로그램 가능`)
+    const stage = buildStage(s, HOLOGRAM)!
+    check(!stage.foldable && stage.steps === 0, `${what}: 접지 않는다`)
+    check(!stage.solid.isEmpty() && near(stage.solid.min.y, 0, 1e-6), `${what}: 바닥에 놓여야`)
+    const c = stage.solid.getCenter(new THREE.Vector3())
+    check(near(c.x, 0, 1e-6) && near(c.z, 0, 1e-6), `${what}: 가운데가 원점`)
     stage.dispose()
   }
 }
@@ -112,4 +133,4 @@ check(brightness(HOLOGRAM.looks.normal.edge) > 0.8, '홀로그램 모서리는 �
 check(brightness(HOLOGRAM.curved.plain) > 0.8 && brightness(HOLOGRAM.sphereRing) > 0.8, '홀로그램 곡면 선은 밝아야')
 check(HOLOGRAM.edgeWidth > 0 && PAPER.edgeWidth === 0, '홀로그램만 굵은 선')
 
-console.log(`ok: 무대 (모든 도형 종류 × 종이·홀로그램 테마, 학습지 도형 ${WORKSHEET_SCENES.length}개: 단계 수, 책 장면과 같은 접는 순서, 바닥·가운데, 전체 범위, 펼치기, 면 1개는 불가), 3D 디자인 토큰`)
+console.log(`ok: 무대 (모든 도형 종류 × 종이·홀로그램 테마, 학습지 도형 ${WORKSHEET_SCENES.length}개, 회전체 8가지: 단계 수, 책 장면과 같은 접는 순서, 바닥·가운데, 전체 범위, 펼치기, 면 1개는 불가), 3D 디자인 토큰`)

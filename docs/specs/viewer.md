@@ -207,13 +207,13 @@ CSS 토큰(`index.css` `:root`)처럼 3D 도형 색을 한 곳에 둔다.
 
 ```ts
 buildStage(scene: ShapeScene, theme: Theme3D): Stage | null
-stageSupported(scene: ShapeScene): boolean // 다면체(면 트리, 면 2개 이상), 원기둥·원뿔, 구. 면이 하나뿐인 학습지(전개도 고르기)나 모르는 도형은 false
+stageSupported(scene: ShapeScene): boolean // 다면체(면 트리, 면 2개 이상), 원기둥·원뿔, 구, 회전체. 면이 하나뿐인 학습지(전개도 고르기)나 모르는 도형은 false
 
 interface Stage {
   object: THREE.Group // 바닥(y = 0)에 놓인 도형. 원점 = 다 접은 입체의 수평 가운데
   steps: number // 단계별 접기 단계 수. 0 이면 한 번에만 접힌다 (원기둥·원뿔) 또는 접지 않는다 (구)
   order: number[] // 단계별로 접는 면 순서 (책 장면과 같다). 곡면 도형·구는 빈 배열
-  foldable: boolean // 구는 false
+  foldable: boolean // 구·회전체는 false
   apply(s: number, mode?: 'all' | 'step'): void // s: 0 = 입체, 1 = 전개도
   solid: THREE.Box3 // 다 접은 입체의 범위
   all: THREE.Box3 // 접고 펴는 동안 차지하는 전체 범위
@@ -225,9 +225,10 @@ interface Stage {
 - 다면체: 책 장면과 같은 면 트리(`buildFaceTree`·`applyUnfold`·`stepUnfold`), 같은 자세(`layOnFloor`, 순서가 없는 도형은 `facingYaw`), 같은 접는 순서(`foldOrderOf`, 없으면 `farFirstOrder`). 방향은 책 장면과 같은 `VIEW_DIR`(`bookScene.ts`)이고 `Stage.order`로 검사한다. 굵은 선 테마면 모서리를 `Line2`로 덧그린다
 - 원기둥·원뿔: 책 장면과 같은 `buildCurvedNet`·`roundSizeOf`·`curvedLineRadius`·`seamOf`(`curved.ts`)에 토큰 색을 넘긴다. 맞닿는 선 색은 켠다. 선 관 굵기는 굵은 선 테마에서 두 배
 - 구: 책 장면과 같은 `buildSphereBody`. 접지 않는다
+- 회전체: 책 장면과 같은 `buildRevolutionBody`. 접지 않는다. 몸통에 모서리 선이 없어서 30° 넘게 꺾인 모서리(`EdgesGeometry`)를 모서리 색으로 덧그린다
 - 자리 잡기: 다 접은 입체의 가장 낮은 곳을 y = 0, 수평 가운데를 원점에 둔다. 그래서 세로축으로 돌리면 제자리에서 돈다
 - 범위는 꼭짓점으로 잰다 (`boundsOf`). `Box3.expandByObject`는 기울어진 면의 상자를 다시 돌려 담아서 실제보다 크다: 펼친 전개도에 두께가 생기고 정팔면체가 바닥 아래로 내려가 보인다. 인스턴스로 그린 관(곡면 선)은 조각마다 잰다
-- 검사: `stage.test.ts`. 모든 도형 종류(`ShapeKind`마다 기본 치수 표, 도형 종류가 늘면 표가 없어 타입 검사가 실패한다) × 두 테마, 실제 학습지 13장의 정답 도형(`worksheetScenes.ts`, `backend/evals/answers.json`에서 복사). 단계 수, 바닥·가운데, 전체 범위가 입체와 전개도를 담는지, 다면체 전개도가 바닥에 납작한지, 면 1개 학습지는 홀로그램 불가, 토큰 이름이 같은지와 홀로그램 선이 밝은지
+- 검사: `stage.test.ts`. 모든 도형 종류(`ShapeKind`마다 기본 치수 표, 도형 종류가 늘면 표가 없어 타입 검사가 실패한다) × 두 테마, 회전체 평면도형 4가지 × 축에 붙임·띄움, 실제 학습지 13장의 정답 도형(`worksheetScenes.ts`, `backend/evals/answers.json`에서 복사). 단계 수, 바닥·가운데, 전체 범위가 입체와 전개도를 담는지, 다면체 전개도가 바닥에 납작한지, 면 1개 학습지는 홀로그램 불가, 토큰 이름이 같은지와 홀로그램 선이 밝은지
 
 ### `HologramViewer` (`frontend/src/viewer/HologramViewer.tsx`)
 
@@ -242,7 +243,7 @@ interface Stage {
 
 나머지는 고정값이다 (간소화, 2026-10-31 사용자 결정): 카메라 높이각 20°(펼칠수록 45°), 늘 천천히 돌기(0.35 rad/s), 늘 접었다 펴기 반복, 좌우 반전 없음. 좌우 반전이 틀려도 도형이 대칭이고 글자를 그리지 않아 눈에 띄지 않는다
 
-`hologramSupported(scene)` (= `stageSupported`): 직육면체·정육면체·정다면체 4종·각기둥·각뿔(학습지 grid 전개도 포함, 면 2개 이상), 원기둥·원뿔, 구. 잘못 그린 전개도도 그대로 접혀 보인다 (닫히지 않아도 된다).
+`hologramSupported(scene)` (= `stageSupported`): 직육면체·정육면체·정다면체 4종·각기둥·각뿔(학습지 grid 전개도 포함, 면 2개 이상), 원기둥·원뿔, 구, 회전체. 잘못 그린 전개도도 그대로 접혀 보인다 (닫히지 않아도 된다).
 
 홀로그램은 도형을 모른다. `buildStage(scene, HOLOGRAM)`이 준 물체를 세로축으로 돌리고, 범위(`solid`·`all`)로 카메라 거리를 정하고, `apply`로 접는다.
 
@@ -266,7 +267,7 @@ interface Stage {
 
 #### 움직임
 
-- 반복: 펼친 채 1.5초 → 접기 (단계가 있으면 한 면씩 면당 0.9초, 원기둥·원뿔은 한 번에 3초) → 접힌 채 4초 → 한 번에 펼치기 1.5초. 구는 접지 않고 돌기만 한다
+- 반복: 펼친 채 1.5초 → 접기 (단계가 있으면 한 면씩 면당 0.9초, 원기둥·원뿔은 한 번에 3초) → 접힌 채 4초 → 한 번에 펼치기 1.5초. 구·회전체는 접지 않고 돌기만 한다
 - 돌리는 축은 무대의 원점(다 접은 입체의 수평 가운데)이다
 - 다 접히면 카메라가 입체 범위(`solid`)로 다가가 입체 가운데 높이를 본다. 펼칠수록 전체 범위(`all`)로 물러나고, 높이각이 45°까지 올라가고, 보는 높이가 바닥으로 내려간다. 바닥에 누운 전개도가 납작하지 않고, 넓은 전개도가 칸의 넓은 가운데에 와서 좁은 안쪽 변에서 잘리지 않게
 - 보이는 모습은 `HOLOGRAM` 토큰. 꼭짓점 라벨·선·면 표시는 그리지 않는다 (작은 피라미드에서 읽히지 않는다)
