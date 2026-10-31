@@ -239,7 +239,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(colorTokens('밑넓이 × 높이').find((t) => t.text === '높이')!.color === LENGTH_COLOR.h && colorTokens('밑넓이 × 높이')[0].color === undefined, '말 공식의 색, 밑넓이는 평소 색')
 }
 
-// 구 단면 비교: 어느 높이에서도 반구 단면 = 고리. 기본 흐름 뒤에만, 탭에는 없다
+// 구 단면 비교: 어느 높이에서도 반구 단면 = 고리. 탭에는 없다
 {
   const ball = { shape: 'sphere', size: { radius: 6 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene
   for (const cut of [0, 1 / 12, 0.5, 11 / 12]) {
@@ -249,7 +249,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   }
   const lines = sphereSectionLines(6, 0.5)
   check(lines.length === 6 && lines[1].text.endsWith('= 27π') && lines[2].text.endsWith('= 27π') && lines[4].link?.id === CONE_THIRD_LINK && lines[5].text.endsWith('⁴⁄₃πr³'), `단면 글 ${lines[1].text}`)
-  check(sphereSectionLines(6, 1)[1].text.endsWith('= 0') && sphereSectionLines(6, 0.5, '3.14')[1].text.endsWith('= 84.78'), '꼭대기와 3.14')
+  check(sphereSectionLines(6, 1)[1].text.endsWith('= 0') && lessonSummary(ball, 'sphere-section', 2, '3.14', 0.5)!.lines![1].text.endsWith('= 27π'), '꼭대기, 초등을 골라 두어도 심화는 π 그대로')
   check(!lessonTabs(ball).includes('sphere-section') && lessonStepCount(ball, 'sphere-section') === 1 && lessonGrade({ kind: 'sphere-section', progress: 0 }, ball) === '중2 이상 · 심화' && lessonSummary(ball, 'sphere-section', 2, 'pi', 0.5)!.lines!.length === 6, '심화 보기')
   check(lessonHint({ kind: 'sphere-section', progress: 1 }, ball) === null && lessonHint({ kind: 'sphere-section', progress: 0 }, ball)!.includes('단면'), '슬라이더 중에는 안내 글 없음')
   check(colorTokens('단면 반지름² = r² − h²')[0].color === SECTION_RADIUS_COLOR, '단면 반지름 색')

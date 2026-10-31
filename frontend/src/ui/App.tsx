@@ -287,7 +287,7 @@ export default function App() {
                   </button>
                 </div>
               )}
-              {/* 빠르기와 과정 (ui.md 화면 배치): 보기·차례 왼쪽에 바로. 과정은 공식을 볼 때만, 심화는 기본 흐름이 끝난 뒤에만 */}
+              {/* 빠르기와 과정 (ui.md 화면 배치): 보기·차례 왼쪽에 바로. 과정은 공식을 볼 때만. 구에는 심화가 있어 언제나 (셋 중 하나만 눌린다, 심화는 중등 내용) */}
               <div className="toggle-row" role="group" aria-label="빠르기">
                 {(Object.keys(SPEEDS) as Speed[]).map((s) => (
                   <button key={s} type="button" aria-pressed={speed === s} onClick={() => setSpeed(s)}>
@@ -295,18 +295,26 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              {lesson && (
+              {(lesson || sphere) && (
                 <div className="toggle-row" role="group" aria-label="과정">
                   {(['3.14', 'pi'] as const).map((m) => (
-                    <button key={m} type="button" aria-pressed={piMode === m} onClick={() => setPiMode(m)}>
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={lesson?.kind !== 'sphere-section' && piMode === m}
+                      onClick={() => {
+                        setPiMode(m)
+                        if (lesson?.kind === 'sphere-section') changeLesson({ kind: 'volume', progress: 0 })
+                      }}
+                    >
                       {m === 'pi' ? '중등' : '초등'}
                     </button>
                   ))}
-                  {sphere && ((lesson.kind === 'volume' && lesson.progress >= 1) || lesson.kind === 'sphere-section') && (
+                  {sphere && (
                     <button
                       type="button"
-                      aria-pressed={lesson.kind === 'sphere-section'}
-                      onClick={() => changeLesson(lesson.kind === 'sphere-section' ? { kind: 'volume', progress: 1 } : { kind: 'sphere-section', progress: 0, cut: 0.5 })}
+                      aria-pressed={lesson?.kind === 'sphere-section'}
+                      onClick={() => changeLesson(lesson?.kind === 'sphere-section' ? { kind: 'volume', progress: 0 } : { kind: 'sphere-section', progress: 0, cut: 0.5 })}
                     >
                       심화
                     </button>

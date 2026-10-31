@@ -239,11 +239,11 @@ const root = (x: number) => {
 const leg = (parts: number[]) => (parts.length > 1 ? `(${parts.map(num).join(' + ')})²` : `${num(parts[0])}²`)
 
 // 애니메이션이 멈춘 뒤 보여줄 식과 값 (ui.md 친절한 설명 원칙: 글은 멈춘 뒤에)
-// 구 단면 비교의 왼쪽 쪽 글 (ui.md 공식 시각화 규칙). 두 넓이 줄에는 지금 높이의 값을 같이 쓴다
+// 구 단면 비교의 왼쪽 쪽 글 (ui.md 공식 시각화 규칙). 두 넓이 줄에는 지금 높이의 값을 같이 쓴다. 심화는 중등 내용이라 늘 π 그대로
 export const CONE_THIRD_LINK = 'cone-third'
-export function sphereSectionLines(r: number, cut: number, mode: PiMode = 'pi') {
+export function sphereSectionLines(r: number, cut: number) {
   const coef = r * r * (1 - cut * cut)
-  const area = coef > 1e-9 ? piValue(coef, mode) : '0'
+  const area = coef > 1e-9 ? piValue(coef, 'pi') : '0'
   return [
     { text: '단면 반지름² = r² − h²' },
     { text: `반구 단면 = π(r² − h²) = ${area}` },
@@ -255,7 +255,7 @@ export function sphereSectionLines(r: number, cut: number, mode: PiMode = 'pi') 
 }
 
 export function lessonSummary(scene: ShapeScene, kind: LessonKind, scale = 2, mode: PiMode = 'pi', cut = 0.5): LessonResult | null {
-  if (scene.shape === 'sphere' && kind === 'sphere-section') return { formula: '', lines: sphereSectionLines(scene.size.radius, cut, mode) }
+  if (scene.shape === 'sphere' && kind === 'sphere-section') return { formula: '', lines: sphereSectionLines(scene.size.radius, cut) }
   const result = summaryOf(scene, kind, scale, mode)
   const general = generalFormula(scene.shape, kind, mode)
   return result && general ? { ...result, general } : result
