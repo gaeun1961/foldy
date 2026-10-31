@@ -17,17 +17,19 @@
   --accent-raised: inset 1px 1px 0 rgb(255 255 255 / 35%), inset -2px -3px 5px rgb(0 0 0 / 12%), 2px 3px 4px rgb(40 90 95 / 25%), 6px 10px 16px rgb(58 125 135 / 26%);
   --groove: #d8e8e4; /* 파인 홈: 연한 민트 */
   --peach: linear-gradient(145deg, #fbd9c1, #eeb48f);
-  --serif: 'AppleMyungjo', 'Nanum Myeongjo', 'Noto Serif KR', serif;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b6457' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); /* 아래 화살표, --muted 색 */
+  --font: 'Pretendard Variable', Pretendard, system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif;
+  font-family: var(--font);
   color: var(--ink);
   background: var(--desk);
   word-break: keep-all; /* 한글을 단어 중간에서 줄바꿈하지 않는다 (ui.md 한글 줄바꿈) */
   overflow-wrap: anywhere;
 }
+button, input, select, textarea { font-family: inherit; } /* 브라우저 기본값은 글꼴을 물려받지 않는다 */
 
 h2 {
   margin: 0 0 8px;
@@ -67,10 +69,10 @@ h2 {
   list-style: none;
 }
 .make-card > summary::-webkit-details-marker { display: none; }
-.make-card > summary::after { content: '▾'; margin-left: auto; color: var(--muted); }
-.make-card:not([open]) > summary::after { content: '▸'; }
-.brand { font-family: var(--serif); font-size: 24px; letter-spacing: 0.02em; }
-.make-body { padding: 0 16px 16px; color: var(--muted); }
+.make-card > summary::after { content: ''; align-self: center; width: 12px; height: 8px; margin-left: auto; background: var(--chevron) no-repeat center / contain; }
+.make-card:not([open]) > summary::after { transform: rotate(-90deg); } /* 접히면 오른쪽 화살표 */
+.brand { font-size: 24px; letter-spacing: 0.05em; }
+.make-body { padding: 12px 16px 16px; color: var(--muted); }
 
 /* 아래 바: 안내 한 줄 + 접기 + 선 긋기·보기. 왼쪽 카드와 오른쪽 아래 챗봇 아이콘 사이 가운데 */
 .dock {
@@ -157,7 +159,8 @@ h2 {
 .manual-input .toggle-row button { flex: 1; padding: 0 8px; font-size: 15px; }
 .size-form { display: grid; gap: 10px; }
 .shape-select { display: grid; gap: 6px; font-size: 16px; font-weight: 700; }
-.shape-select select { min-height: 40px; padding: 0 12px; border: 0; border-radius: 14px; background: var(--face); box-shadow: var(--raised); color: var(--ink); font-size: 16px; font-weight: 400; cursor: pointer; }
+/* 기본 화살표는 둥근 모서리에 잘려서 숨기고 안쪽에 직접 그린다 */
+.shape-select select { appearance: none; min-height: 40px; padding: 0 40px 0 12px; border: 0; border-radius: 14px; background: var(--chevron) no-repeat right 16px center / 12px 8px, var(--face); box-shadow: var(--raised); color: var(--ink); font-size: 16px; font-weight: 400; cursor: pointer; }
 .size-form .slider-row { grid-template-columns: 3em 1fr 2.5em; }
 .primary-button, .secondary-button { min-height: 40px; font-size: 16px; }
 .primary-button { font-weight: 700; }
@@ -204,7 +207,6 @@ h2 {
 .viewer-hint {
   margin: 0;
   padding: 8px 16px;
-  font-family: var(--serif);
   font-size: 17px;
   text-align: center;
 }

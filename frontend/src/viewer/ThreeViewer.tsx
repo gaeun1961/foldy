@@ -37,7 +37,7 @@ function labelTexture(text: string) {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 128
   const ctx = canvas.getContext('2d')!
-  ctx.font = 'bold 96px system-ui, sans-serif'
+  ctx.font = "bold 96px 'Pretendard Variable', Pretendard, system-ui, sans-serif"
   ctx.fillStyle = '#fff'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
