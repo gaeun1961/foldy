@@ -5,6 +5,7 @@ LLM 은 부르지 않는다. vision.recognize 를 가짜로 바꿔서 성공·42
 
 import json
 import os
+import threading
 
 from fastapi.testclient import TestClient
 
@@ -151,6 +152,78 @@ for bad, unavailable in (("not json", True), (json.dumps({"response": "{}"}), Fa
     except VisionError as e:
         assert e.unavailable == unavailable, bad
 
+# agy 실행 (ai/agy.py, worksheets.md C): 미리 띄워 둔 것을 쓰고, 늦으면 하나 더 보내 먼저 온 답. agy 는 가짜
+# (위에서 time.sleep 을 없앴으니 기다림은 Event.wait)
+from app.ai import agy
+
+plan: list[
+    tuple[float, str | None]
+] = []  # 띄우는 차례대로 (걸리는 초, 답. None 이면 실패)
+spawned: list["FakeProc"] = []
+
+
+class FakeProc:
+    def __init__(self, model: str):
+        self.delay, self.answer = plan.pop(0) if plan else (0.0, "idle")
+        self.killed = threading.Event()
+        self.used = False
+        spawned.append(self)
+
+    def fresh(self) -> bool:
+        return not self.killed.is_set()
+
+    def ask(self, image, content_type, ask):
+        self.used = True
+        if self.killed.wait(self.delay):
+            raise agy.AgyError("꺼졌다")
+        if self.answer is None:
+            raise agy.AgyError("Antigravity CLI 실패: 가짜")
+        return json.dumps({"response": self.answer})
+
+    def kill(self):
+        self.killed.set()
+
+
+agy._Proc = FakeProc
+agy.HEDGE_S = 0.2
+lock = threading.Semaphore(3)
+
+
+def agy_answer():
+    return json.loads(vision._run_agy(b"img", "image/jpeg", "{name}", "m", lock))[
+        "response"
+    ]
+
+
+plan[:] = [(0.0, "빠름")]
+assert agy_answer() == "빠름" and len([p for p in spawned if p.used]) == 1
+spawned.clear()
+plan[:] = [(2.0, "늦음"), (0.0, "하나 더")]  # 첫 요청이 늦으면 하나 더, 늦은 쪽은 끈다
+assert agy_answer() == "하나 더"
+used = [p for p in spawned if p.used]
+assert len(used) == 2 and used[0].killed.is_set(), used
+spawned.clear()
+plan[:] = [(0.0, None)]  # 빨리 실패하면 하나 더 보내지 않고 503 쪽 에러
+try:
+    agy_answer()
+    raise AssertionError("실패가 그냥 지나갔다")
+except VisionError as e:
+    assert e.unavailable and "가짜" in str(e)
+assert len([p for p in spawned if p.used]) == 1
+spawned.clear()
+plan[:] = []
+agy._pool.clear()
+agy.warm("m", 2)  # 미리 띄워 두면 요청은 그것을 쓰고, 다시 채운다
+assert len(spawned) == 2
+first = spawned[0:2]
+agy_answer()
+assert any(p.used for p in first)
+for _ in range(50):
+    if len(agy._pool["m"]) == 2:
+        break
+    threading.Event().wait(0.02)
+assert len(agy._pool["m"]) == 2 and len(spawned) == 3, (agy._pool, spawned)
+
 print(
-    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, 문제 칸)"
+    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, agy 미리 띄워 두기·늦으면 하나 더, 문제 칸)"
 )
