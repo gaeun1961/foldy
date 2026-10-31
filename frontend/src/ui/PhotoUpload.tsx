@@ -5,6 +5,8 @@ import { CornerPick } from './CornerPick'
 import { NetPreview } from './NetPreview'
 import { TOUCH } from './device'
 import { prepPhoto, rotatePhoto } from './photoPrep'
+import { WorksheetShelf } from './WorksheetShelf'
+import { defaultName, deleteWorksheet, getWorksheet, listWorksheets, renameWorksheet, saveWorksheet, type WorksheetItem } from './worksheetStore'
 import type { PhotoBox } from './manualScene.ts'
 
 // 학습지 사진 올리기 (docs/specs/ui.md 화면 배치 2번). 고르면 사진이 크게 보이고, 읽을 전개도를 네모로 감싸 "이 부분 읽기"
@@ -49,6 +51,10 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
   const img = useRef<HTMLImageElement>(null)
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   const loading = state.kind === 'loading' || state.kind === 'preparing'
+  // 내 학습지 보관함 (worksheets.md W3): 이 기기 안. 읽기에 성공하면 저장하고, 누르면 /analyze 없이 다시 연다
+  const [shelf, setShelf] = useState<WorksheetItem[]>([])
+  const refreshShelf = () => void listWorksheets().then(setShelf)
+  useEffect(refreshShelf, [])
   // 읽는 동안 지난 초 (팀 테스트 엔진 agy 는 2분쯤 걸린다, worksheets.md W4)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -79,6 +85,16 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
     setBase(await rotatePhoto(photo.file, turns))
   }
 
+  // 보관함에서 열기: 사진 인식이 성공했을 때와 같은 길 (onPhoto → onScene). App 은 다르게 다루지 않는다
+  const openSaved = async (id: string) => {
+    const w = await getWorksheet(id)
+    if (!w) return refreshShelf()
+    const file = new File([w.photo], 'photo.jpg', { type: w.photo.type || 'image/jpeg' })
+    setBase(file)
+    onScene(w.scene, w.place)
+    setState({ kind: 'done', scene: w.scene })
+  }
+
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = '' // 같은 사진을 다시 골라도 onChange 가 오게
@@ -94,8 +110,12 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
       const scene = await analyze(file)
       // 전체를 읽었으면 인식이 알려 준 사진 속 전개도 네모(photoBox)로 칸 밑 사진을 맞춘다 (worksheets.md W8)
       const where = part ?? (scene.photoBox ? clampBox(scene.photoBox) : null)
-      onScene(scene, where && { box: where, aspect: img.current.naturalWidth / img.current.naturalHeight })
+      const place = where && { box: where, aspect: img.current.naturalWidth / img.current.naturalHeight }
+      onScene(scene, place)
       setState({ kind: 'done', scene })
+      const thumb = await prepPhoto(photo.file, 240)
+      await saveWorksheet({ name: defaultName(scene, new Date()), photo: photo.file, thumb, scene, place })
+      refreshShelf()
     } catch (e) {
       setState({ kind: e instanceof OfflineError ? 'soft' : 'error', message: (e as Error).message })
     }
@@ -129,6 +149,13 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
           </label>
         )}
       </div>
+      <WorksheetShelf
+        items={shelf}
+        disabled={loading}
+        onOpen={openSaved}
+        onRename={(id, name) => void renameWorksheet(id, name).then(refreshShelf)}
+        onDelete={(id) => void deleteWorksheet(id).then(refreshShelf)}
+      />
       {photo && state.kind === 'straighten' && (
         <CornerPick url={photo.url} onDone={setBase} onCancel={() => setState({ kind: 'picking' })} />
       )}
