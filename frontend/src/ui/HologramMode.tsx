@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types.ts'
 import { HologramViewer } from '../viewer'
 
-type Settings = { center: number; elevation: number; mirror: boolean; spin: boolean; fold: boolean; showGuide: boolean }
-const DEFAULTS: Settings = { center: 0.2, elevation: 20, mirror: false, spin: true, fold: true, showGuide: true }
+// calibrated: 이 기기에서 맞춤 화면을 끝냈는지. 처음 쓰는 기기는 맞춤 화면부터 연다 (spec.md "맞춤 화면")
+type Settings = { center: number; elevation: number; mirror: boolean; spin: boolean; fold: boolean; showGuide: boolean; calibrated: boolean }
+const DEFAULTS: Settings = { center: 0.2, elevation: 20, mirror: false, spin: true, fold: true, showGuide: true, calibrated: false }
 const KEY = 'foldy-hologram'
 
 function loadSettings(): Settings {
@@ -30,6 +31,7 @@ type WakeLockNavigator = Navigator & { wakeLock?: { request: (type: 'screen') =>
 export function HologramMode({ scene, onClose }: { scene: ShapeScene; onClose: () => void }) {
   const [settings, setSettings] = useState(loadSettings)
   const [panel, setPanel] = useState(true) // 처음에는 놓는 법을 보여 준다
+  const [calibrating, setCalibrating] = useState(() => !settings.calibrated) // 맞춤 화면: 도형 대신 칸마다 방향 글자
   const root = useRef<HTMLDivElement>(null)
   const wakeLock = useRef<WakeLock | null>(null)
 
@@ -71,8 +73,46 @@ export function HologramMode({ scene, onClose }: { scene: ShapeScene; onClose: (
 
   return (
     <div className="hologram" ref={root} role="dialog" aria-label="홀로그램">
-      <HologramViewer scene={scene} {...settings} onTap={() => setPanel(!panel)} />
-      {panel && (
+      <HologramViewer scene={scene} {...settings} calibrate={calibrating} onTap={() => setPanel(!panel)} />
+      {panel && calibrating && (
+        <div className="hologram-panel">
+          <h2>피라미드 맞추기</h2>
+          <p>피라미드를 가운데 흰 사각형 위에 뒤집어 올리고, 둘레를 한 바퀴 돌며 보세요. 화면을 누르면 이 판이 닫혀요.</p>
+          <ol className="hologram-checks">
+            <li>내 앞 칸에 빨간 <b>앞</b>이 보이게 기기를 돌려요. 오른쪽으로 돌아가면 <b>오른쪽</b>이 보여요</li>
+            <li>글자가 거울 글씨면 아래 <b>좌우 반전</b>을 눌러요</li>
+            <li>화살표가 아래를 가리키면 피라미드가 뒤집혔어요. 좁은 쪽이 화면에 닿게 놓아요</li>
+            <li>피라미드 꼭지가 흰 사각형과 겹치게 <b>가운데</b>를 맞춰요</li>
+          </ol>
+          <label className="slider-row">
+            가운데
+            <input type="range" min={0.05} max={0.45} step={0.01} value={settings.center} onChange={(e) => change({ center: Number(e.target.value) })} />
+            <output>{Math.round(settings.center * 100)}%</output>
+          </label>
+          <div className="hologram-options">
+            <button type="button" className="menu-button" aria-pressed={settings.mirror} onClick={() => change({ mirror: !settings.mirror })}>
+              좌우 반전
+            </button>
+          </div>
+          <div className="hologram-actions">
+            <button type="button" className="secondary-button" onClick={close}>
+              돌아가기
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                change({ calibrated: true })
+                setCalibrating(false)
+                setPanel(false)
+              }}
+            >
+              맞춤 완료
+            </button>
+          </div>
+        </div>
+      )}
+      {panel && !calibrating && (
         <div className="hologram-panel">
           <h2>홀로그램</h2>
           <p>휴대폰이나 태블릿을 눕히고, 가운데 사각형 위에 아크릴 피라미드를 뒤집어 올려요. 화면을 누르면 이 판이 열리고 닫혀요.</p>
@@ -94,6 +134,9 @@ export function HologramMode({ scene, onClose }: { scene: ShapeScene; onClose: (
             ))}
           </div>
           <div className="hologram-actions">
+            <button type="button" className="secondary-button" onClick={() => setCalibrating(true)}>
+              피라미드 맞추기
+            </button>
             <button type="button" className="secondary-button" onClick={fullscreen}>
               전체 화면
             </button>

@@ -5,7 +5,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import type { ShapeScene } from '../shared/types.ts'
-import { fitDistance, regions, uvOf, type Region } from './holoLayout.ts'
+import { fitDistance, regions, SIDE_LABEL, uvOf, type Region } from './holoLayout.ts'
 import { buildStage } from './stage.ts'
 import { HOLOGRAM } from './theme.ts'
 
@@ -17,6 +17,7 @@ export interface HologramProps {
   spin?: boolean // 세로축으로 천천히 돌기 (기본 true)
   fold?: boolean // 접었다 펴기 반복 (기본 true). false 면 접힌 입체
   showGuide?: boolean // 가운데 정사각형 테두리 = 피라미드 놓을 자리 (기본 true)
+  calibrate?: boolean // 맞춤 화면 (기본 false): 도형 대신 칸마다 방향 글자·위쪽 화살표·색 (spec.md "맞춤 화면")
   onTap?: () => void // 화면을 누르면 (설정 열기)
 }
 
@@ -30,25 +31,61 @@ const OPEN = 1.5
 const smooth = (t: number) => t * t * (3 - 2 * t)
 const pixelRatio = () => Math.min(window.devicePixelRatio, 2) // 휴대폰은 4번 그리므로 2배까지만
 
+// 맞춤 화면의 칸 그림: 그 칸 쪽에 선 사람이 보는 방향 이름, 위쪽 화살표, 칸 색 테두리.
+// 도형 그림과 같은 텍스처 좌표(uvOf)로 붙이므로 캔버스 위쪽 = 칸 바깥쪽 = 떠 보이는 위쪽이다.
+// 그래서 실물에서 글자가 거울 글씨면 좌우 반전이 틀렸고, 화살표가 아래를 가리키면 피라미드가 뒤집혔다
+function calibrationTexture(name: string, color: string, width: number, height: number) {
+  const scale = Math.min(1, 1024 / width)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(width * scale))
+  canvas.height = Math.max(1, Math.round(height * scale))
+  const ctx = canvas.getContext('2d')!
+  const w = canvas.width
+  const h = canvas.height
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, w, h)
+  ctx.strokeStyle = color
+  ctx.lineWidth = Math.max(4, h * 0.04)
+  ctx.strokeRect(w * 0.2, h * 0.06, w * 0.6, h * 0.88) // 칸 가운데 쪽 (사다리꼴에 잘리지 않는 곳)
+  ctx.fillStyle = color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = `700 ${Math.round(h * 0.34)}px system-ui, 'Malgun Gothic', sans-serif`
+  ctx.fillText(name, w / 2, h * 0.62)
+  // 위쪽 화살표 (칸 바깥쪽)
+  const ax = w / 2
+  const top = h * 0.12
+  const size = h * 0.2
+  ctx.beginPath()
+  ctx.moveTo(ax, top)
+  ctx.lineTo(ax - size * 0.6, top + size)
+  ctx.lineTo(ax + size * 0.6, top + size)
+  ctx.closePath()
+  ctx.fill()
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
 // 세로축으로 돌아도 들어가는 반지름: 수평은 축(원점)에서 가장 먼 곳, 세로는 높이의 절반
 function spinRadius(box: THREE.Box3) {
   const far = Math.max(...[box.min.x, box.max.x].flatMap((x) => [box.min.z, box.max.z].map((z) => Math.hypot(x, z))))
   return Math.hypot(far, (box.max.y - box.min.y) / 2)
 }
 
-export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = false, spin = true, fold = true, showGuide = true, onTap }: HologramProps) {
+export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = false, spin = true, fold = true, showGuide = true, calibrate = false, onTap }: HologramProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  // 설정은 다시 만들지 않고 다음 프레임부터 반영한다 (center·mirror·showGuide 는 칸을 다시 배치)
-  const options = useRef({ center, elevation, mirror, spin, fold, showGuide })
+  // 설정은 다시 만들지 않고 다음 프레임부터 반영한다 (center·mirror·showGuide·calibrate 는 칸을 다시 배치)
+  const options = useRef({ center, elevation, mirror, spin, fold, showGuide, calibrate })
   const relayout = useRef<(() => void) | null>(null)
   const restart = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     const before = options.current
-    options.current = { center, elevation, mirror, spin, fold, showGuide }
-    if (before.center !== center || before.mirror !== mirror || before.showGuide !== showGuide) relayout.current?.()
+    options.current = { center, elevation, mirror, spin, fold, showGuide, calibrate }
+    if (before.center !== center || before.mirror !== mirror || before.showGuide !== showGuide || before.calibrate !== calibrate) relayout.current?.()
     if (before.fold !== fold) restart.current?.()
-  }, [center, elevation, mirror, spin, fold, showGuide])
+  }, [center, elevation, mirror, spin, fold, showGuide, calibrate])
 
   useEffect(() => {
     const container = containerRef.current
@@ -81,7 +118,9 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
       composite.traverse((o) => {
         if (o instanceof THREE.Mesh || o instanceof THREE.LineLoop) {
           o.geometry.dispose()
-          ;(o.material as THREE.Material).dispose()
+          const material = o.material as THREE.MeshBasicMaterial
+          if (material.map instanceof THREE.CanvasTexture) material.map.dispose() // 맞춤 화면 글자 그림 (칸 그림은 아래 target 이 지운다)
+          material.dispose()
         }
       })
       composite.clear()
@@ -104,6 +143,7 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
       const th = Math.max(1, Math.round(((L - c) / 2) * pixelRatio()))
 
       clearComposite()
+      // 칸마다 사다리꼴 메시. 평소에는 그 칸 카메라의 그림, 맞춤 화면에서는 방향 글자 그림 (둘 다 같은 uvOf)
       targets = regionList.map((region) => {
         const target = new THREE.WebGLRenderTarget(tw, th, { samples: 4 })
         const [a, b, cc, d] = region.corners
@@ -111,7 +151,9 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
         const geometry = new THREE.BufferGeometry()
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(tri.flatMap((p) => [p[0], p[1], 0]), 3))
         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(tri.flatMap((p) => uvOf(region, L, c, p, o.mirror)), 2))
-        composite.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: target.texture, side: THREE.DoubleSide })))
+        const label = SIDE_LABEL[region.side]
+        const map = o.calibrate ? calibrationTexture(label.name, label.color, tw, th) : target.texture
+        composite.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide })))
         return target
       })
       for (const camera of cameras) {
@@ -120,11 +162,12 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
       }
       stage?.resize(tw, th)
 
-      if (o.showGuide) {
+      // 가운데 정사각형 = 피라미드 놓을 자리. 맞춤 화면에서는 밝게 해서 피라미드 꼭지 테두리와 맞추기 쉽게
+      if (o.showGuide || o.calibrate) {
         composite.add(
           new THREE.LineLoop(
             new THREE.BufferGeometry().setFromPoints(regionList.map((r) => new THREE.Vector3(r.corners[0][0], r.corners[0][1], 0))),
-            new THREE.LineBasicMaterial({ color: 0x444444 }),
+            new THREE.LineBasicMaterial({ color: o.calibrate ? 0xffffff : 0x444444 }),
           ),
         )
       }
@@ -153,7 +196,7 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
     renderer.setAnimationLoop((now) => {
       const dt = Math.min(0.1, (now - last) / 1000)
       last = now
-      if (stage) {
+      if (stage && !options.current.calibrate) {
         const o = options.current
         const { s, mode } = unfoldAt(now)
         stage.apply(s, mode)

@@ -13,6 +13,15 @@
 export type Side = 'bottom' | 'right' | 'top' | 'left'
 export const SIDES: Side[] = ['bottom', 'right', 'top', 'left']
 
+// 맞춤 화면 (spec.md "맞춤 화면"): 칸마다 그 칸 쪽에 선 사람이 보는 도형의 방향 이름과 색.
+// 아래 칸 쪽 사람은 도형의 앞을 본다. 거기서 자기 오른쪽으로 돌아가면 "오른쪽" 칸이 보여야 한다
+export const SIDE_LABEL: Record<Side, { name: string; color: string }> = {
+  bottom: { name: '앞', color: '#ff5a5a' },
+  right: { name: '오른쪽', color: '#4cd964' },
+  top: { name: '뒤', color: '#4a8cff' },
+  left: { name: '왼쪽', color: '#ffd23f' },
+}
+
 export type V2 = [number, number]
 
 export interface Region {
