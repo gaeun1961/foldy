@@ -41,3 +41,21 @@
 ## 참고
 - 관련 문서: [specs/worksheets.md](../specs/worksheets.md), [specs/mobile.md](../specs/mobile.md), [specs/shape-scene.md](../specs/shape-scene.md) `problem`·`photoBox`, [T00-mobile-ideas](T00-mobile-ideas.md)
 - 시험한 학습지: 29번(직육면체 면 위 선, 십자형), 3-2(정육면체 숫자, 계단형, 옆으로 찍음). 사진은 `backend/evals/photos/`(git 제외)
+
+## 이어서 (2026-10-31 오후)
+| 커밋 | 내용 |
+|---|---|
+| main 합침 | #122 홀로그램 머지 뒤 main 을 합침. 충돌은 `package.json` test 줄·01 문서 ui 칸, 양쪽 모두 남김 |
+| #130 | 학습지 사진을 홀로그램 면에 입혀 접기 (`buildStage` `photo`, 토큰 `photo`, 면 UV 는 펼친 루트 좌표) |
+| 측정 | 잘라낸 사진: 도형 `gemini-4-argon-low` 20~29초로 가장 빠르고 맞음, 문제 글 OCR(Tesseract.js)은 0.5초지만 틀려서 `flash-low` 13~15초 |
+| 2단계 네모 | ① 문제 전체 → ② 도형만. `/analyze` 선택 `problem`, 도형과 글자를 동시에. 3-2 가 처음 2분 → 26초 이내 |
+| 직접 만들기 접기 | 사진이 있으면 접고 실패하면 펼침 |
+| #129 | 사진을 키우면 뿌옇던 장면: 페이지를 전개도 둘레까지만, 사진은 잘라 그림, 안개는 카메라 거리 |
+| 제안 | 여러 도형 배치 `pageSlots` + `lab/page-slots.html` (화면 연결 전, 팀과 같이 보기) |
+
+### 리스크/이슈 (추가)
+- **같은 작업 폴더에서 다른 작업(펜 그리기: `NetPreview`·`PenDraw`·`penRun`·`penSweep`, `index.css`·`ui.md`·`01`·`package.json`)이 동시에 진행 중**이었다. 2단계 네모 커밋에 그 두 줄이 섞여 커밋만으로는 빌드가 깨졌고, 커밋에서만 빼는 수정 커밋(`31098da`)으로 바로잡았다. 이후로는 커밋 전에 다른 작업 줄이 섞였는지 확인하고, 겹치는 파일은 커밋 쪽만 고쳤다. 마지막에 커밋된 코드만 있는 작업 폴더에서 build·lint(경고 0)·검사 14개 통과를 확인했다
+- 작업 폴더의 `penRun.ts`가 지금 예외를 던져, 5173 화면에서 보관함으로 연 학습지(인식한 전개도 그림)가 그려지지 않는다. 커밋되지 않은 다른 작업이라 손대지 않았다
+- 이 PC 의 개발 서버가 고친 파일을 늦게 반영하는 일이 여러 번 있었다 → 화면 확인 전에 `npm run dev`를 다시 켠다
+- `ui.md` 화면 배치 2·3번, 01 폴더 문서의 viewer·lab 칸은 다른 작업이 고치는 중이라 아직 안 맞췄다 (worksheets.md 에 적어 둠)
+
