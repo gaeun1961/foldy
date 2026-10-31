@@ -22,6 +22,8 @@ import threading
 import time
 from pathlib import Path
 
+from app.ai import record
+
 TIMEOUT_S = 300
 HEDGE_S = 25  # 평소 15~20초. 이보다 늦으면 하나 더
 IDLE_S = (
@@ -144,6 +146,9 @@ def run(
 ) -> str:
     """lock: 동시에 도는 수 (차례를 기다리는 동안은 HEDGE_S 를 세지 않는다). 하나 더 보낸 것은 lock 밖."""
     rid, asked = next(_seq), time.monotonic()
+    trace = (
+        record.current()
+    )  # 기록 모드: 하나 더 보낸 스레드에서도 같은 기록판에 적는다
     with lock:
         queued = time.monotonic() - asked
         results: queue.Queue = queue.Queue()
@@ -172,8 +177,26 @@ def run(
                     "씀" if warm else "없어 새로 띄움",
                     s - asked,
                 )
+                record.event(
+                    trace,
+                    kind="agy",
+                    id=rid,
+                    model=model,
+                    attempt=label,
+                    seconds=round(time.monotonic() - s, 2),
+                    warm=warm,
+                    started_after=round(s - asked, 2),
+                )
                 results.put((True, answer))
             except AgyError as e:
+                record.event(
+                    trace,
+                    kind="agy_error",
+                    id=rid,
+                    model=model,
+                    attempt=label,
+                    error=str(e)[:300],
+                )
                 results.put((False, e))
 
         threading.Thread(target=attempt, args=("처음",), daemon=True).start()
@@ -193,6 +216,15 @@ def run(
                         continue
                     raise AgyError("Antigravity CLI 시간 초과") from None
                 if ok:
+                    record.event(
+                        trace,
+                        kind="agy_done",
+                        id=rid,
+                        model=model,
+                        seconds=round(time.monotonic() - asked, 2),
+                        queued=round(queued, 2),
+                        hedged=sent > 1,
+                    )
                     log.info(
                         "agy #%d %s 끝 %.1f초 (차례 기다림 %.1f초, 하나 더 %s)",
                         rid,
