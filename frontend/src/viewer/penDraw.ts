@@ -248,6 +248,7 @@ export function startPenDraw(opts: {
   const pen = penModel(size)
   pen.position.copy(sheets[0]?.start ?? new THREE.Vector3())
   let start: number | null = null // 지금 단계를 시작한 때
+  let warm = 0 // 처음 두 프레임은 장면을 만들고 셰이더를 컴파일하느라 길다(PC 에서 0.5초 넘게). 그 뒤부터 시간을 잰다
   let step = 0
   let done = false
   const finish = (tell = true) => {
@@ -264,6 +265,10 @@ export function startPenDraw(opts: {
   const update = (now: number) => {
     if (done) return
     for (const s of sheets) s.syncFrame()
+    if (warm < 2) {
+      warm++
+      return
+    }
     start ??= now
     // 프레임이 띄엄띄엄 와도 지난 단계는 끝까지 한 번 마치고 넘어간다
     while (step < steps.length && now - start >= steps[step].ms * pace) {

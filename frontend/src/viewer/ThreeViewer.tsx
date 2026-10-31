@@ -692,13 +692,22 @@ export function ThreeViewer({
       const left = book.leftPage()
       const pageNumber = pageRef.current.pageNumbers?.[0]
       blankPage = left ? pageTexture(book.page.w, book.page.d, 'left', [], [], [], pageNumber) : null
+      // 그림자는 가림 셰이더가 안 걸려서 먼저 보인다. 그리는 동안 끄고, 그 전개도를 다 그리면 켠다
+      const hideShadow = (root: THREE.Object3D) => {
+        const casters: THREE.Object3D[] = []
+        root.traverse((o) => {
+          if (o.castShadow && o !== photoMesh) casters.push(o)
+        })
+        for (const o of casters) o.castShadow = false
+        return () => casters.forEach((o) => (o.castShadow = true))
+      }
       penDraw = startPenDraw({
         // 여러 도형이면 ①부터 칸 순서로 한 번에 (펜 세션 lab/book-pen.ts 와 같은 방식). 지금 도형은 자기 칸
         floors: galleryArea
-          ? [{ index: activeIndex, box: netOnly, materials: [...materials] }, ...galleryNets.map((g) => ({ index: g.index, box: g.box, materials: g.materials }))]
+          ? [{ index: activeIndex, box: netOnly, materials: [...materials], root: tree.root as THREE.Object3D }, ...galleryNets.map((g) => ({ index: g.index, box: g.box, materials: g.materials, root: g.holder as THREE.Object3D }))]
               .sort((x, y) => x.index - y.index)
-              .map(({ box, materials: m }) => ({ box, y: 0, materials: m }))
-          : [{ box: flatNet, y: 0, materials: [...materials] }],
+              .map(({ box, materials: m, root }) => ({ box, y: 0, materials: m, onDrawn: hideShadow(root) }))
+          : [{ box: flatNet, y: 0, materials: [...materials], onDrawn: hideShadow(tree.root) }],
         page: left && blankPage ? { material: (left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial, blank: blankPage, x0: book.center.x - book.page.w, z0: book.center.z - book.page.d / 2, w: book.page.w, d: book.page.d, y: book.top } : null,
         size: radius * 0.75,
         onDone: () => {
