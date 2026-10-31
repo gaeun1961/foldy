@@ -3,7 +3,7 @@
 recognize(): 비전 LLM(Gemini)에 사진과 VISION_PROMPT 를 보내 ShapeScene 을 받는다 (TODO-7 정확도 측정에도 쓴다).
 analyze_image(): /analyze 가 부른다. 같은 사진은 기억해 둔 결과를 쓰고, 모델이 붐비면 한 번 더 부른다 (api.md "/analyze 에러").
   API 를 못 쓰고 VISION_CLI=1 이면 recognize_cli() 로 Gemini CLI 에 한 번 더 묻는다 (시연 노트북용 비상 경로).
-  VISION_ENGINE=agy 면 API 대신 recognize_agy() 로 Antigravity CLI 가 읽는다 (팀 테스트용, docs/specs/worksheets.md).
+  VISION_ENGINE=agy 면 API 대신 recognize_agy() 로 Antigravity CLI 가 읽는다 (팀 테스트용, docs/specs/worksheets.md, 실행은 ai/agy.py).
   문제 칸 사진(problem)이 오면 read_problem() 이 글자만 따로, 도형과 동시에 읽어 scene.problem 을 채운다 (2단계 네모, worksheets.md).
 """
 
@@ -25,6 +25,7 @@ from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
+from app.ai import agy
 from app.ai.schema import ShapeScene
 from app.ai.vision_prompt import VISION_PROMPT
 
@@ -140,7 +141,6 @@ def recognize_cli(image: bytes, content_type: str) -> ShapeScene:
 # 도형: 잘라낸 사진에서 가장 빠르고 가장 맞았다 (worksheets.md 측정, 2026-10-31: 20~29초. flash-medium 50~80초)
 AGY_MODEL = "gemini-4-argon-low"
 AGY_TEXT_MODEL = "gemini-3.8-flash-low"  # 문제 글 읽기: 13~15초, 두 학습지 모두 완벽 (OCR 은 빠르지만 틀림)
-AGY_TIMEOUT_S = 300
 # 도형은 셋까지 동시에 (여러 도형 문제는 네모마다 따로 읽는다, worksheets.md 여러 도형). 문제 글은 따로 하나
 _agy_lock = threading.Semaphore(3)
 _agy_text_lock = threading.Semaphore(1)
@@ -149,40 +149,21 @@ _agy_text_lock = threading.Semaphore(1)
 def _run_agy(
     image: bytes, content_type: str, ask: str, model: str, lock: threading.Semaphore
 ) -> str:
-    """사진은 임시 폴더에 두고 프롬프트 앞 @파일 로 붙인다. 명령 실행은 허락하지 않는다(--sandbox, 권한 건너뛰기 없음).
-    ask 의 "{name}" 글자 자리에 사진 파일 이름이 들어간다. 출력(stdout) 그대로 돌려준다."""
-    exe = shutil.which("agy")
-    if not exe:
-        raise VisionError("Antigravity CLI(agy) 가 설치돼 있지 않다")
-    with lock, tempfile.TemporaryDirectory() as folder:
-        name = "photo" + (mimetypes.guess_extension(content_type) or ".jpg")
-        (Path(folder) / name).write_bytes(image)
-        ask = f"@{name}\n\n" + ask.replace(
-            "{name}", name
-        )  # 프롬프트에 JSON { } 가 있어 format 은 못 쓴다
-        try:
-            # agy 는 .exe 라 긴 프롬프트도 인자로 넘어간다 (Gemini CLI 의 .cmd 와 다름)
-            done = subprocess.run(
-                [exe, "-p", ask, "--output-format", "json", "--model", model]
-                + [
-                    "--sandbox",
-                    "--add-dir",
-                    folder,
-                    "--print-timeout",
-                    f"{AGY_TIMEOUT_S - 20}s",
-                ],
-                check=False,  # 실패는 아래 returncode 로 본다
-                cwd=folder,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                timeout=AGY_TIMEOUT_S,
-            )
-        except subprocess.TimeoutExpired as e:
-            raise VisionError("Antigravity CLI 시간 초과") from e
-    if done.returncode != 0:
-        raise VisionError(f"Antigravity CLI 실패: {done.stderr[-300:]}")
-    return done.stdout
+    """agy 실행은 ai/agy.py (미리 띄워 두기·늦으면 하나 더, worksheets.md C). 결과는 {"response": ...} JSON 문자열.
+    ask 의 "{name}" 글자 자리에 사진 파일 이름이 들어간다."""
+    try:
+        return agy.run(image, content_type, ask, model, lock)
+    except agy.AgyError as e:
+        raise VisionError(str(e)) from e
+
+
+def warm_up() -> None:
+    """VISION_ENGINE=agy 면 backend 시작 때 agy 를 미리 띄워 둔다 (도형 2, 문제 글 1. 하나에 약 170MB).
+    도형이 셋이면 셋째는 그때 띄운다."""
+    if os.environ.get("VISION_ENGINE") != "agy":
+        return
+    agy.warm(os.environ.get("VISION_AGY_MODEL") or AGY_MODEL, 2)
+    agy.warm(os.environ.get("VISION_AGY_TEXT_MODEL") or AGY_TEXT_MODEL, 1)
 
 
 def recognize_agy(image: bytes, content_type: str) -> ShapeScene:

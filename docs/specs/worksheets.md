@@ -125,7 +125,7 @@ P4 끝 (#130, #122 머지 뒤) — `buildStage(scene, theme, { photo })`, `Holog
 
 - `backend/.env`
   - `VISION_ENGINE=agy`: `/analyze`가 Gemini API를 부르지 않고 이 컴퓨터에 로그인된 Antigravity CLI로 읽는다. 비우거나 `api`면 지금과 같다
-  - `VISION_AGY_MODEL=`: 비우면 `gemini-3.8-flash-medium` (`agy models`로 목록. 2026-10-31 기준 Gemini 4 Argon·3.8 Flash 등)
+  - `VISION_AGY_MODEL=`: 비우면 `gemini-4-argon-low` (문제 글은 `VISION_AGY_TEXT_MODEL=`, 비우면 `gemini-3.8-flash-low`) (`agy models`로 목록. 2026-10-31 기준 Gemini 4 Argon·3.8 Flash 등)
   - 기존 `VISION_CLI=1`(API 실패 시 Gemini CLI 비상 경로)은 그대로 둔다
 - `backend/app/ai/vision.py`
   - `recognize_agy(image, content_type) -> ShapeScene`: 기존 `recognize_cli`와 같은 모양. 사진을 임시 폴더에 두고 그 폴더에서 실행
@@ -134,7 +134,11 @@ P4 끝 (#130, #122 머지 뒤) — `buildStage(scene, theme, { photo })`, `Holog
     ```
     프롬프트(`VISION_PROMPT`)를 넘기는 방법(stdin 또는 파일), 출력 JSON 모양, 사진 읽기에 권한 확인이 뜨는지는 **W0에서 확인해 적는다**
   - 결과는 지금처럼 `ShapeScene.model_validate`로 검증하고, 실패는 `VisionError`(422·503 표 그대로)
-  - **한 번에 하나만** 실행한다 (`threading.Lock`). 팀원 여러 명이 동시에 올리면 차례로
+  - 도형은 셋까지, 문제 글은 하나씩 동시에 실행한다 (`threading.Semaphore`, 여러 도형). 더 오면 차례로
+  - **미리 띄워 두기·늦으면 하나 더** (#150, `ai/agy.py`): 실행은 `--input-format stream-json --output-format stream-json`으로 띄워 두고, 요청이 오면 사진을 그 폴더에 넣고 메시지 한 줄을 보낸다
+    - 모델마다 대기 프로세스를 둔다(도형 3, 문제 글 1). 한 번 쓰면 끄고 뒤에서 새로 띄운다(앞 사진이 대화에 남지 않게). 10분 넘게 논 것·죽은 것은 버리고 새로 띄운다
+    - 25초 안에 답이 없으면 같은 요청을 하나 더 보내고 먼저 온 답을 쓴다 (나머지는 끈다)
+    - 측정 (2026-10-31, 실제 흐름 29번 두 도형): 띄우기 5.5초가 사라지고, 평소 약 20초·가끔 56~62초(요청 하나가 40초 늦음)였다. stream-json 입력은 글자만 받아 사진은 지금처럼 `@파일`(에이전트가 `read_file`로 연다)
   - `analyze_image`: `VISION_ENGINE`이 `agy`면 `recognize_agy`, 아니면 지금 흐름. 같은 사진 기억(해시)은 엔진과 상관없이 쓴다
 - **안전**
   - `--dangerously-skip-permissions`를 쓰지 않는다. `--sandbox`로 실행하고 작업 폴더는 사진만 든 임시 폴더
