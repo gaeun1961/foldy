@@ -28,7 +28,7 @@
 | M1 | 휴대폰에서 backend 접속 (주소·CORS 설정화, LAN 시연 방법) | 없음 | 반나절 |
 | M2 | 사진 줄이기·방향 맞추기 | M1 (휴대폰 확인용) | 반나절 |
 | M3 | 원근 보정 (네 귀퉁이 맞춰 종이 펴기) | M2 | 하루 |
-| M4 | 촬영 안내 화면 (카메라 미리보기 + 종이 틀) | M1, M2, HTTPS 배포 | 하루 |
+| M4 | "사진 올리기 \| 촬영하기" 두 칸 (터치 화면). 실시간 미리보기 촬영 안내는 보류 | M2 | 반나절 |
 | M5 | 휴대폰 화면 다듬기 | 없음 | 반나절 |
 
 순서: **M1 → M2 → M3 → M4**는 차례로(같은 `PhotoUpload.tsx`를 고침), M5는 따로 해도 된다.
@@ -83,7 +83,11 @@ cd frontend && npm run dev -- --host                                 # .env: VIT
 - **의존성 추가 없음**. 귀퉁이 자동 찾기(OpenCV.js 등)는 용량이 커서 이번에 넣지 않는다. 넣을 때는 `stack.md` 절차를 따른다
 - 문서: `specs/ui.md` 화면 배치 2번(사진 업로드)에 종이 펴기 단계를 먼저 적는다
 
-## F. M4: 촬영 안내 화면
+## F. M4: 촬영하기 버튼 (+ 보류한 촬영 안내 화면)
+
+**한 것 (2026-10-31, 사용자 제안)**: 터치 화면(`matchMedia('(pointer: coarse)')`)이면 올리기 버튼을 반으로 나눠 "사진 올리기"(앨범·파일) | "촬영하기"(`<input capture="environment">`, 뒷면 카메라를 바로 연다). HTTPS 없이 된다. PC는 `capture`를 무시하므로 지금처럼 한 칸 "학습지 사진 올리기". 두 입력 모두 `pick(file)`으로 들어간다
+
+**보류**: 아래 실시간 미리보기 촬영 안내. 배포(HTTPS)가 정해지고, 촬영하기만으로 부족할 때 한다
 
 - **HTTPS 필요** (`getUserMedia`는 localhost 아니면 HTTPS에서만 된다). 배포 방식이 정해진 뒤에 한다
 - 새 파일 `ui/CameraCapture.tsx`: `getUserMedia({ video: { facingMode: 'environment' } })` 미리보기 + 학습지 비율 틀 + 셔터. 찍으면 canvas → `File` → `onShot(file)`
@@ -116,7 +120,7 @@ N = 새 파일, M = 고침. "겹침"은 다른 팀원 작업과 충돌할 가능
 | `frontend/src/ui/photoPrep.ts` (+ `.test.ts`) | | N | | | | 없음 |
 | `frontend/src/ui/perspective.ts` (+ `.test.ts`) | | | N | | | 없음 |
 | `frontend/src/ui/CornerPick.tsx` | | | N | | | 없음 |
-| `frontend/src/ui/CameraCapture.tsx` | | | | N | | 없음 |
+| `frontend/src/ui/CameraCapture.tsx` (보류) | | | | N | | 없음 |
 | `frontend/src/ui/PhotoUpload.tsx` | | M | M | M | | **높음** (M2~M4가 차례로 고침, #104도 고쳤음) |
 | `frontend/src/index.css` | | | M | M | M | **높음** (거의 모든 UI PR이 고침) |
 | `frontend/src/viewer/ThreeViewer.tsx`, `CurvedViewer.tsx` | | | | | M | **높음** (설명 모드·곡면 PR들이 고침) |

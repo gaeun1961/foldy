@@ -7,7 +7,7 @@ import type { PhotoBox } from './manualScene.ts'
 
 // 학습지 사진 올리기 (docs/specs/ui.md 화면 배치 2번). 고르면 사진이 크게 보이고, 읽을 전개도를 네모로 감싸 "이 부분 읽기"
 // (그 부분만 잘라 /analyze) 또는 "사진 전체 읽기". 결과 도형과 고른 네모(사진 비율 0~1, 전체면 null)를 onScene 으로 넘긴다.
-// 휴대폰은 input[type=file] 이 카메라 촬영과 앨범을 함께 보여준다. 올린 사진 주소는 onPhoto 로도 넘겨 전개도 그리기 칸 밑에 깐다 (TODO-37)
+// 휴대폰은 "사진 올리기"(앨범·파일)와 "촬영하기"(카메라 바로)로 나눈다. 올린 사진 주소는 onPhoto 로도 넘겨 전개도 그리기 칸 밑에 깐다 (TODO-37)
 // 사진은 모두 pick 으로 들어오고, 거기서 줄이고 방향을 맞춘 뒤(photoPrep) 그 사진을 기준으로 네모·자르기를 한다 (docs/specs/mobile.md)
 // 비스듬히 찍었으면 "종이 펴기"(CornerPick)로 편 사진이 그 뒤의 기준 사진이 된다
 type State = { kind: 'idle' } | { kind: 'preparing' } | { kind: 'straighten' } | { kind: 'picking' } | { kind: 'loading' } | { kind: 'done' } | { kind: 'error'; message: string } | { kind: 'soft'; message: string }
@@ -18,6 +18,8 @@ interface Props {
 }
 
 const MIN_BOX = 0.03 // 이보다 작은 네모는 누른 것으로 보고 무시
+// 터치 화면(휴대폰·태블릿)은 "사진 올리기 | 촬영하기" 두 칸. 촬영하기는 capture 로 뒷면 카메라를 바로 연다 (HTTPS 없이 된다). PC 는 capture 를 무시해서 한 칸
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
 
 // 사진의 box 부분만 원래 해상도로 잘라 JPEG 파일로
 function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
@@ -54,6 +56,12 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
     setBase(await prepPhoto(original))
   }
 
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // 같은 사진을 다시 골라도 onChange 가 오게
+    if (file) pick(file)
+  }
+
   const read = async (part: PhotoBox | null) => {
     if (!photo || !img.current) return
     setState({ kind: 'loading' })
@@ -83,19 +91,18 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
 
   return (
     <div className="photo-upload">
-      <label className={`upload-button${loading ? ' disabled' : ''}`}>
-        {photo ? '다른 사진 올리기' : '학습지 사진 올리기'}
-        <input
-          type="file"
-          accept="image/*"
-          disabled={loading}
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            e.target.value = '' // 같은 사진을 다시 골라도 onChange 가 오게
-            if (file) pick(file)
-          }}
-        />
-      </label>
+      <div className="upload-buttons">
+        <label className={`upload-button${loading ? ' disabled' : ''}`}>
+          {TOUCH ? (photo ? '다른 사진 올리기' : '사진 올리기') : photo ? '다른 사진 올리기' : '학습지 사진 올리기'}
+          <input type="file" accept="image/*" disabled={loading} onChange={onFile} />
+        </label>
+        {TOUCH && (
+          <label className={`upload-button${loading ? ' disabled' : ''}`}>
+            {photo ? '다시 촬영하기' : '촬영하기'}
+            <input type="file" accept="image/*" capture="environment" disabled={loading} onChange={onFile} />
+          </label>
+        )}
+      </div>
       {photo && state.kind === 'straighten' && (
         <CornerPick url={photo.url} onDone={setBase} onCancel={() => setState({ kind: 'picking' })} />
       )}

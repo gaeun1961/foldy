@@ -194,6 +194,7 @@ h2 {
   font-weight: 700;
 }
 .upload-button input { display: none; }
+.upload-buttons { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
 .upload-button.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 /* 사진에서 읽을 부분 네모로 고르기 (ui.md 화면 배치 2번) */
 .photo-pick { position: relative; touch-action: none; cursor: crosshair; user-select: none; border-radius: 8px; overflow: hidden; }
