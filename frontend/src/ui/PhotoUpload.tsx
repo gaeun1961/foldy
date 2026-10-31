@@ -20,6 +20,7 @@ export type PhotoPlace = { box: PhotoBox; aspect: number } // 고른 네모와 �
 interface Props {
   onScene: (scene: ShapeScene, place: PhotoPlace | null) => void
   onPhoto: (url: string) => void
+  onManual?: () => void // 인식이 실패해 직접 만들기로 안내할 때 (접혀 있으면 펼친다, worksheets.md)
 }
 
 const MIN_BOX = 0.03 // 이보다 작은 네모는 누른 것으로 보고 무시
@@ -44,7 +45,7 @@ function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
   )
 }
 
-export function PhotoUpload({ onScene, onPhoto }: Props) {
+export function PhotoUpload({ onScene, onPhoto, onManual }: Props) {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
   const [box, setBox] = useState<PhotoBox | null>(null)
@@ -125,6 +126,7 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
       refreshShelf()
     } catch (e) {
       setState({ kind: e instanceof OfflineError ? 'soft' : 'error', message: (e as Error).message })
+      onManual?.()
     }
   }
 

@@ -90,6 +90,9 @@ export default function App() {
   }
   const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
+  // 사진이 있으면 직접 만들기를 접어 둔다. 고치기를 누르거나 인식이 실패하면 그 사진에서만 펼친다 (worksheets.md, 수동 경로는 늘 한 번에 닿는다)
+  const [manualFor, setManualFor] = useState<string | null>(null)
+  const manualOpen = !photo || manualFor === photo
   const [fit, setFit] = useState(NO_FIT) // 칸에 맞춘 사진 위치. 3D 책 페이지에도 같은 자리에 깐다 (TODO-36)
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
@@ -400,28 +403,36 @@ export default function App() {
               setPhoto(url)
               setFit(NO_FIT)
             }}
+            onManual={() => setManualFor(photo)}
           />
-          <ManualInput
-            key={photo} // 새 사진이면 전개도 그리기로 열고 사진 위치를 처음부터
-            photo={photo}
-            scene={scene}
-            fit={fit}
-            onFit={setFit}
-            onScene={(next, how) => {
-              if (!next) return setScene(null)
-              // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
-              if (how === 'size' && scene) {
-                if (next.net.layout !== scene.net.layout) setVariant(next.net.layout === 'cross' ? 0 : null)
-                // 도형을 바꾸면 공식 설명을 끈다. 켜 둔 공식이 없는 도형(정다면체 등)에서는 조작 버튼이 모두 사라진다
-                if (next.shape !== scene.shape) {
-                  setLesson(firstLesson(next))
-                  setUnfold(1)
-                } else if (lesson && lessonStepCount(next, lesson.kind) === 0) setLesson(firstLesson(next)) // 치수를 바꿨더니 보던 탭이 없어진 때 (떨어진 반원의 부피)
-                return setScene(next)
-              }
-              loadScene(next)
-            }}
-          />
+          {!manualOpen && (
+            <button type="button" className="secondary-button" style={{ width: '100%' }} onClick={() => setManualFor(photo)}>
+              인식이 틀렸나요? 직접 고치기 ▸
+            </button>
+          )}
+          {manualOpen && (
+            <ManualInput
+              key={photo} // 새 사진이면 전개도 그리기로 열고 사진 위치를 처음부터
+              photo={photo}
+              scene={scene}
+              fit={fit}
+              onFit={setFit}
+              onScene={(next, how) => {
+                if (!next) return setScene(null)
+                // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
+                if (how === 'size' && scene) {
+                  if (next.net.layout !== scene.net.layout) setVariant(next.net.layout === 'cross' ? 0 : null)
+                  // 도형을 바꾸면 공식 설명을 끈다. 켜 둔 공식이 없는 도형(정다면체 등)에서는 조작 버튼이 모두 사라진다
+                  if (next.shape !== scene.shape) {
+                    setLesson(firstLesson(next))
+                    setUnfold(1)
+                  } else if (lesson && lessonStepCount(next, lesson.kind) === 0) setLesson(firstLesson(next)) // 치수를 바꿨더니 보던 탭이 없어진 때 (떨어진 반원의 부피)
+                  return setScene(next)
+                }
+                loadScene(next)
+              }}
+            />
+          )}
         </div>
       </details>
       {hologram && scene && <HologramMode scene={scene} photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined} onClose={() => setHologram(false)} />}
