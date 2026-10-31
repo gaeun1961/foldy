@@ -175,6 +175,7 @@ export default function App() {
     // 구 단면 비교의 "⅓ 왜?": 같은 반지름·높이의 원뿔 부피 끝(원판 쌓기)으로
     if (id === CONE_THIRD_LINK && scene.shape === 'sphere') {
       loadScene(crossScene('cone', { radius: scene.size.radius, height: scene.size.radius }))
+      setGallery(null)
       setUnfold(0)
       setLesson({ kind: 'volume', progress: 1 })
       return
@@ -183,6 +184,7 @@ export default function App() {
       // 같은 치수로 다음 모양을 펼친다. grid 라서 전개도 그리기 칸에도 채워진다
       const k = variant === null ? 0 : (variant + 1) % NET_VARIANTS.length
       loadScene(variantScene(scene, k))
+      setGallery(null)
       setFacePick(null)
       setVariant(k)
       return
@@ -203,6 +205,31 @@ export default function App() {
     loadScene(next)
     if (draw) setDrawIn((n) => n + 1)
     if (place && next.net.layout === 'grid') setFit(fitToBox(place.box, place.aspect, next.net.faces))
+  }
+
+  // 사진 인식 결과 (도형 하나 또는 여러 개). 읽기 시작 뒤 학생이 도형을 바꿨으면(직접 그리기 안내 뒤 등) 덮지 않고 단추로 묻는다
+  type Found = { scene: ShapeScene; place: PhotoPlace | null }[]
+  const [pendingResult, setPendingResult] = useState<Found | null>(null)
+  // 읽기를 시작할 때의 도형과 지금 도형. 결과 콜백은 "읽기"를 누른 때의 것이라 지금 도형은 ref 로 본다
+  const readStart = useRef<{ scene: ShapeScene | null } | null>(null)
+  const sceneNow = useRef(scene)
+  useEffect(() => {
+    sceneNow.current = scene
+  }, [scene])
+  useEffect(() => {
+    if (reading) readStart.current = { scene: sceneNow.current }
+  }, [reading])
+  const show = (list: Found) => {
+    setPendingResult(null)
+    setGallery(list.length > 1 ? list : null)
+    setGalleryIndex(0)
+    showShape(list[0].scene, list[0].place)
+  }
+  const arrive = (list: Found) => {
+    const changed = readStart.current !== null && readStart.current.scene !== sceneNow.current
+    readStart.current = null
+    if (changed) setPendingResult(list)
+    else show(list)
   }
 
   // 여러 도형에서 접을 것 고르기 (아래 바 ①②…, 책에서 누르기)
@@ -264,6 +291,8 @@ export default function App() {
             onSceneChange={(next) => {
               setStrokes([...strokes, next.lines.length - scene.lines.length])
               setScene(next)
+              // 여러 도형이면 그은 선·면 표시를 목록에도 써 둔다 (다른 도형을 골랐다 돌아와도 남게)
+              setGallery((g) => g && g.map((x, i) => (i === galleryIndex ? { ...x, scene: next } : x)))
             }}
             onDrawState={setDrawState}
             onRouteChoices={(routes) => setRoute(routes.length > 1 ? { routes, index: 0 } : null)}
@@ -440,23 +469,24 @@ export default function App() {
         </summary>
         <div className="make-body">
           <PhotoUpload
-            onScene={(next, place) => {
-              setGallery(null)
-              showShape(next, place)
-            }}
-            onShapes={(list) => {
-              setGallery(list)
-              setGalleryIndex(0)
-              showShape(list[0].scene, list[0].place)
-            }}
+            onScene={(next, place) => arrive([{ scene: next, place }])}
+            onShapes={arrive}
             onPhoto={(url) => {
               setPhoto(url)
               setFit(NO_FIT)
               setGallery(null)
+              setPendingResult(null)
+              setScene(null) // 새 사진이면 이전 도형을 내린다 (이전 전개도 밑에 새 사진이 어긋나 깔리지 않게, 코드 검토)
             }}
             onManual={() => setManualFor(photo)}
             onReading={setReading}
           />
+          {pendingResult && (
+            // 읽는 동안 학생이 직접 도형을 바꿨으면 결과로 덮지 않고 묻는다 (코드 검토)
+            <button type="button" className="primary-button" style={{ width: '100%' }} onClick={() => show(pendingResult)}>
+              인식한 도형으로 바꾸기
+            </button>
+          )}
           {!manualOpen && (
             <button type="button" className="secondary-button" style={{ width: '100%' }} onClick={() => setManualFor(photo)}>
               인식이 틀렸나요? 직접 고치기 ▸
@@ -470,6 +500,7 @@ export default function App() {
               fit={fit}
               onFit={setFit}
               onScene={(next, how) => {
+                setGallery(null) // 직접 만든 도형은 여러 도형 문제와 따로 (코드 검토)
                 if (!next) return setScene(null)
                 // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
                 if (how === 'size' && scene) {
