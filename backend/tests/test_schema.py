@@ -58,6 +58,17 @@ if __name__ == "__main__":
     ok(TETRA)
     assert ok(CYLINDER)["net"]["seam"] == 0
     assert ok(CONE)["net"]["seam"] == 0  # seam 생략 시 0
+    # 구: 전개도·꼭짓점·선 없음
+    SPHERE = {
+        "shape": "sphere",
+        "size": {"radius": 6},
+        "vertexLabels": [],
+        "lines": [],
+        "net": {"layout": "default"},
+    }
+    assert ok(SPHERE)["size"]["radius"] == 6
+    bad({**SPHERE, "vertexLabels": [None]})
+    bad({**SPHERE, "lines": [{"from": {"vertex": 0}, "to": {"vertex": 0}}]})
     ok(
         {
             **CYLINDER,

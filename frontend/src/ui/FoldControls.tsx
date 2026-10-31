@@ -3,7 +3,7 @@ import type { ViewerProps } from '../viewer'
 import { foldPercent, stepTargets, unfoldOf } from './foldStatus.ts'
 import { animate, SPEEDS, type Speed } from './player.ts'
 
-// 접기 슬라이더 + 이전·다음 단계 + 접기(펼치기) 버튼 (docs/specs/ui.md 화면 배치 4번, 방식·속도는 보기 메뉴). 값은 뷰어의 펼침 값 s (0 = 입체, 1 = 전개도).
+// 접기 슬라이더 + 이전·다음 단계 + 접기(펼치기) 버튼 (docs/specs/ui.md 화면 배치 4번, 방식은 보기 메뉴, 빠르기는 아래 바). 값은 뷰어의 펼침 값 s (0 = 입체, 1 = 전개도).
 // 단계별은 면을 하나씩 접고 단계 사이에 잠깐 멈춘다 (ui.md 친절한 설명 원칙)
 export type FoldMode = NonNullable<ViewerProps['foldMode']>
 interface Props {

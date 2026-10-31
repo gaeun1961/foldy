@@ -19,6 +19,7 @@ eq(foldStatus('cuboid', 0), { done: true, text: '빈틈없이 직육면체가 �
 // 받침 있는 이름은 "이"
 eq(foldStatus('cylinder', 0).text, '빈틈없이 원기둥이 됐어요')
 eq(foldStatus('cone', 0).text, '빈틈없이 원뿔이 됐어요')
+eq(foldStatus('sphere', 1).text, '구는 전개도가 없어요')
 // 반올림 경계: 99.6% 는 "접는 중"이 아니라 다 접힘으로 보인다 (슬라이더와 숫자가 같게)
 eq(foldStatus('cube', 0.004).done, true)
 // 애니메이션 중에는 숫자 없이 "접는 중"만, 끝에 닿으면 평소 문구
