@@ -151,6 +151,7 @@ h2 {
   font-size: 16px;
 }
 .status-badge.done { color: #2e7d4f; font-weight: 700; }
+.status-grade { margin-left: 8px; font-size: 12px; font-weight: 400; opacity: 0.7; }
 /* 직접 만들기 (ui.md 화면 배치 3번): 치수로 만들기 · 전개도 그리기 */
 .manual-input { display: grid; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #1f2430; --button-height: 40px; }
 .manual-input h2 { margin: 0; }

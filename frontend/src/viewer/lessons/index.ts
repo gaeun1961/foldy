@@ -2,7 +2,7 @@ import type * as THREE from 'three'
 import type { ShapeScene } from '../../shared/types.ts'
 import type { FaceTree } from '../faceTree.ts'
 import type { Polyhedron } from '../polyhedra.ts'
-import { boxCenterOf, boxSizeOf, type LessonKind } from './data.ts'
+import { boxCenterOf, boxSizeOf, planOf, type LessonKind } from './data.ts'
 import { buildEdgeRelationsLesson } from './edgeRelations.ts'
 import { buildDiagonalLesson, buildShortestPathLesson } from './pythagoras.ts'
 import { buildSimilarLesson } from './similar.ts'
@@ -11,7 +11,12 @@ import { buildVolumeLesson } from './volume.ts'
 import { textSprite, v3 } from './draw.ts'
 import { boxLengthLabels, faceLengthLabels, solidLengthLabels } from './lengthLabels.ts'
 import { buildSimilarSolidLesson } from './similarSolid.ts'
-import { buildCenterPyramidsLesson, buildPrismVolumeLesson, buildPyramidVolumeLesson } from './solidVolume.ts'
+import { buildCountsLesson } from './counts.ts'
+import { prismBasePoints, pyramidPoints, withPythagorasStep } from './pythagorasStep.ts'
+import { slantPlan } from './regularLayout.ts'
+import { buildRegularSurfaceLesson, buildRegularVolumeLesson } from './regularMeasure.ts'
+import { surfaceGroups } from './surfaceLayout.ts'
+import { buildPrismVolumeLesson, buildPyramidVolumeLesson } from './solidVolume.ts'
 
 // 설명 모드의 three.js 쪽 (docs/specs/viewer.md "설명 모드"). ThreeViewer 는 buildLesson 으로 만든 group 을 면 트리 루트에 붙이고,
 // lesson.progress 가 바뀔 때마다 apply 를 부른다. 설명 종류가 바뀌면 dispose 하고 새로 만든다.
@@ -22,6 +27,7 @@ export interface LessonObject {
   group: THREE.Group
   faceMaterials?: (face: number) => [THREE.Material, THREE.Material] | null
   bounds?: THREE.Box3
+  view?: THREE.Vector3 // 카메라를 이 방향으로 낮춘다 (높이가 중요한 설명). 설명을 끄면 처음 방향으로 돌아간다
   pickTargets?: THREE.Object3D[]
   pick?(target: THREE.Object3D): void
   apply(progress: number): void
@@ -57,19 +63,29 @@ export function buildLesson(scene: ShapeScene, poly: Polyhedron, tree: FaceTree,
     }
     return lesson
   }
-  if (kind === 'surface-area') return labelled(centered(buildSurfaceAreaLesson(poly)))
+  if (kind === 'surface-area') {
+    // 재는 선과 식은 면 좌표에 그린다. 입체 가운데로 옮기는 만큼 되돌린다
+    const [x, y, z] = boxCenterOf(scene)
+    const plan = planOf(scene)
+    if (plan) return buildRegularSurfaceLesson(poly, plan)
+    const lesson = centered(buildSurfaceAreaLesson(poly, [-x, -y, -z], !!box))
+    const slant = slantPlan(scene)
+    return slant ? withPythagorasStep(lesson, surfaceGroups(poly).length, slant, scene.shape === 'pyramid' ? pyramidPoints(poly) : prismBasePoints(poly)) : lesson
+  }
   if (kind === 'edge-relations') return buildEdgeRelationsLesson(poly, radius)
   if (kind === 'similar') return box ? centered(buildSimilarLesson(box, scale, radius)) : buildSimilarSolidLesson(poly, scale, radius)
   if (kind === 'volume') {
+    const volume = planOf(scene)?.volume
+    if (volume) return buildRegularVolumeLesson(poly, volume)
     if (box) return labelled(centered(buildVolumeLesson(box, radius)))
     if (scene.shape === 'prism') return labelled(buildPrismVolumeLesson(poly, scene.size))
     if (scene.shape === 'pyramid') return labelled(buildPyramidVolumeLesson(poly, scene.size))
-    return labelled(buildCenterPyramidsLesson(poly))
   }
+  if (kind === 'counts') return buildCountsLesson(poly)
   if (!box) return null
   if (kind === 'diagonal') return labelled(centered(buildDiagonalLesson(box, radius)))
   if (kind === 'shortest-path') return labelled(buildShortestPathLesson(poly, tree, radius), true)
   return null
 }
 
-export { LESSON_HINT, LESSON_LABEL, lessonHint, LESSON_POSE, lessonStepCount, lessonSummary, type Lesson, type LessonKind } from './data.ts'
+export { LESSON_HINT, LESSON_LABEL, lessonGrade, lessonHint, LESSON_POSE, lessonStepCount, lessonSummary, lessonTabs, type Lesson, type LessonKind, type PiMode } from './data.ts'

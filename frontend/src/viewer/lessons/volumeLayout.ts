@@ -41,6 +41,12 @@ export function volumeLayout(width: number, depth: number, height: number) {
   return { cubes, layers: ys.length, perLayer: xs.length * zs.length }
 }
 
+// 쌓기 진행률 (ui.md 공식 시각화 규칙): 첫 단계는 밑면을 칠하고, 그다음 n 층을 쌓는다. p 는 전체 0~1, layersP 는 층만의 0~1
+export function stackProgress(layers: number, p: number) {
+  const steps = layers + 1
+  return { base: Math.min(1, Math.max(0, p * steps)), layersP: Math.min(1, Math.max(0, (p * steps - 1) / layers)) }
+}
+
 // 진행률 p (0 = 아직 없음, 1 = 다 쌓음) 를 층마다의 진행률로 나눈다. 단계별 접기(stepUnfold)와 같은 방식:
 // 층 n 개면 p 를 n 칸으로 나눠 k 번째 층이 k 번째 칸에서 쌓인다. 층 안에서는 조각이 순서대로 하나씩 나타난다
 export function layerProgress(layers: number, p: number) {

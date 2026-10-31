@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import type { FoldMode } from './FoldControls'
+import type { PiMode } from '../viewer'
 import { SPEEDS, type Speed } from './player'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 
@@ -7,6 +8,7 @@ import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 // 접는 방식, 속도, 면 표시, 보기 옵션. 공식 설명 중에는 속도만 (그 공식에 필요한 것만)
 interface Props {
   lessonOn: boolean
+  pi: { mode: PiMode; onChange: (mode: PiMode) => void } | null // 원이 들어간 도형에서 표기 고르기
   steps: number // 단계 수 (0 이면 접는 방식을 고를 수 없다)
   mode: FoldMode
   onModeChange: (mode: FoldMode) => void
@@ -19,12 +21,21 @@ interface Props {
   onValues: (values: ViewOptionValues) => void
 }
 
-export function ViewMenu({ lessonOn, steps, mode, onModeChange, speed, onSpeedChange, marking, markEnabled, onMarkingChange, values, onValues }: Props) {
+export function ViewMenu({ lessonOn, pi, steps, mode, onModeChange, speed, onSpeedChange, marking, markEnabled, onMarkingChange, values, onValues }: Props) {
   const menu = useRef<HTMLDetailsElement>(null)
   return (
     <details className="view-menu" ref={menu}>
       <summary>보기</summary>
       <div className="view-popup">
+        {pi && (
+          <div className="toggle-row" role="group" aria-label="원주율 표기">
+            {(['pi', '3.14'] as const).map((m) => (
+              <button key={m} type="button" aria-pressed={pi.mode === m} onClick={() => pi.onChange(m)}>
+                {m === 'pi' ? '중등(π)' : '초등(3.14)'}
+              </button>
+            ))}
+          </div>
+        )}
         {!lessonOn && steps > 0 && (
           <div className="toggle-row" role="group" aria-label="접는 방식">
             {(['step', 'all'] as const).map((m) => (

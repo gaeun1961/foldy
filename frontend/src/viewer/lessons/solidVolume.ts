@@ -1,13 +1,14 @@
 // 상자가 아닌 도형의 부피 설명 (docs/specs/viewer.md "설명 모드"). 단위 정육면체로는 채울 수 없어서 도형마다 방식이 다르다.
-// 각기둥: 밑면 판을 층층이 쌓는다. 각뿔: 같은 밑면·높이의 기둥에 세 번 붓는다 (나중에 원뿔·원기둥도 같은 방식).
-// 정다면체: 면마다 가운데로 모이는 각뿔로 나눈다. 좌표는 접힌 입체 기준
+// 각기둥: 밑면 판을 층층이 쌓는다. 각뿔: 같은 밑면·높이의 통에 물을 세 번 붓는다 (원뿔도 같은 방식, pour.ts).
+// 좌표는 접힌 입체 기준
 import * as THREE from 'three'
 import type { PolygonSize, ShapeScene } from '../../shared/types.ts'
 import { polyhedronOf, type Polyhedron } from '../polyhedra.ts'
-import { clamp01, DONE, solidGeometry, textSprite } from './draw.ts'
+import { layerTags, solidGeometry } from './draw.ts'
 import type { LessonObject } from './index.ts'
 import { lengthText } from './lengthLabels.ts'
-import { layerProgress, pieces } from './volumeLayout.ts'
+import { buildPourLesson } from './pour.ts'
+import { layerProgress, pieces, stackProgress } from './volumeLayout.ts'
 
 const FILL = '#ffffff'
 const ACTIVE = '#ffe8a8'
@@ -33,10 +34,23 @@ export function buildPrismVolumeLesson(poly: Polyhedron, { height: h }: PolygonS
     y += sy
     return slab
   })
-  const apply = (progress: number) => {
+  // 밑면 (밑넓이): 층을 쌓기 전에 먼저 칠한다
+  const baseMaterial = new THREE.MeshBasicMaterial({ color: '#ffb74d' })
+  const base = new THREE.Mesh(geometry, baseMaterial)
+  base.scale.set(1, 0.004 / h, 1)
+  base.position.y = -h / 2 + 0.01
+  group.add(base)
+  const reach = Math.max(...poly.positions.map((p) => Math.hypot(p[0], p[2])))
+  let tagY = -h / 2
+  const tagYs = layers.map((sy) => ((tagY += sy), tagY - sy / 2))
+  const tags = layerTags(group, layers.length, Math.max(reach * 2, h) * 0.16, (k) => new THREE.Vector3(reach * 1.25, tagYs[k], 0))
+  const apply = (whole: number) => {
+    const { base: painted, layersP: progress } = stackProgress(layers.length, whole)
+    base.visible = painted > 0
     const per = layerProgress(layers.length, progress)
     let current = per.findIndex((q) => q > 0 && q < 1)
     if (current < 0 && progress > 0 && progress < 1) current = per.filter((q) => q >= 1).length - 1
+    tags.show(current)
     slabs.forEach((s, k) => {
       const height = Math.max(s.sy - GAP, 1e-3) * per[k]
       s.mesh.visible = per[k] > 0
@@ -50,99 +64,34 @@ export function buildPrismVolumeLesson(poly: Polyhedron, { height: h }: PolygonS
     group,
     apply,
     dispose: () => {
+      tags.dispose()
       group.removeFromParent()
       geometry.dispose()
       edges.dispose()
-      for (const m of [normal, active, edgeMaterial]) m.dispose()
+      for (const m of [normal, active, edgeMaterial, baseMaterial]) m.dispose()
     },
   }
 }
 
-// 각뿔: 옆에 같은 밑면·같은 높이의 기둥을 세우고 세 번 붓는다. 단계마다 각뿔이 비면서 기둥이 ⅓ 씩 차고, 다음 단계에서 각뿔이 다시 찬다
+// 각뿔: 같은 밑면·같은 높이의 기둥(통)에 물을 세 번 붓는다 (pour.ts)
 export function buildPyramidVolumeLesson(poly: Polyhedron, size: PolygonSize): LessonObject {
   const { sides: n, edge, height: h } = size
-  const R = edge / (2 * Math.sin(Math.PI / n)) // 밑면 반지름
-  const dx = 2 * R + Math.max(edge, h) * 0.35 // 기둥을 옆에
+  const R = edge / (2 * Math.sin(Math.PI / n))
   const floor = -h / 4 // 각뿔은 무게중심이 원점이라 밑면이 −h/4
-  const group = new THREE.Group()
-  const pyramidGeometry = solidGeometry(poly)
-  const prismGeometry = solidGeometry(prismOf(size))
-  const prismEdges = new THREE.EdgesGeometry(prismGeometry)
-  const pyramidMaterial = new THREE.MeshStandardMaterial({ color: '#ffd982', transparent: true })
-  const fillMaterial = new THREE.MeshStandardMaterial({ color: '#ffd982' })
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
-  const pyramid = new THREE.Mesh(pyramidGeometry, pyramidMaterial)
-  const frame = new THREE.LineSegments(prismEdges, edgeMaterial)
-  frame.position.set(dx, floor + h / 2, 0)
-  const fill = new THREE.Mesh(prismGeometry, fillMaterial)
-  fill.position.x = dx
-  group.add(pyramid, frame, fill)
-  const heightLabel = textSprite(lengthText(h), Math.max(edge, h) * 0.3)
-  heightLabel.sprite.position.set(dx + R + Math.max(edge, h) * 0.12, floor + h / 2, 0)
-  group.add(heightLabel.sprite)
-
-  const apply = (progress: number) => {
-    const t = clamp01(progress) * 3
-    const k = Math.min(Math.floor(t + 1e-6), 2) // 단계 경계의 소수 오차 (1/3 × 3 이 1 보다 조금 작게 나온다)
-    const q = Math.max(0, t - k) // 이번 붓기 진행률. 단계 사이에 멈추면 0 이라 각뿔이 다시 찬 모습
-    const level = progress >= DONE ? 1 : (k + q) / 3
-    fill.visible = level > 0
-    fill.scale.set(1, Math.max(level, 1e-3), 1)
-    fill.position.y = floor + (h * level) / 2
-    pyramidMaterial.opacity = progress >= DONE ? 0.15 : 1 - q * 0.85
-  }
-  apply(0)
-  return {
-    group,
-    bounds: new THREE.Box3(new THREE.Vector3(-R, floor, -R), new THREE.Vector3(dx + R, floor + h, R)),
-    apply,
-    dispose: () => {
-      heightLabel.dispose()
-      group.removeFromParent()
-      for (const g of [pyramidGeometry, prismGeometry, prismEdges]) g.dispose()
-      for (const m of [pyramidMaterial, fillMaterial, edgeMaterial]) m.dispose()
-    },
-  }
-}
-
-// 정다면체: 면마다 "그 면이 밑면이고 가운데가 꼭대기인 각뿔"로 나눈다. 가운데에서 자라 나와 차례로 채운다
-export function buildCenterPyramidsLesson(poly: Polyhedron): LessonObject {
-  const group = new THREE.Group()
-  const center = poly.positions.reduce((c, p) => c.add(new THREE.Vector3(...p)), new THREE.Vector3()).multiplyScalar(1 / poly.positions.length)
-  const tints = ['#ffe8a8', '#ffffff'].map((color) => new THREE.MeshStandardMaterial({ color }))
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
-  const owned: THREE.BufferGeometry[] = []
-  const meshes = poly.faces.map((f, k) => {
-    const pts = f.vertices.map((v) => new THREE.Vector3(...poly.positions[v]).sub(center))
-    const apex = new THREE.Vector3()
-    const tri = pts.flatMap((p, i) => [apex, p, pts[(i + 1) % pts.length]])
-    const cap = pts.slice(1, -1).flatMap((p, i) => [pts[0], p, pts[i + 2]])
-    const geometry = new THREE.BufferGeometry().setFromPoints([...tri, ...cap])
-    geometry.computeVertexNormals()
-    const edges = new THREE.EdgesGeometry(geometry, 1)
-    owned.push(geometry, edges)
-    const mesh = new THREE.Mesh(geometry, tints[k % 2])
-    mesh.material = tints[k % 2]
-    ;(mesh.material as THREE.Material).side = THREE.DoubleSide
-    mesh.position.copy(center)
-    mesh.add(new THREE.LineSegments(edges, edgeMaterial))
-    group.add(mesh)
-    return mesh
+  const body = solidGeometry(poly)
+  const cupFill = solidGeometry(prismOf(size))
+  return buildPourLesson({
+    body,
+    bodyEdges: new THREE.EdgesGeometry(body),
+    baseY: floor,
+    cupFill,
+    fillHeight: h,
+    cupEdges: new THREE.EdgesGeometry(cupFill),
+    cupEdgesY: floor + h / 2,
+    rim: poly.positions.slice(0, n).map((q) => new THREE.Vector3(q[0], 0, q[2])),
+    cupX: 2 * R + Math.max(edge, h) * 0.45,
+    radius: R,
+    height: h,
+    heightLabel: lengthText(h),
   })
-  const apply = (progress: number) =>
-    meshes.forEach((mesh, k) => {
-      const q = clamp01(progress * meshes.length - k)
-      mesh.visible = q > 0
-      mesh.scale.setScalar(Math.max(q, 1e-3))
-    })
-  apply(0)
-  return {
-    group,
-    apply,
-    dispose: () => {
-      group.removeFromParent()
-      owned.forEach((g) => g.dispose())
-      for (const m of [...tints, edgeMaterial]) m.dispose()
-    },
-  }
 }
