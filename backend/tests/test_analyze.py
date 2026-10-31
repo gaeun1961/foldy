@@ -362,8 +362,37 @@ assert any(
     x.get("status") == 422 and "ShapeScene" in x["error"] and x["kind"] == "VisionError"
     for x in results
 ), results
+# 결과를 본 뒤 학생이 한 일 (#160): /record 가 그 묶음 session.json 의 events 에 쌓는다
+assert (
+    client.post(
+        "/record", json={"session": "s1abc", "event": "verdict", "value": "wrong"}
+    ).status_code
+    == 204
+)
+assert (
+    client.post("/record", json={"session": "s1abc", "event": "manual"}).status_code
+    == 204
+)
+(session_path,) = [
+    p
+    for p in cases.glob("*/session.json")
+    if json.loads(p.read_text(encoding="utf-8")).get("session") == "s1abc"
+]
+events = json.loads(session_path.read_text(encoding="utf-8"))["events"]
+assert [e["event"] for e in events] == ["verdict", "manual"] and events[0][
+    "value"
+] == "wrong", events
+assert (
+    client.post("/record", json={"event": "verdict"}).status_code == 204
+)  # 묶음 id 없으면 무시
 del os.environ["VISION_RECORD"]
+before = sorted(cases.rglob("*"))
+assert (
+    client.post("/record", json={"session": "s-off", "event": "verdict"}).status_code
+    == 204
+)
+assert sorted(cases.rglob("*")) == before, "꺼져 있으면 /record 도 쓰지 않는다"
 
 print(
-    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, agy 미리 띄워 두기·늦으면 하나 더, 문제 칸, 입체도형 문제가 아님, 기록 모드)"
+    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, agy 미리 띄워 두기·늦으면 하나 더, 문제 칸, 입체도형 문제가 아님, 기록 모드, /record)"
 )

@@ -21,23 +21,25 @@ let current: RecordSession | null = null
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 // 새 기준 사진(고르기·돌리기·종이 펴기 뒤)마다 새 묶음
+// 함수마다 RECORD 를 먼저 본다: 배포 빌드에서는 false 상수라 본문이 통째로 빠진다
 export function startSession(): RecordSession | null {
-  current = RECORD ? { session: newId(), photoSent: false, suggested: [], sideways: false, removed: [], added: 0 } : null
+  if (!RECORD) return null
+  current = { session: newId(), photoSent: false, suggested: [], sideways: false, removed: [], added: 0 }
   return current
 }
 
-export const session = () => current
+export const session = () => (RECORD ? current : null)
 
 // /analyze 에 붙일 record JSON. 실제로 읽은 네모와 문제 칸을 더한다
 export function readRecord(parts: (PhotoBox | null)[], problemBox: PhotoBox | null): string | null {
-  if (!current) return null
+  if (!RECORD || !current) return null
   const { photoSent: _sent, ...rest } = current
   return JSON.stringify({ ...rest, read: parts, problemBox })
 }
 
 // 결과를 본 뒤 학생이 한 일 (맞음·틀림·직접 고치기). 기록이 꺼져 있거나 실패해도 화면은 그대로
 export function recordEvent(event: string, extra: Record<string, unknown> = {}) {
-  if (!current) return
+  if (!RECORD || !current) return
   void fetch(`${API_URL}/record`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

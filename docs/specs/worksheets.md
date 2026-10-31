@@ -210,6 +210,7 @@ P4 끝 (#130, #122 머지 뒤) — `buildStage(scene, theme, { photo })`, `Holog
 - 폴더: `evals/cases/{날짜_시각}_{묶음 id 앞 6자}/` — `session.json`(frontend 가 보낸 record 를 합침), `photo.jpg`(원본, 처음 한 번), `read-{n}/`(`shape.jpg`, `problem.jpg`, `result.json`, `meta.json`)
 - `meta.json`: `source`(cache·agy·api·cli), 엔진·모델, 걸린 초, 도형·문제 글 각각의 agy 시간(`#번호`, 차례 기다림, 대기 프로세스를 썼는지, 하나 더 보냈는지), 받은 사진의 sha256, 문제 글을 어디서 읽었는지
 - `result.json`: ShapeScene, 실패면 `{"error": ..., "status": 422|503, "kind": 에러 종류}` (`NotSolidError` 면 입체도형 문제가 아님, #163)
+- **frontend** (#160, `ui/recordLog.ts`): 개발 빌드(`npm run dev`)나 `VITE_RECORD=1` 로 만든 빌드에서만 켜진다(배포 빌드에는 코드가 빠진다). 기준 사진(고르기·돌리기·종이 펴기 뒤)마다 묶음 id. `/analyze` 의 `record` 에 `suggested`(② 추천 네모)·`sideways`(누워서 추천 안 함)·`removed`(한 번 눌러 지운 네모)·`added`(도형 더하기 수)·`read`(실제로 읽은 네모, 전체면 null)·`problemBox`. 결과 아래 [맞음][틀림]과 "직접 고치기"는 `/record` 로 `events` 에 (`verdict` `value: right|wrong`, `manual`)
 - 사진은 저작권·학생 사진이라 git 에 올리지 않는다 (`.gitignore`). 증류 결과 표(숫자)만 리포트로 옮긴다
 
 ## G. 변경 지도

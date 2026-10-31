@@ -141,3 +141,22 @@ def write(
         )
         if photo and not any(folder.glob("photo.*")):
             (folder / f"photo{_ext(photo_type)}").write_bytes(photo)
+
+
+def add_event(session: str, values: dict) -> None:
+    """결과를 본 뒤 학생이 한 일(맞음·틀림·직접 고치기, #160)을 그 묶음 session.json 의 events 에 쌓는다."""
+    folder = _folder(session)
+    with _lock:
+        folder.mkdir(parents=True, exist_ok=True)
+        session_file = folder / "session.json"
+        merged = (
+            json.loads(session_file.read_text(encoding="utf-8"))
+            if session_file.exists()
+            else {"session": session}
+        )
+        merged.setdefault("events", []).append(
+            {"time": time.strftime("%Y-%m-%d %H:%M:%S"), **values}
+        )
+        session_file.write_text(
+            json.dumps(merged, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
