@@ -2,12 +2,12 @@
 
 frontend가 부르는 backend 엔드포인트입니다. 요청·응답의 `ShapeScene`은 [shape-scene.md](shape-scene.md)를 따릅니다.
 
-backend 기본 주소는 `http://localhost:8000`이고, 자동 문서는 `/docs`에서 볼 수 있다.
+backend 기본 주소는 `http://localhost:8000`이고(휴대폰에서 열 때는 frontend `.env`의 `VITE_API_URL`, [mobile.md](mobile.md)), 자동 문서는 `/docs`에서 볼 수 있다.
 
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | GET | `/health` | - | `{ "status": "ok" }` |
-| POST | `/analyze` | multipart `file` (이미지만, 아니면 400) | `ShapeScene`. Gemini가 학습지 사진을 읽는다(프롬프트 `vision_prompt.py`). 실패하면 422·503 `{ "detail": string }` (아래 "/analyze 에러") |
+| POST | `/analyze` | multipart `file` (이미지만, 아니면 400), 선택 `problem` (문제 칸 사진, 아래 "문제 칸") | `ShapeScene`. Gemini가 학습지 사진을 읽는다(프롬프트 `vision_prompt.py`). 실패하면 422·503 `{ "detail": string }` (아래 "/analyze 에러") |
 | POST | `/chat` | `{ "message": string, "scene": ShapeScene }` | `{ "reply": string, "view": ChatView \| null }` (아래 "화면 조작"). Gemini가 도형을 보고 힌트를 준다. LLM 호출이 실패하거나 20초를 넘기면 502 `{ "detail": string }`. `LLM_API_KEY`가 없으면 고정 문장, `view`는 `null` |
 
 ## `/analyze` 에러
@@ -22,6 +22,8 @@ backend 기본 주소는 `http://localhost:8000`이고, 자동 문서는 `/docs`
 
 - 모델이 붐비면(503) 2초 쉬고 한 번 더 부른다
 - **Gemini CLI 비상 경로** (`.env`의 `VISION_CLI=1`일 때만): API로 인식을 못 쓰면(503 경우 전부) 그 컴퓨터에 로그인된 Gemini CLI(`gemini`)로 같은 프롬프트를 한 번 더 보낸다. CLI도 실패하면 위 표대로 503이다. 시연 노트북용이고, CLI 무료 사용량은 개인 개발용이라 배포에서는 켜지 않는다
+- **팀 테스트 엔진** (`.env`의 `VISION_ENGINE=agy`일 때만): Gemini API를 부르지 않고 그 컴퓨터에 로그인된 Antigravity CLI(`agy`, 모델 `VISION_AGY_MODEL`, 기본 `gemini-4-argon-low`)로 읽는다. 잘라낸 도형 한 장에 15~20초, 도형은 셋까지 동시에 처리한다(미리 띄워 두고 늦으면 하나 더, worksheets.md C). 응답·에러는 위 표 그대로. 팀원끼리 시험할 때만 쓰고 배포에서는 켜지 않는다 ([worksheets.md](worksheets.md) W1)
+- **문제 칸** (`problem`, 선택, [worksheets.md](worksheets.md) 2단계 네모): 학생이 문제 전체를 감싼 사진. 오면 도형(`file`)과 **동시에** 인쇄된 문제 문장만 읽어 응답 `problem`을 그것으로 채운다(agy: `gemini-3.8-flash-low`, API: `gemini-3.5-flash-lite`). 문장을 못 읽어도 실패로 보지 않고 도형 결과를 그대로 돌려준다
 - **같은 사진은 다시 부르지 않는다**: 사진 바이트의 해시로 성공한 결과를 backend가 켜져 있는 동안 기억한다(최근 100장). 무료 한도(모델당 하루 20번)를 아끼려고. 실패는 기억하지 않는다
 - 서버 로그에는 원인(429, 시간 초과 등)을 남긴다
 

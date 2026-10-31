@@ -1,0 +1,39 @@
+# 버그 - 3D 위에서 휠을 굴리면 책이 사라지고 책상만 보임
+
+- 등록 일시: 2026-10-31 15:40 (KST)
+- 작성자: Phodo
+- 에이전트: Claude Code
+- 영역: 3D 뷰어 (`frontend/src/viewer/`)
+- 이슈: [#128](https://github.com/gaeun1961/foldy/issues/128) (assignee 없음, 프론트 담당이 가져간다)
+- 선행 TODO: 없음
+
+## 증상
+- 좁은 화면(가로 1024px 미만, 3D 뷰가 위에 고정)에서 페이지를 내리려고 **3D 뷰 위에서 마우스 휠**을 굴리면, 페이지는 내려가지 않고 카메라가 끝없이 멀어진다
+- 책이 점점 작아지다 안개(fog)에 묻혀 **책상만 보인다** → 사용자는 "다른 화면으로 바뀌었다"고 느낀다. 상태 배지("정육면체 · 펼친 상태")는 그대로
+- 반대로 굴리면 끝없이 가까워져 책 속으로 들어간다
+- 사용자 제보 화면(2026-10-31): 위 3D 칸이 책상색만, 아래는 전개도 그리기 칸
+
+## 재현
+1. 가로 837px 창(또는 기기 모드)에서 아무 도형이나 띄운다 (사진 인식, 치수로 만들기, 차례 모두 같음)
+2. 3D 뷰 가운데에 마우스를 두고 휠을 아래로 10번쯤 굴린다
+3. 책이 사라지고 책상만 남는다. `window.scrollY`는 0 그대로 (페이지는 안 내려감)
+
+## 원인
+- `OrbitControls`에 거리 제한이 없다: `viewer/ThreeViewer.tsx:604`, `viewer/CurvedViewer.tsx:108`, `viewer/EmptyBook.tsx`(같은 구조). `minDistance`·`maxDistance`를 두지 않아 휠만큼 무한히 멀어지고 가까워진다
+- 멀어지면 `world.fog`(`ThreeViewer.tsx:579` `radius * 8 ~ radius * 22`)가 책을 지운다
+- 좁은 화면에서 3D 뷰는 위에 고정(`index.css` `.stage { position: sticky; height: 50vh }`)이라 화면의 절반이 휠을 먹는다. 휠은 OrbitControls가 `preventDefault`해서 페이지로 가지 않는다
+
+## 고치는 방향 (제안, viewer.md "카메라"를 먼저 고친다)
+1. **거리 제한** (꼭): 카메라를 맞춘 거리 `d`(`ThreeViewer.tsx:621`에서 계산)를 기준으로 `controls.minDistance = d * 0.35`, `controls.maxDistance = d * 1.6` 정도. 맞출 때마다(`fit` 다시 계산) 같이 갱신. 세 뷰어 모두
+2. **되돌리기**: 한참 돌리고 확대해도 돌아올 수 있게 "처음 구도로" (두 번 누르기 또는 작은 버튼). 지금은 새로고침밖에 없다
+3. (선택) **좁은 화면에서 휠은 페이지로**: `pointer: fine` + 좁은 화면이면 `controls.enableZoom = false`로 하고 확대는 버튼·두 손가락으로. 또는 Ctrl+휠만 확대(지도 서비스 방식). [ui.md](../specs/ui.md) "PC·휴대폰 구분" 기준으로 판단
+
+## 완료 조건
+- [ ] 휠을 아무리 굴려도 책·도형이 화면에서 사라지지 않는다 (가까이·멀리 모두)
+- [ ] 접기 0%·100%, 설명 모드(입체·전개도 자세)에서도 같은 제한이 맞다
+- [ ] viewer.md "카메라"에 거리 제한을 적었다
+- [ ] 넓은 화면 동작은 지금과 같다 (제한 안쪽에서는 그대로 확대·축소)
+
+## 참고
+- 관련 문서: [viewer.md](../specs/viewer.md) "카메라", [ui.md](../specs/ui.md) 화면 배치, [mobile.md](../specs/mobile.md) M5
+- 확인 방법: 브라우저 콘솔에서 3D 캔버스에 `WheelEvent({deltaY:120})`를 12번 보내면 재현된다

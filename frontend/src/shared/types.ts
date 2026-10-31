@@ -83,6 +83,14 @@ interface SceneOf<S extends ShapeKind, Z, P, N> {
   vertexLabels: (string | null)[] // 길이 = vertexCountOf(scene)
   lines: Line<P>[]
   net: N
+  problem?: string | null // 사진에서 읽은 인쇄된 문제 문장 (shape-scene.md, 선택)
+  photoBox?: PhotoRect | null // 사진 안 전개도 그림의 네모, 0~1 비율 (grid 일 때, 선택)
+}
+export interface PhotoRect {
+  x: number
+  y: number
+  w: number
+  h: number
 }
 type CrossNet = { layout: 'cross' }
 // 학습지 전개도 그대로 (docs/specs/shape-scene.md "전개도 grid"). 평면 좌표: x 오른쪽, y 아래, 단위는 size 와 같음

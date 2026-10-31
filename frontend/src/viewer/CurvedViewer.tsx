@@ -16,7 +16,7 @@ import { PAPER } from './theme.ts'
 
 // 곡면 도형(원기둥·원뿔·구) 화면 (docs/specs/viewer.md "곡면 도형"): 같은 책 위에서 옆면을 말고 밑면 원을 접는다. 구는 전개도가 없어 입체만.
 // 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 scene.lines 그대로 그리고, 화면에서 긋는 입력은 없다
-export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers }: ViewerProps) {
+export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers, onReady }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef({ unfold, showMatchingEdges, showVertexLabels, lesson })
   const applyRef = useRef<(() => void) | null>(null)
@@ -28,9 +28,11 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     viewRef.current = { unfold, showMatchingEdges, showVertexLabels, lesson }
     applyRef.current?.()
   }, [unfold, showMatchingEdges, showVertexLabels, lesson])
+  const readyRef = useRef(onReady) // 첫 프레임을 그렸을 때 (ViewerProps onReady)
   useEffect(() => {
     menuRef.current = onPageMenu
-  }, [onPageMenu])
+    readyRef.current = onReady
+  }, [onPageMenu, onReady])
   useEffect(() => {
     pageRef.current = { pageText, pageResult, pageMenu, pageNumbers }
   }, [pageText, pageResult, pageMenu, pageNumbers])
@@ -165,10 +167,15 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     renderer.domElement.addEventListener('pointerup', onUp)
     renderer.domElement.addEventListener('pointermove', onMove)
 
+    let told = false // 첫 프레임을 그렸다고 알렸는가 (onReady)
     renderer.setAnimationLoop(() => {
       controls.update()
       renderer.render(world, camera)
       liftLastFrame()
+      if (!told) {
+        told = true
+        readyRef.current?.()
+      }
     })
 
     return () => {

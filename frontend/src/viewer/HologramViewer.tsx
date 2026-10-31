@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import type { ShapeScene } from '../shared/types.ts'
+import type { NetPhoto } from './index.ts'
 import { fitDistance, regions, uvOf, type Region } from './holoLayout.ts'
 import { buildStage } from './stage.ts'
 import { HOLOGRAM } from './theme.ts'
@@ -14,6 +15,7 @@ export interface HologramProps {
   center?: number // 가운데 정사각형 한 변 / 화면 짧은 변 = 피라미드 꼭지 크기 (기본 0.2). 기기마다 다른 유일한 값
   showGuide?: boolean // 가운데 정사각형 테두리 = 피라미드 놓을 자리 (기본 false). 가운데를 맞출 때만 켠다
   onTap?: () => void // 화면을 누르면 (설정 열기)
+  photo?: NetPhoto // 면에 입힐 학습지 사진 (grid 전개도일 때만, 이슈 #130). 바뀌면 다시 만든다
 }
 
 const FOV = 35
@@ -34,11 +36,13 @@ function spinRadius(box: THREE.Box3) {
   return Math.hypot(far, (box.max.y - box.min.y) / 2)
 }
 
-export function HologramViewer({ scene, center = 0.2, showGuide = false, onTap }: HologramProps) {
+export function HologramViewer({ scene, center = 0.2, showGuide = false, onTap, photo }: HologramProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 가운데·놓을 자리는 다시 만들지 않고 칸만 다시 배치한다
   const options = useRef({ center, showGuide })
   const relayout = useRef<(() => void) | null>(null)
+  // 사진 위치는 부모가 그릴 때마다 새 객체라서 값(문자열)으로 비교하고, 만들 때 문자열에서 꺼낸다
+  const photoKey = photo ? JSON.stringify(photo) : ''
 
   useEffect(() => {
     const before = options.current
@@ -59,7 +63,7 @@ export function HologramViewer({ scene, center = 0.2, showGuide = false, onTap }
     world.add(spinner)
     const cameras = [0, 1, 2, 3].map(() => new THREE.PerspectiveCamera(FOV, 1, 0.01, 1000))
 
-    const stage = buildStage(scene, HOLOGRAM)
+    const stage = buildStage(scene, HOLOGRAM, { photo: photoKey ? (JSON.parse(photoKey) as NetPhoto) : undefined })
     if (stage) spinner.add(stage.object)
     const solidY = stage ? stage.solid.getCenter(new THREE.Vector3()).y : 0 // 다 접은 입체의 가운데 높이
     const target = new THREE.Vector3()
@@ -190,7 +194,7 @@ export function HologramViewer({ scene, center = 0.2, showGuide = false, onTap }
       renderer.forceContextLoss()
       renderer.domElement.remove()
     }
-  }, [scene])
+  }, [scene, photoKey])
 
   return <div ref={containerRef} className="hologram-viewer" onClick={onTap} />
 }

@@ -4,15 +4,19 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { aimLight, bookLights, bookRenderer, bookView, buildBook, liftLastFrame, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookRenderer, bookView, buildBook, liftLastFrame, DESK_COLOR, fitOf, pageTexture, readingRange, VIEW_DIR } from './bookScene.ts'
+import { ITEM_LABELS, pageSlots } from './pageSlots.ts'
+import { startPenDraw, type PenDraw } from './penDraw.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
 import { PAPER, type Look } from './theme.ts'
 
 // 처음 카메라가 보는 점에서 카메라 쪽 방향 (비스듬히 위, 오른쪽 앞). 정다면체는 이 방향에서 먼 면부터 접는다
+// 펜으로 그려 내기: 마지막으로 다 그린 drawIn 값. 뷰어가 내려갔다 올라와도(홀로그램, 읽는 중 빈 책, 곡면 도형) 같은 값이면 다시 그리지 않게 모듈에 둔다
+let lastDrawn: number | undefined
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
-// 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
+// 맞닿는 모서리 쌍 색: 색연필 빨강, 파랑, 초록, 노랑 + 잉크 (ui.md 컨셉). 쌍이 더 많으면 돌려 쓴다.
 // 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다
 const PAIR_COLORS = PAPER.pairs // 3D 디자인 토큰 (theme.ts)
 
@@ -70,6 +74,11 @@ export function ThreeViewer({
   onPageMenu,
   pageNumbers,
   photo,
+  drawIn,
+  gallery,
+  galleryIndex = 0,
+  onPickGallery,
+  onReady,
   edgeDivisions = 2,
   onSceneChange,
   onDrawState,
@@ -83,9 +92,14 @@ export function ThreeViewer({
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson })
   const applyRef = useRef<(() => void) | null>(null)
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
-  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu })
+  const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery, onReady })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
   const drawMarksRef = useRef<((scene: ShapeScene) => void) | null>(null)
+  // 펜으로 그려 내기 (viewer.md "펜으로 그려 내기"): 지금 값과 마지막으로 그린 값. 다르면 도형을 만들 때 그린다
+  const drawRef = useRef<{ want?: number }>({})
+  useEffect(() => {
+    drawRef.current.want = drawIn // 아래 도형 만들기 effect 보다 먼저 돈다
+  }, [drawIn])
 
   // unfold·foldMode·보기 옵션·강조·선 긋기 모드·설명만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
@@ -93,8 +107,8 @@ export function ThreeViewer({
     applyRef.current?.()
   }, [unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson])
   useEffect(() => {
-    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu }
-  }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu])
+    callbacksRef.current = { onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery, onReady }
+  }, [onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu, onPickGallery, onReady])
 
   // lines 만 바뀌면 선분만 다시 그린다. 선을 그을 때마다 카메라가 처음 구도로 돌아가지 않게 (viewer.md ViewerProps)
   useEffect(() => {
@@ -104,12 +118,13 @@ export function ThreeViewer({
   }, [scene])
   // lines 와 면 표시(글자·색칠)를 뺀 도형과 책 페이지(글·사진). 이것이 바뀔 때만 다시 만든다 (선·면 표시는 카메라 각도를 지키며 그것만 다시 그린다)
   const net = scene.net.layout === 'grid' ? { ...scene.net, faces: scene.net.faces.map(({ x, y, w, h }) => ({ x, y, w, h })) } : scene.net
-  const shapeKey = JSON.stringify({ ...scene, lines: undefined, net, pageNumbers, photo })
-  const pageRef = useRef({ pageText, pageResult, pageMenu, pageNumbers, photo })
+  const galleryKey = gallery && gallery.length > 1 ? gallery.map((g) => ({ ...g, lines: undefined })) : null // 여러 도형: 바뀌면 다시 만든다
+  const shapeKey = JSON.stringify({ ...scene, lines: undefined, net, pageNumbers, photo, galleryKey, galleryIndex })
+  const pageRef = useRef({ pageText, pageResult, pageMenu, pageNumbers, photo, gallery, galleryIndex })
   const rebuildBookRef = useRef<(() => void) | null>(null)
   useEffect(() => {
-    pageRef.current = { pageText, pageResult, pageMenu, pageNumbers, photo } // 아래 다시 만들기 effect 보다 먼저 돈다
-  }, [pageText, pageResult, pageMenu, pageNumbers, photo])
+    pageRef.current = { pageText, pageResult, pageMenu, pageNumbers, photo, gallery, galleryIndex } // 아래 다시 만들기 effect 보다 먼저 돈다
+  }, [pageText, pageResult, pageMenu, pageNumbers, photo, gallery, galleryIndex])
   // 왼쪽 쪽 글·공식 결과만 바뀌면 책 그림만 다시 그린다. 카메라와 설명 진행은 그대로 (viewer.md ViewerProps)
   const pageKey = JSON.stringify({ pageText, pageResult, pageMenu })
   useEffect(() => {
@@ -123,6 +138,7 @@ export function ThreeViewer({
     const container = containerRef.current!
 
     const renderer = bookRenderer()
+    renderer.localClippingEnabled = true // 학습지 사진을 책 페이지 안으로 자른다
     container.appendChild(renderer.domElement)
 
     const world = new THREE.Scene()
@@ -206,10 +222,66 @@ export function ThreeViewer({
     layOnFloor(tree, poly, yaw)
     applyUnfold(tree, 1)
     const flatNet = new THREE.Box3().setFromObject(tree.root) // 다 펼친 전개도 범위(+ 사진). 책 페이지 크기를 정한다
+    const netOnly = flatNet.clone() // 지금 도형만 (펜 칸, 여러 도형 배치의 기준)
+
+    // 여러 도형 (viewer.md "여러 도형", worksheets.md): 나머지 도형을 책 오른쪽 쪽에 pageSlots 칸으로 펼친 채 놓는다.
+    // 지금 도형은 자리·크기를 그대로 두고(선 긋기·설명·누르기가 이 좌표를 쓴다), 배치 전체를 지금 도형의 칸이 지금 크기가 되게 맞춘다
+    const galleryList = pageRef.current.gallery
+    const activeIndex = pageRef.current.galleryIndex ?? 0
+    const galleryNets: { index: number; tree: ReturnType<typeof buildFaceTree>; holder: THREE.Group; materials: THREE.Material[]; box: THREE.Box3 }[] = []
+    const plates: THREE.Mesh[] = []
+    let galleryArea: THREE.Box3 | null = null
+    if (galleryList && galleryList.length > 1) {
+      const { outside, inside, edge } = PAPER.looks.normal
+      const metas = galleryList.map((g, i) => {
+        if (i === activeIndex) return { box: netOnly }
+        const p = polyhedronOf(g)
+        if (!p) return null
+        // 재질은 전개도마다 따로 (펜 가림이 판마다 다르다)
+        const materials = [
+          new THREE.MeshStandardMaterial({ ...faceStyle, color: outside, side: THREE.FrontSide }),
+          new THREE.MeshStandardMaterial({ ...faceStyle, color: inside, side: THREE.BackSide }),
+          new THREE.LineBasicMaterial({ color: edge }),
+        ]
+        const t = buildFaceTree(p, [materials[0], materials[1]], materials[2] as THREE.LineBasicMaterial)
+        layOnFloor(t, p, p.foldOrder ? 0 : facingYaw(t, p, VIEW_DIR))
+        applyUnfold(t, 1)
+        t.root.updateMatrixWorld(true)
+        return { tree: t, materials, box: new THREE.Box3().setFromObject(t.root) }
+      })
+      const aspectOf = (b: THREE.Box3) => (b.max.x - b.min.x) / Math.max(1e-6, b.max.z - b.min.z)
+      const page = { x: 0, y: 0, w: 3, h: 4 } // 세로로 긴 쪽 비율로 칸을 나누고, 아래에서 실제 크기로 늘린다
+      const slots = pageSlots(page, metas.map((m) => (m ? aspectOf(m.box) : 1)))
+      const a = slots[activeIndex]
+      const f = (netOnly.max.z - netOnly.min.z) / a.h // 칸 단위 → 실제 길이 (지금 도형의 칸 = 지금 크기)
+      const at = (x: number, y: number) => new THREE.Vector3(netOnly.min.x + (x - a.x) * f, 0, netOnly.min.z + (y - a.y) * f)
+      galleryArea = new THREE.Box3(at(page.x, page.y), at(page.x + page.w, page.y + page.h))
+      metas.forEach((m, i) => {
+        const s = slots[i]
+        const corner = at(s.x, s.y)
+        // 번호판 ①②…: 칸 왼쪽 위. 지금 접는 도형은 강조색
+        const plateSize = Math.min(s.w, s.h) * f * 0.2
+        const plate = numberPlate(ITEM_LABELS[i], plateSize, i === activeIndex)
+        plate.position.set(corner.x - plateSize * 0.35, 0.002, corner.z - plateSize * 0.35)
+        world.add(plate)
+        plates.push(plate)
+        if (i === activeIndex || !m || !('tree' in m) || !m.tree) return
+        const k = (s.h * f) / Math.max(1e-6, m.box.max.z - m.box.min.z)
+        const holder = new THREE.Group()
+        holder.scale.setScalar(k)
+        holder.position.set(corner.x - m.box.min.x * k, 0, corner.z - m.box.min.z * k)
+        holder.add(m.tree.root)
+        world.add(holder)
+        for (const n of m.tree.nodes) n.mesh.userData.gallery = i
+        galleryNets.push({ index: i, tree: m.tree, holder, materials: m.materials!, box: new THREE.Box3(corner.clone(), at(s.x + s.w, s.y + s.h)) })
+      })
+      flatNet.union(galleryArea) // 책은 모든 칸을 담는다
+      bounds.union(galleryArea) // 카메라도 (아래 floorRange)
+    }
 
     // 학습지 사진 (viewer.md "책 장면"): 전개도 grid 좌표 (x, y) = tree.root 안의 (x, −y, 0). 루트의 자식이라 접혀도 바닥에 남는다.
     // 사진은 정사각형 안에 비율대로 들어간다 (전개도 그리기 칸의 SVG image 와 같게). 페이지는 그 정사각형까지 담게 늘린다
-    const pic = grid ? pageRef.current.photo : undefined
+    const pic = grid && !galleryArea ? pageRef.current.photo : undefined // 여러 도형이면 사진은 지금 도형에만 맞아 다른 칸과 겹쳐서 숨긴다
     const photoMesh = pic ? new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })) : null
     if (pic && photoMesh) {
       photoMesh.position.set(pic.x, -pic.y, 0)
@@ -218,7 +290,19 @@ export function ThreeViewer({
       photoMesh.receiveShadow = true
       tree.root.add(photoMesh)
       tree.root.updateMatrixWorld(true)
-      for (const [x, y] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) flatNet.expandByPoint(photoMesh.localToWorld(new THREE.Vector3(x, y, 0)))
+      // 페이지는 전개도 둘레 여백까지만 (사진 전체를 담으면 사진을 키울수록 책·카메라가 멀어져 도형이 작아진다, #129). 사진은 그 밖을 자른다
+      const span = flatNet.getSize(new THREE.Vector3())
+      const pad = Math.max(span.x, span.z) * 0.35
+      const page = flatNet.clone().expandByVector(new THREE.Vector3(pad, 0, pad))
+      const photoRange = flatNet.clone()
+      for (const [x, y] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) photoRange.expandByPoint(photoMesh.localToWorld(new THREE.Vector3(x, y, 0)))
+      flatNet.copy(photoRange.intersect(page))
+      photoMesh.material.clippingPlanes = [
+        new THREE.Plane(new THREE.Vector3(1, 0, 0), -flatNet.min.x),
+        new THREE.Plane(new THREE.Vector3(-1, 0, 0), flatNet.max.x),
+        new THREE.Plane(new THREE.Vector3(0, 0, 1), -flatNet.min.z),
+        new THREE.Plane(new THREE.Vector3(0, 0, -1), flatNet.max.z),
+      ]
       new THREE.TextureLoader().load(pic.src, (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace
         texture.anisotropy = 8
@@ -454,6 +538,7 @@ export function ThreeViewer({
     // 입체로 보는 설명은 책을 그 범위에 맞춰 다시 만든다 (전개도 크기의 책에서는 도형이 작아 보이고, 닮음의 큰 도형은 책 밖으로 나간다). null 이면 전개도 범위
     let bookRange: THREE.Box3 | null = null
     let rebuildBook: (() => void) | null = null // 책을 다시 만들고 빛·카메라를 맞춘다. 카메라를 만든 뒤에 채워진다
+    let bookTop = 0 // 페이지 윗면 높이 (책을 만든 뒤에 채워진다)
     const applyLesson = () => {
       const { lesson } = viewRef.current
       const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.cutKind ?? ''}` : null
@@ -464,6 +549,7 @@ export function ThreeViewer({
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
         else layOnFloor(tree, poly, yaw)
+        floorY = null // 자세가 바뀌면 띄우기 기준 높이를 다시 잰다
         if (lessonObject?.bounds) {
           tree.root.updateMatrixWorld(true)
           bookRange = lessonObject.bounds.clone().applyMatrix4(tree.root.matrixWorld)
@@ -476,11 +562,20 @@ export function ThreeViewer({
     }
 
     let active: number | null = null
+    // 학습지 사진 위 전개도 띄우기 (viewer.md "책 장면" 학습지 사진): 펼친 만큼 루트를 들고 사진은 그만큼 내려 페이지에 둔다.
+    // 사진과 전개도가 붙어 깊이를 다투며 겹쳐 보이던 것. 다 접으면 0 이라 입체는 페이지에 앉는다
+    const LIFT = 0.025
+    let floorY: number | null = null
+    let penBusy = false // 펜이 그리는 중이면 꼭짓점 라벨(Sprite, 가림 셰이더가 없음)을 숨긴다
     const apply = () => {
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
       const { on: lessonOn, ghost } = applyLesson()
       // 설명 중에는 설명과 상관없는 표시(꼭짓점·모서리 색·점선)를 잠시 숨긴다
       if (photoMesh) photoMesh.visible = !ghost // 사진은 루트에 붙어 있어서 입체를 세우면 같이 선다
+      floorY ??= tree.root.position.y
+      const lift = photoMesh && !lessonOn ? radius * LIFT * unfold : 0
+      tree.root.position.y = floorY + lift
+      if (photoMesh) photoMesh.position.z = bookTop - lift // 루트 안 z 가 곧 높이 (아래 책 만들기 주석)
       for (const { n, mesh } of divisionMarkers) mesh.visible = drawLines && n === edgeDivisions
       if (!drawLines) setFirstPick(null)
       if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍·면 고르기를 하지 않는다
@@ -507,11 +602,11 @@ export function ThreeViewer({
         mesh.scale.setScalar(big ? 1.8 : 1)
         mesh.visible = !lessonOn
         if (label) {
-          label.visible = showVertexLabels && !lessonOn
+          label.visible = showVertexLabels && !lessonOn && !penBusy
           label.scale.setScalar(radius * (big ? 0.15 : 0.12))
         }
       }
-      for (const { sprite } of cornerMaterials) sprite.visible = showVertexLabels
+      for (const { sprite } of cornerMaterials) sprite.visible = showVertexLabels && !penBusy
       if (foldMode === 'step') {
         const values = stepUnfold(order, poly.faces.length, unfold)
         applyUnfold(tree, values)
@@ -539,11 +634,59 @@ export function ThreeViewer({
 
     // 책 장면: 바닥(y = 0)이 펼친 책의 오른쪽 페이지다 (viewer.md "책 장면")
     let book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
-    photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
+    bookTop = book.top
+    // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다. 이미 띄운 만큼은 뺀다 (apply 가 먼저 돌았다)
+    photoMesh?.position.setZ(book.top - (tree.root.position.y - (floorY ?? tree.root.position.y)))
     world.add(book.group)
     const { ambient, light } = bookLights()
     aimLight(light, book)
     world.add(ambient, light, light.target)
+
+    // 펜으로 그려 내기: 새 drawIn 값이면 전개도를 가려 두고 펜이 칠해 낸 뒤 왼쪽 쪽 글을 써 낸다 (viewer.md "펜으로 그려 내기")
+    let penDraw: PenDraw | null = null
+    let blankPage: THREE.Texture | null = null
+    const draw = drawRef.current
+    if (draw.want !== undefined && draw.want !== lastDrawn && !viewRef.current.lesson && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const want = draw.want // 다 그린 뒤에 그렸다고 적는다. 그리는 중에 다시 만들어지면(사진이 뒤따라 오는 등) 처음부터 다시 그린다
+      const materials = new Set<THREE.Material>()
+      tree.root.traverse((o) => {
+        if (o === photoMesh || o instanceof THREE.Sprite) return
+        const m = (o as THREE.Mesh).material
+        if (m) for (const x of [m].flat()) materials.add(x)
+      })
+      for (const l of Object.values(looks)) for (const m of [...l.faces, l.edge]) materials.add(m)
+      for (const m of [...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial]) materials.add(m)
+      const left = book.leftPage()
+      const pageNumber = pageRef.current.pageNumbers?.[0]
+      blankPage = left ? pageTexture(book.page.w, book.page.d, 'left', [], [], [], pageNumber) : null
+      // 그림자는 가림 셰이더가 안 걸려서 먼저 보인다. 그리는 동안 끄고, 그 전개도를 다 그리면 켠다
+      const hideShadow = (root: THREE.Object3D) => {
+        const casters: THREE.Object3D[] = []
+        root.traverse((o) => {
+          if (o.castShadow && o !== photoMesh) casters.push(o)
+        })
+        for (const o of casters) o.castShadow = false
+        return () => casters.forEach((o) => (o.castShadow = true))
+      }
+      penDraw = startPenDraw({
+        // 여러 도형이면 ①부터 칸 순서로 한 번에 (펜 세션 lab/book-pen.ts 와 같은 방식). 지금 도형은 자기 칸
+        floors: galleryArea
+          ? [{ index: activeIndex, box: netOnly, materials: [...materials], root: tree.root as THREE.Object3D }, ...galleryNets.map((g) => ({ index: g.index, box: g.box, materials: g.materials, root: g.holder as THREE.Object3D }))]
+              .sort((x, y) => x.index - y.index)
+              .map(({ box, materials: m, root }) => ({ box, y: 0, materials: m, onDrawn: hideShadow(root) }))
+          : [{ box: flatNet, y: 0, materials: [...materials], onDrawn: hideShadow(tree.root) }],
+        page: left && blankPage ? { material: (left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial, blank: blankPage, x0: book.center.x - book.page.w, z0: book.center.z - book.page.d / 2, w: book.page.w, d: book.page.d, y: book.top } : null,
+        size: radius * 0.75,
+        onDone: () => {
+          lastDrawn = want
+          penBusy = false
+          apply()
+        },
+      })
+      penBusy = true
+      world.add(penDraw.pen)
+      apply()
+    }
 
     // 위에서 내려다보는 구도 (수평에서 62°, VIEW_DIR). 거리는 아래 resize 에서 잡는다
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
@@ -570,6 +713,8 @@ export function ThreeViewer({
       book.dispose()
       book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
       world.add(book.group)
+      const left = book.leftPage()
+      if (left) penDraw?.retargetPage((left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial) // 펜이 쓰는 중이면 새 쪽에도 가림
       aimLight(light, book)
       resize()
     }
@@ -590,11 +735,14 @@ export function ThreeViewer({
       const page = book.leftPage()
       return page ? book.menuAt(raycaster.intersectObjects([...faceTargets, page], false)[0]) : null
     }
+    // 여러 도형: 펼쳐 놓은 다른 도형을 누르면 그것을 고른다
+    const galleryTargets = galleryNets.flatMap((g) => g.tree.nodes.map((n) => n.mesh))
+    const galleryHit = (): number | null => (galleryTargets.length ? (raycaster.intersectObjects(galleryTargets, false)[0]?.object.userData.gallery ?? null) : null)
     // 메뉴 줄 위에서는 손가락 커서
     const onMove = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
-      renderer.domElement.style.cursor = menuHit() ? 'pointer' : ''
+      renderer.domElement.style.cursor = menuHit() || galleryHit() !== null ? 'pointer' : ''
     }
     const onUp = (e: PointerEvent) => {
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
@@ -603,6 +751,8 @@ export function ThreeViewer({
       // 왼쪽 쪽 메뉴: 도형에 가려지지 않았을 때만 (도형이 앞에 있으면 도형을 누른 것)
       const menuId = menuHit()
       if (menuId) return callbacksRef.current.onPageMenu?.(menuId)
+      const galleryPick = galleryHit()
+      if (galleryPick !== null) return callbacksRef.current.onPickGallery?.(galleryPick)
       // 설명이 누를 것을 가지고 있으면 먼저 (위치 관계: 기준 모서리 바꾸기)
       const lessonHit = lessonObject?.pickTargets && raycaster.intersectObjects(lessonObject.pickTargets, false)[0]
       if (lessonHit) {
@@ -679,10 +829,16 @@ export function ThreeViewer({
     renderer.domElement.addEventListener('pointerup', onUp)
     renderer.domElement.addEventListener('pointermove', onMove)
 
+    let told = false // 첫 프레임을 그렸다고 알렸는가 (onReady, 다시 만들 때마다 한 번)
     renderer.setAnimationLoop(() => {
+      penDraw?.update(performance.now())
       controls.update()
       renderer.render(world, camera)
       liftLastFrame()
+      if (!told) {
+        told = true
+        callbacksRef.current.onReady?.()
+      }
     })
 
     return () => {
@@ -699,6 +855,15 @@ export function ThreeViewer({
       controls.dispose()
       lessonObject?.dispose()
       disposeFaceTree(tree)
+      for (const g of galleryNets) {
+        disposeFaceTree(g.tree)
+        g.materials.forEach((m) => m.dispose())
+      }
+      for (const plate of plates) {
+        ;(plate.material as THREE.MeshBasicMaterial).map?.dispose()
+        ;(plate.material as THREE.Material).dispose()
+        plate.geometry.dispose()
+      }
       throughMaterial.dispose()
       const lookMaterials = Object.values(looks).flatMap((l) => [...l.faces, l.edge])
       for (const m of [...lookMaterials, ...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial]) m.dispose()
@@ -711,6 +876,8 @@ export function ThreeViewer({
         m?.dispose()
       }
       for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry, divisionGeometry, pickMarker.geometry]) g.dispose()
+      penDraw?.dispose()
+      blankPage?.dispose()
       book.dispose()
       photoMesh?.material.map?.dispose()
       photoMesh?.material.dispose()
@@ -723,3 +890,29 @@ export function ThreeViewer({
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
 }
+
+// 여러 도형의 번호판 ①②… (바닥에 눕힌 둥근 판). 종이색 + 잉크 테두리, 지금 접는 도형은 지금 접히는 면과 같은 연한 노랑 (ui.md 컨셉, viewer.md "여러 도형")
+function numberPlate(text: string, size: number, active: boolean) {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = active ? '#f8df8e' : '#faf6ee'
+  ctx.beginPath()
+  ctx.arc(64, 64, 58, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.lineWidth = active ? 8 : 5
+  ctx.strokeStyle = '#2f2a25'
+  ctx.stroke()
+  ctx.font = 'bold 84px sans-serif'
+  ctx.fillStyle = '#2f2a25'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, 64, 70)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }))
+  plate.rotation.x = -Math.PI / 2
+  plate.renderOrder = 2
+  return plate
+}
+

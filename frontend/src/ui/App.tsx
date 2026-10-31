@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PerfMeter } from './PerfMeter'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, hologramSupported, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
+import { canLayTogether, CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, hologramSupported, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { HologramMode } from './HologramMode'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
@@ -13,7 +14,8 @@ import { lessonStatus } from './lessonStatus.ts'
 import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
 import { crossScene, crossToGrid, fitToBox, netPhoto, NO_FIT, SHAPES } from './manualScene.ts'
-import { PhotoUpload } from './PhotoUpload'
+import { PhotoUpload, type PhotoPlace } from './PhotoUpload'
+import { ShapeTabs } from './ShapeTabs'
 import { ViewMenu } from './ViewMenu'
 import { SPEEDS, type Speed } from './player'
 import type { ViewOptionValues } from './ViewOptions'
@@ -63,7 +65,15 @@ function pageTextOf(scene: ShapeScene, lesson: Lesson | null, explain: string | 
   const title = scene.shape === 'revolution' ? (lesson && lesson.kind !== 'revolve' ? `회전체의 ${LESSON_LABEL[lesson.kind]}` : '회전체') : lesson ? `${shapeName(scene)}의 ${LESSON_LABEL[lesson.kind]}` : scene.shape === 'sphere' ? shapeName(scene) : `${shapeName(scene)}의 전개도`
   if (note) return [title, note, ...(explain && explain !== note ? [explain] : [])]
   if (explain) return [title, explain]
-  return hasResult ? [title] : [title, dims].filter(Boolean)
+  // 사진에서 읽은 문제 문장은 제목 아래에 (shape-scene.md problem, worksheets.md W7)
+  return hasResult ? [title] : [title, shortProblem(scene.problem), dims].filter(Boolean)
+}
+
+// 책 왼쪽 쪽에 쓰는 문제 글은 두 줄까지 (길면 아래 메뉴가 페이지 밖으로 밀린다). 전체는 만들기 카드의 인식 결과 아래에 있다
+const PROBLEM_ON_PAGE = 46
+function shortProblem(problem: string | null | undefined) {
+  if (!problem) return ''
+  return problem.length <= PROBLEM_ON_PAGE ? problem : `${problem.slice(0, PROBLEM_ON_PAGE - 1).trimEnd()}…`
 }
 
 // 다른 전개도 보기 (ui.md 화면 배치 6번, TODO-38): 같은 치수로 k번째 정육면체 전개도 모양의 grid. 선은 꼭짓점 번호가 달라져서 옮기지 않는다
@@ -90,6 +100,8 @@ function pageMenuOf(scene: ShapeScene, lesson: Lesson | null, variant: number | 
 
 // 화면 (docs/specs/ui.md 화면 배치): 3D 책 장면(stage) + 아래 바(dock: 안내·접기·선 긋기·보기) + 만들기 카드(사진·직접 만들기) + 챗봇.
 // 넓은 화면은 stage 가 화면을 채우고 dock·카드가 그 위에 뜬다. 좁은 화면은 위 3D, 아래로 dock·카드
+const PERF = new URLSearchParams(location.search).has('perf') // 실측용 계측기 (PerfMeter, #142)
+
 export default function App() {
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
@@ -101,7 +113,21 @@ export default function App() {
   }
   const [lastTurn, setLastTurn] = useState(false) // 오프닝의 속표지가 넘어가는 중. 좁은 화면은 이때 패널이 아래에서 올라온다
   const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
+  const [reading, setReading] = useState(false) // 사진을 읽는 중 (PhotoUpload onReading)
+  // 여러 도형 문제 (worksheets.md 여러 도형): 읽은 도형들과 지금 접는 것. 고른 하나만 책에서 접고 홀로그램에도 그것만
+  // unfold: 그 도형을 마지막으로 접은 정도. 다른 도형을 골랐다 돌아와도 그대로 (휴대폰 실측: 고를 때마다 펼친 전개도로 돌아갔다)
+  const [gallery, setGallery] = useState<{ scene: ShapeScene; place: PhotoPlace | null; unfold?: number }[] | null>(null)
+  const [galleryIndex, setGalleryIndex] = useState(0)
+  const [drawIn, setDrawIn] = useState(0) // 사진 인식 결과가 올 때마다 1 늘린다. 책에 펜이 그려 낸다 (viewer.md "펜으로 그려 내기")
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
+  // 읽은 뒤 결과 뷰어가 첫 프레임을 그릴 때까지(onReady) 읽는 중 빈 책을 위에 덮어 둔다 (viewer.md "빈 책" 읽는 중).
+  // holdFrom: 읽기를 시작할 때의 drawIn. 결과가 와서 drawIn 이 바뀌었는데 뷰어가 아직 알리지 않았으면 덮는다 (실패해서 안 바뀌면 덮지 않는다)
+  const [holdFrom, setHoldFrom] = useState<number | null>(null)
+  const holding = holdFrom !== null && drawIn !== holdFrom && !reading
+  const readingNow = (reading || holding) && !!photo && !hologram // 3D 에 사진 깐 빈 책 (읽는 중, 결과 뷰어 준비 중)
+  // 사진이 있으면 직접 만들기를 접어 둔다. 고치기를 누르거나 인식이 실패하면 그 사진에서만 펼친다 (worksheets.md, 수동 경로는 늘 한 번에 닿는다)
+  const [manualFor, setManualFor] = useState<string | null>(null)
+  const manualOpen = !photo || manualFor === photo
   const [fit, setFit] = useState(NO_FIT) // 칸에 맞춘 사진 위치. 3D 책 페이지에도 같은 자리에 깐다 (TODO-36)
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
   const [foldMode, setFoldMode] = useState<FoldMode>('step') // 기본은 면을 하나씩 접기
@@ -156,6 +182,7 @@ export default function App() {
     // 구 단면 비교의 "⅓ 왜?": 같은 반지름·높이의 원뿔 부피 끝(원판 쌓기)으로
     if (id === CONE_THIRD_LINK && scene.shape === 'sphere') {
       loadScene(crossScene('cone', { radius: scene.size.radius, height: scene.size.radius }))
+      setGallery(null)
       setUnfold(0)
       setLesson({ kind: 'volume', progress: 1 })
       return
@@ -164,6 +191,7 @@ export default function App() {
       // 같은 치수로 다음 모양을 펼친다. grid 라서 전개도 그리기 칸에도 채워진다
       const k = variant === null ? 0 : (variant + 1) % NET_VARIANTS.length
       loadScene(variantScene(scene, k))
+      setGallery(null)
       setFacePick(null)
       setVariant(k)
       return
@@ -178,6 +206,68 @@ export default function App() {
   }
 
   // 새 도형(사진 인식 결과 등): 펼친 전개도에서 새로 시작한다
+  // 사진에서 읽은 도형 하나를 책에 (여러 도형이면 고른 것). 네모로 읽은 전개도면 사진 위치를 그 네모에 맞춘다 (ui.md 화면 배치 2번)
+  // draw: 펜이 그려 낼지. 결과가 처음 올 때 한 번만 (여러 도형이면 모두 같이). 고른 도형만 바꿀 때는 그리지 않는다
+  const showShape = (next: ShapeScene, place: PhotoPlace | null, draw = true) => {
+    loadScene(next)
+    if (draw) setDrawIn((n) => n + 1)
+    if (place && next.net.layout === 'grid') setFit(fitToBox(place.box, place.aspect, next.net.faces))
+  }
+
+  // 사진 인식 결과 (도형 하나 또는 여러 개). 읽기 시작 뒤 학생이 도형을 바꿨으면(직접 그리기 안내 뒤 등) 덮지 않고 단추로 묻는다
+  type Found = { scene: ShapeScene; place: PhotoPlace | null }[]
+  const [pendingResult, setPendingResult] = useState<Found | null>(null)
+  // 읽기를 시작할 때의 도형과 지금 도형. 결과 콜백은 "읽기"를 누른 때의 것이라 지금 도형은 ref 로 본다
+  const readStart = useRef<{ scene: ShapeScene | null } | null>(null)
+  const sceneNow = useRef(scene)
+  useEffect(() => {
+    sceneNow.current = scene
+  }, [scene])
+  const drawInNow = useRef(drawIn)
+  useEffect(() => {
+    drawInNow.current = drawIn
+  }, [drawIn])
+  useEffect(() => {
+    if (reading) readStart.current = { scene: sceneNow.current }
+    if (reading) setHoldFrom(drawInNow.current)
+  }, [reading])
+  // 뷰어가 끝내 알리지 않아도(오류 등) 4초 뒤에는 걷는다
+  useEffect(() => {
+    if (!holding) return
+    const t = setTimeout(() => setHoldFrom(null), 4000)
+    return () => clearTimeout(t)
+  }, [holding])
+  // 여러 도형에 원기둥·원뿔·구가 섞이면 다면체만 같이 놓고 곡면 도형은 뺀다 (책에 같이 못 놓는다, viewer.md "여러 도형").
+  // 모두 곡면이면 첫 도형 하나만. 뺀 도형은 만들기 카드에 한 줄로 알린다
+  const [leftOut, setLeftOut] = useState<string | null>(null)
+  const show = (list: Found) => {
+    setPendingResult(null)
+    const flat = list.filter((x) => canLayTogether(x.scene))
+    const keep = list.length > 1 ? (flat.length ? flat : [list[0]]) : list
+    const dropped = list.filter((x) => !keep.includes(x))
+    setLeftOut(dropped.length ? `함께 놓을 수 없어서 뺀 도형: ${dropped.map((d) => shapeName(d.scene)).join(', ')}. 따로 감싸서 읽어 주세요` : null)
+    setGallery(keep.length > 1 ? keep : null)
+    setGalleryIndex(0)
+    showShape(keep[0].scene, keep[0].place)
+  }
+  const arrive = (list: Found) => {
+    const changed = readStart.current !== null && readStart.current.scene !== sceneNow.current
+    readStart.current = null
+    if (changed) setPendingResult(list)
+    else show(list)
+  }
+
+  // 여러 도형에서 접을 것 고르기 (아래 바 ①②…, 책에서 누르기)
+  // 도형마다 접은 정도를 기억한다. 접는 중에 고르면 애니메이션은 멈춘다(FoldControls key)
+  const pickShape = (i: number) => {
+    if (!gallery?.[i] || i === galleryIndex) return
+    setGallery(gallery.map((x, k) => (k === galleryIndex ? { ...x, unfold } : x)))
+    setGalleryIndex(i)
+    setPlaying(false)
+    showShape(gallery[i].scene, gallery[i].place, false)
+    setUnfold(gallery[i].unfold ?? 1)
+  }
+
   const loadScene = (next: ShapeScene) => {
     setScene(next)
     setUnfold(1)
@@ -200,7 +290,13 @@ export default function App() {
             건너뛰기
           </button>
         )}
-        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onLastTurn={() => setLastTurn(true)} pageOf={(k) => {
+        {/* 사진을 읽는 동안은 빈 책 오른쪽 쪽에 사진을 깔고 펜이 칠한다 (ui.md 화면 배치 2번, viewer.md "빈 책" 읽는 중) */}
+        {readingNow && (
+          <div className="stage-cover">
+            <EmptyBook pageText={[]} contents={[]} reading={photo!} onPick={() => {}} />
+          </div>
+        )}
+        {!scene && !readingNow && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onLastTurn={() => setLastTurn(true)} pageOf={(k) => {
               // 넘어가는 종이에 찍을 차례 k번째 도형의 쪽: 그 도형을 처음 연 화면과 같게
               const next = crossScene(SHAPES[k].shape, { ...SHAPES[k].size })
               const first = firstLesson(next)
@@ -211,7 +307,7 @@ export default function App() {
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
             }} />}
-        {scene && !hologram && (
+        {scene && !hologram && !(reading && photo) && (
           <Viewer
             scene={scene}
             unfold={unfold}
@@ -227,9 +323,16 @@ export default function App() {
             onPageMenu={pickMenu}
             pageNumbers={pageNumbersOf(scene)}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
+            drawIn={drawIn || undefined}
+            onReady={() => setHoldFrom(null)}
+            gallery={gallery && gallery.length > 1 ? gallery.map((g) => g.scene) : undefined}
+            galleryIndex={galleryIndex}
+            onPickGallery={pickShape}
             onSceneChange={(next) => {
               setStrokes([...strokes, next.lines.length - scene.lines.length])
               setScene(next)
+              // 여러 도형이면 그은 선·면 표시를 목록에도 써 둔다 (다른 도형을 골랐다 돌아와도 남게)
+              setGallery((g) => g && g.map((x, i) => (i === galleryIndex ? { ...x, scene: next } : x)))
             }}
             onDrawState={setDrawState}
             onRouteChoices={(routes) => setRoute(routes.length > 1 ? { routes, index: 0 } : null)}
@@ -270,8 +373,15 @@ export default function App() {
         {hint && <p className="viewer-hint">{hint}</p>}
         {scene && (
           <>
+            {gallery && gallery.length > 1 && (
+              <ShapeTabs
+                scenes={gallery.map((g) => g.scene)}
+                index={galleryIndex}
+                onPick={pickShape}
+              />
+            )}
             <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} speed={speed} />
-            {!lesson && !noFold && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
+            {!lesson && !noFold && <FoldControls key={galleryIndex} unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
             <div className="dock-row">
               {!lesson && !curved && (
                 <LineControls
@@ -369,6 +479,7 @@ export default function App() {
                 onClick={() => {
                   // 차례로: 도형을 내리고 빈 책으로 (사진·사진 위치는 그대로, ui.md 화면 배치 6번)
                   setScene(null)
+                  setGallery(null)
                   setLesson(null)
                   setMarking(false)
                   setDrawLines(false)
@@ -398,40 +509,63 @@ export default function App() {
         </summary>
         <div className="make-body">
           <PhotoUpload
-            onScene={(next, place) => {
-              loadScene(next)
-              // 네모로 읽은 전개도면 사진 위치를 그 네모에 맞춘다 (ui.md 화면 배치 2번)
-              if (place && next.net.layout === 'grid') setFit(fitToBox(place.box, place.aspect, next.net.faces))
-            }}
+            onScene={(next, place) => arrive([{ scene: next, place }])}
+            onShapes={arrive}
             onPhoto={(url) => {
               setPhoto(url)
               setFit(NO_FIT)
+              setGallery(null)
+              setPendingResult(null)
+              setLeftOut(null)
+              setScene(null) // 새 사진이면 이전 도형을 내린다 (이전 전개도 밑에 새 사진이 어긋나 깔리지 않게, 코드 검토)
             }}
+            onManual={() => setManualFor(photo)}
+            onReading={setReading}
           />
-          <ManualInput
-            key={photo} // 새 사진이면 전개도 그리기로 열고 사진 위치를 처음부터
-            photo={photo}
-            scene={scene}
-            fit={fit}
-            onFit={setFit}
-            onScene={(next, how) => {
-              if (!next) return setScene(null)
-              // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
-              if (how === 'size' && scene) {
-                if (next.net.layout !== scene.net.layout) setVariant(next.net.layout === 'cross' ? 0 : null)
-                // 도형을 바꾸면 공식 설명을 끈다. 켜 둔 공식이 없는 도형(정다면체 등)에서는 조작 버튼이 모두 사라진다
-                if (next.shape !== scene.shape) {
-                  setLesson(firstLesson(next))
-                  setUnfold(1)
-                } else if (lesson && lessonStepCount(next, lesson.kind) === 0) setLesson(firstLesson(next)) // 치수를 바꿨더니 보던 탭이 없어진 때 (떨어진 반원의 부피)
-                return setScene(next)
-              }
-              loadScene(next)
-            }}
-          />
+          {leftOut && (
+            <p className="upload-problem" role="status">
+              {leftOut}
+            </p>
+          )}
+          {pendingResult && (
+            // 읽는 동안 학생이 직접 도형을 바꿨으면 결과로 덮지 않고 묻는다 (코드 검토)
+            <button type="button" className="primary-button" style={{ width: '100%' }} onClick={() => show(pendingResult)}>
+              인식한 도형으로 바꾸기
+            </button>
+          )}
+          {!manualOpen && (
+            <button type="button" className="secondary-button" style={{ width: '100%' }} onClick={() => setManualFor(photo)}>
+              인식이 틀렸나요? 직접 고치기 ▸
+            </button>
+          )}
+          {manualOpen && (
+            <ManualInput
+              key={photo} // 새 사진이면 전개도 그리기로 열고 사진 위치를 처음부터
+              photo={photo}
+              scene={scene}
+              fit={fit}
+              onFit={setFit}
+              onScene={(next, how) => {
+                setGallery(null) // 직접 만든 도형은 여러 도형 문제와 따로 (코드 검토)
+                if (!next) return setScene(null)
+                // 치수만 바꾸면 펼침·선을 그대로 두고, 전개도를 새로 그리면 펼친 상태에서 새로 시작한다
+                if (how === 'size' && scene) {
+                  if (next.net.layout !== scene.net.layout) setVariant(next.net.layout === 'cross' ? 0 : null)
+                  // 도형을 바꾸면 공식 설명을 끈다. 켜 둔 공식이 없는 도형(정다면체 등)에서는 조작 버튼이 모두 사라진다
+                  if (next.shape !== scene.shape) {
+                    setLesson(firstLesson(next))
+                    setUnfold(1)
+                  } else if (lesson && lessonStepCount(next, lesson.kind) === 0) setLesson(firstLesson(next)) // 치수를 바꿨더니 보던 탭이 없어진 때 (떨어진 반원의 부피)
+                  return setScene(next)
+                }
+                loadScene(next)
+              }}
+            />
+          )}
         </div>
       </details>
-      {hologram && scene && <HologramMode scene={scene} onClose={() => setHologram(false)} />}
+      {PERF && <PerfMeter reading={reading} />}
+      {hologram && scene && <HologramMode scene={scene} photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined} onClose={() => setHologram(false)} />}
       <ChatPanel
         scene={scene}
         onView={({ highlightVertices, foldPercent }) => {

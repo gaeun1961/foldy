@@ -22,6 +22,7 @@ export interface Theme3D {
   pairs: string[] // 접으면 맞닿는 모서리 쌍 색 (돌려 쓴다)
   curved: { seam: string; rim: string; plain: string } // 원기둥·원뿔: 자른 선, 밑면 둘레, 맞닿는 색을 끈 선
   sphereRing: string // 구 적도 선
+  photo: 'paper' | 'glow' // 면에 입힌 학습지 사진: 그대로, 또는 반전해 흰 종이는 투명·선은 밝게 (아크릴, worksheets.md W6)
   screen?: { background: string; guide: string } // 홀로그램 화면 전체: 바탕(아크릴에 안 비치는 검정), 피라미드 놓을 자리 선
 }
 
@@ -45,6 +46,7 @@ export const PAPER: Theme3D = {
   pairs: ['#e0442e', '#2f6fd0', '#2e9e4f', '#f5c518', INK], // 색연필 네 색 + 잉크. 쌍이 더 많으면 같은 색의 굵은 선
   curved: { seam: '#e0442e', rim: '#2f6fd0', plain: INK }, // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
   sphereRing: INK,
+  photo: 'paper',
 }
 
 // 홀로그램: 검은 바탕에 빛나는 선. 면은 반투명이라 뒤 모서리도 비쳐 입체가 잘 읽힌다
@@ -64,5 +66,6 @@ export const HOLOGRAM: Theme3D = {
   pairs: ['#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#38d9a9', '#74c0fc', '#da77f2'],
   curved: { seam: '#ff6b6b', rim: '#74c0fc', plain: '#ffffff' },
   sphereRing: '#ffffff',
+  photo: 'glow',
   screen: { background: '#000000', guide: '#ffffff' },
 }

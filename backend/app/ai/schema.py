@@ -213,8 +213,19 @@ def _vertex_count(scene) -> int:
     return VERTEX_COUNT[scene.shape]
 
 
+class PhotoRect(BaseModel):
+    """사진 안 네모, 사진 가로·세로를 1로 본 비율 (shape-scene.md photoBox)."""
+
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    w: float = Field(gt=0, le=1)
+    h: float = Field(gt=0, le=1)
+
+
 class _Scene(BaseModel):
     vertexLabels: list[str | None]
+    problem: str | None = None  # 사진에서 읽은 인쇄된 문제 문장 (선택)
+    photoBox: PhotoRect | None = None  # 사진 안 전개도 그림의 네모 (grid 일 때, 선택)
 
     # 도형마다 다른 규칙: 라벨 개수, 꼭짓점 인덱스 범위, 곡면 각도 범위
     @model_validator(mode="after")
