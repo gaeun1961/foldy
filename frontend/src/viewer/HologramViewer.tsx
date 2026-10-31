@@ -50,7 +50,8 @@ export function HologramViewer({ scene, center = 0.2, showGuide = false, onTap }
     const container = containerRef.current
     if (!container) return
     const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setClearColor(0x000000, 1)
+    const screen = HOLOGRAM.screen ?? { background: '#000000', guide: '#ffffff' }
+    renderer.setClearColor(screen.background, 1)
     container.appendChild(renderer.domElement)
 
     const world = new THREE.Scene()
@@ -121,7 +122,7 @@ export function HologramViewer({ scene, center = 0.2, showGuide = false, onTap }
         composite.add(
           new THREE.LineLoop(
             new THREE.BufferGeometry().setFromPoints(regionList.map((r) => new THREE.Vector3(r.corners[0][0], r.corners[0][1], 0))),
-            new THREE.LineBasicMaterial({ color: 0xffffff }),
+            new THREE.LineBasicMaterial({ color: screen.guide }),
           ),
         )
       }

@@ -8,8 +8,9 @@ import * as THREE from 'three'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-import type { RoundSize, ShapeScene } from '../shared/types.ts'
-import { buildCurvedNet, type CurvedShape } from './curved.ts'
+import type { ShapeScene } from '../shared/types.ts'
+import { VIEW_DIR } from './bookScene.ts'
+import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape } from './curved.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facingYaw, farFirstOrder, layOnFloor, stepUnfold, type FaceTree } from './faceTree.ts'
 import { buildSphereBody } from './lessons/sphereLessons.ts'
 import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
@@ -18,6 +19,7 @@ import type { Theme3D } from './theme.ts'
 export interface Stage {
   object: THREE.Group // 바닥(y = 0)에 놓인 도형. 원점 = 다 접은 입체의 수평 가운데 (세로축으로 돌리면 제자리에서 돈다)
   steps: number // 단계별 접기 단계 수. 0 이면 한 번에만 접힌다 (원기둥·원뿔) 또는 접지 않는다 (구)
+  order: number[] // 단계별로 접는 면 순서 (책 장면과 같다). 곡면 도형·구는 빈 배열
   foldable: boolean // 접고 펴는 도형인지 (구는 false)
   apply(s: number, mode?: 'all' | 'step'): void // 펼침 값 s: 0 = 입체, 1 = 전개도 (viewer.md 와 같은 뜻)
   solid: THREE.Box3 // 다 접은 입체의 범위
@@ -34,7 +36,6 @@ export function stageSupported(scene: ShapeScene) {
   return scene.shape === 'cylinder' || scene.shape === 'cone' || scene.shape === 'sphere'
 }
 
-const FRONT = new THREE.Vector3(0, 0.6, 1) // 순서가 없는 도형을 눕히고 접는 기준 방향 (앞, 조금 위)
 
 function faceMaterial(color: string, side: THREE.Side, opacity: number) {
   return new THREE.MeshBasicMaterial({ color, side, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 })
@@ -128,9 +129,9 @@ function polyhedronStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   const lines = lineMaterial ? thickEdges(tree, lineMaterial) : []
 
   // 책 장면과 같은 자세: 전개도를 바닥에 눕히고, 순서가 없는 도형은 앞에서 먼 면부터 접는다
-  const yaw = poly.foldOrder ? 0 : facingYaw(tree, poly, FRONT)
+  const yaw = poly.foldOrder ? 0 : facingYaw(tree, poly, VIEW_DIR)
   layOnFloor(tree, poly, yaw)
-  const order = poly.foldOrder ? foldOrderOf(poly) : farFirstOrder(tree, FRONT)
+  const order = poly.foldOrder ? foldOrderOf(poly) : farFirstOrder(tree, VIEW_DIR)
   const object = new THREE.Group()
   object.add(tree.root)
   const apply = (s: number, mode: 'all' | 'step' = 'step') => applyUnfold(tree, mode === 'step' ? stepUnfold(order, poly.faces.length, s) : s)
@@ -139,6 +140,7 @@ function polyhedronStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   return {
     object,
     steps: order.length,
+    order,
     foldable: true,
     apply,
     solid,
@@ -163,13 +165,12 @@ function polyhedronStage(scene: ShapeScene, theme: Theme3D): Stage | null {
 function roundStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   if (scene.shape !== 'cylinder' && scene.shape !== 'cone' && scene.shape !== 'sphere') return null
   const sphere = scene.shape === 'sphere'
-  const size: RoundSize = sphere ? { radius: scene.size.radius, height: 2 * scene.size.radius } : (scene.size as RoundSize)
+  const size = roundSizeOf(scene)
   const normal = theme.looks.normal
   const faces: [THREE.Material, THREE.Material] = [faceMaterial(normal.outside, THREE.FrontSide, normal.opacity), faceMaterial(normal.inside, THREE.BackSide, normal.opacity)]
-  const roughSize = Math.max(2 * Math.PI * size.radius, size.height + 4 * size.radius)
-  // 홀로그램처럼 굵은 선 테마는 관도 굵게 (책 장면은 0.004)
-  const lineRadius = roughSize * (theme.edgeWidth > 0 ? 0.008 : 0.004)
-  const net = sphere ? buildSphereBody(size.radius, faces[0], theme.sphereRing) : buildCurvedNet(scene.shape as CurvedShape, size, faces, lineRadius, [], (scene.net as { seam?: number }).seam ?? 0, theme.curved) // 그은 선은 그리지 않는다 (viewer.md "홀로그램")
+  // 선 관 굵기는 책 장면과 같은 식, 굵은 선 테마(홀로그램)는 두 배
+  const lineRadius = curvedLineRadius(size, theme.edgeWidth > 0 ? 2 : 1)
+  const net = sphere ? buildSphereBody(size.radius, faces[0], theme.sphereRing) : buildCurvedNet(scene.shape as CurvedShape, size, faces, lineRadius, [], seamOf(scene), theme.curved) // 그은 선은 그리지 않는다 (viewer.md "홀로그램")
   net.setPaired(true)
   const object = new THREE.Group()
   object.add(net.group)
@@ -178,6 +179,7 @@ function roundStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   return {
     object,
     steps: 0,
+    order: [],
     foldable: !sphere,
     apply: (s) => net.apply(s),
     solid,
