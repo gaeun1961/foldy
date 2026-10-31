@@ -1,8 +1,8 @@
 # 작업 기록 - 책 위에 펜으로 그려 내기
 
-- 일시: 2026-10-31 15:30 ~ 18:40 (KST), 2026-10-31 18:40 ~ 20:10 (중간 기록: 판단 기록·빌드본 실측·onReady)
+- 일시: 2026-10-31 15:30 ~ 18:40 (KST), 2026-10-31 18:40 ~ 20:10 (중간 기록: 판단 기록·빌드본 실측·onReady), 2026-11-01 (마무리: 초록 색연필, 책상 색연필에서 날아오기, 세션 정리)
 - 작성자: Phodo
-- 에이전트: Claude Code (펜 세션). 같은 브랜치에서 사진 세션(3-foldy-05)과 동시에 작업
+- 에이전트: Claude Code (펜 세션). 사진 세션(3-foldy-05)과 동시에 작업. 중간부터 사진 세션이 리드(합치기·플로우 테스트), 펜 세션은 별도 worktree(`D:/_개발/foldy-pen`)에서 작업 → 보고
 - 작업 유형: 기능 추가 (이슈 #142), 결정 변경
 
 ## 요약
@@ -75,9 +75,21 @@
 - 측정 방법: 계측기(`?perf`)와 따로 심은 rAF 프레임 기록·longtask 관찰을 같이 썼고 값이 같았다(567 = 567ms). Chrome 창이 가려지면 초당 2프레임으로 줄어 그때 값은 버렸다
 - 빌드본은 다른 주소라 backend CORS 가 막혀, 보관함 기록을 옮겨 담거나 `/analyze` 응답을 3초 뒤 같은 장면으로 흉내 내서 쟀다
 
-## 진행 상황 (중간)
-- 커밋: 1a7c17b, 4f72ad4, 78aa3da, fbf22b9 (feature/worksheets), 4b72092 (사진 세션 커밋에 함께 들어간 펜 수정 3가지), 2d13333 (feature/142-viewer-ready, onReady, 리드가 합칠 예정)
-- 남은 것: 휴대폰 실측, 렌더러 공유(A, 미룸), PR 묶기
+## 진행 상황 (세션 정리 시점, 2026-11-01)
+
+| 커밋 | 내용 | 상태 |
+|---|---|---|
+| 1a7c17b | 책 위에 펜으로 그려 내기(drawIn), lab 시연 | feature/worksheets |
+| 4f72ad4 | 읽는 중 책 위 펜(EmptyBook reading), 계측기 ?perf | feature/worksheets |
+| 78aa3da | 그림자가 먼저 보이던 것, 첫 프레임에 그림이 건너뛰던 것 | feature/worksheets |
+| fbf22b9 | 리포트 처음 | feature/worksheets |
+| 4b72092 | 다시 그리지 않게(lastDrawn), 띄운 판 좌표, 책 다시 만들 때 가림 (사진 세션 커밋에 함께 들어감) | feature/worksheets |
+| 2d13333 | 결과 첫 프레임까지 빈 책 덮기(onReady, B) | 합쳐짐 |
+| 56598f5 · c2b700b | 리포트 중간 기록, 펜을 초록 색연필로 | 합쳐짐 (리드가 19de03e 로 색 값을 bookScene 한곳으로) |
+| cb89b8e + 이 리포트 | 책상 초록 색연필에서 날아오고 돌아가기(penFromTable) | **feature/142-pen-flight, 리드가 합칠 차례** (사용자 확인 끝) |
+
+- 남은 것: 빌드본·휴대폰 실측(합친 뒤, 리드), 렌더러 공유(A, 미룸), PR 묶기
+- 이어받는 법: 펜 코드는 `viewer/penDraw.ts`(펜 모형·가림·날아오기), 연결은 `ThreeViewer.tsx` 펜 블록·`EmptyBook.tsx` 읽는 중·`App.tsx` drawIn/holdFrom/penFromTable. 명세는 viewer.md "펜으로 그려 내기"·"책상 색연필과 오가기"·"빈 책" 읽는 중·ViewerProps(drawIn, onReady, penFromTable). 시연 `lab/book-pen.html?n=2&mode=page&slow`
 
 ## 변경 범위
 - 커밋: 1a7c17b(책에 그려 내기, lab), 4f72ad4(읽는 중 펜, ?perf), 78aa3da(그림자·첫 프레임)
