@@ -37,7 +37,7 @@ function numberPlate(text: string, size: number) {
   canvas.width = canvas.height = 128
   const ctx = canvas.getContext('2d')!
   ctx.font = "bold 104px 'Pretendard Variable', Pretendard, system-ui, sans-serif"
-  ctx.fillStyle = '#c4473a'
+  ctx.fillStyle = '#e0442e' // 빨강 색연필 (bookScene PENCILS[0])
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(text, 64, 70)

@@ -128,25 +128,26 @@ function writeUntilDrawn(material: THREE.MeshStandardMaterial, blank: THREE.Text
   material.needsUpdate = true
 }
 
-// 펜: 펜촉이 원점, 몸통은 +y. 몸통 청록(--accent 계열), 끝 복숭아색(--peach), 깎은 나무는 종이색, 촉은 --ink
+// 펜: 책 옆 매트에 놓인 색연필과 같은 모양 (bookScene.ts 색연필 네 자루, ui.md 컨셉 "책상 위에서 색연필로 그린 책").
+// 육각 기둥 몸통 + 깎인 나무 끝 + 같은 색 심. 색은 초록 색연필(bookScene PENCILS[2]), 나무는 bookScene 의 깎은 나무 색.
+// 펜촉(심 끝)이 원점, 몸통은 +y. 색연필보다 조금 굵게 해서 책 위에서도 잘 보이게
+const PENCIL_GREEN = '#2e9e4f'
+const PENCIL_WOOD = '#e8d3ae'
 function penModel(length: number) {
   const group = new THREE.Group()
-  const r = length * 0.055
-  const part = (geometry: THREE.BufferGeometry, color: string, y: number, roughness = 0.55) => {
+  const r = length * 0.032
+  const part = (geometry: THREE.BufferGeometry, color: string, y: number, roughness = 0.6) => {
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness }))
     mesh.position.y = y
     mesh.castShadow = true
     group.add(mesh)
   }
-  const tip = length * 0.05
-  const wood = length * 0.14
-  const body = length * 0.68
-  const cap = length * 0.08
-  part(new THREE.ConeGeometry(r * 0.38, tip, 20).rotateX(Math.PI), '#1f2430', tip / 2)
-  part(new THREE.CylinderGeometry(r * 0.38, r, wood, 20), '#f1e6d2', tip + wood / 2, 0.8)
-  part(new THREE.CylinderGeometry(r, r, length * 0.03, 20), '#37767f', tip + wood + length * 0.015)
-  part(new THREE.CylinderGeometry(r, r, body, 20), '#4a9099', tip + wood + body / 2, 0.45)
-  part(new THREE.CylinderGeometry(r, r * 0.9, cap, 20), '#eeb48f', tip + wood + body + cap / 2, 0.6)
+  const cone = r * 3 // 깎인 나무 끝 길이 (bookScene 과 같은 비율)
+  const core = r * 1.05 // 심이 드러난 길이
+  const body = length - cone
+  part(new THREE.ConeGeometry(r * 0.35, core, 6).rotateX(Math.PI), PENCIL_GREEN, core / 2) // 심 (끝이 아래)
+  part(new THREE.CylinderGeometry(r * 0.35, r, cone - core, 6), PENCIL_WOOD, core + (cone - core) / 2) // 깎인 나무
+  part(new THREE.CylinderGeometry(r, r, body, 6), PENCIL_GREEN, cone + body / 2) // 육각 몸통
   // 펜 위쪽이 화면 오른쪽 위로 기울게 (2D 시안과 같은 손 모양)
   group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0.55, 0.8, -0.25).normalize())
   return group
@@ -307,13 +308,14 @@ export function startPenDraw(opts: {
 // 읽는 중 (viewer.md "빈 책" 읽는 중): 사진 위(rect, 월드 x·z, 높이 y)를 펜이 반투명 칠로 계속 칠한다.
 // 얼마나 걸릴지 몰라서 다 칠하면 칠을 지우고 처음부터 되풀이한다. 칠은 가림 그림을 alphaMap 으로 쓰는 판 하나
 const SKETCH_MS = 3500
+const PENCIL_SKETCH = '#b3d9ba' // 초록 색연필을 종이색에 옅게 섞은 칠 (초록 35% + 종이 #fbf9f4 65%). 사진이 비쳐 보이게 반투명
 export function startPenSketch(rect: { x: number; z: number; w: number; d: number; y: number }, size: number) {
   const scale = 512 / Math.max(rect.w, rect.d)
   const area = { x: 0, y: 0, w: rect.w * scale, h: rect.d * scale }
   const mask = new SweepMask(area.w, area.h, area, 9)
   const paint = new THREE.Mesh(
     new THREE.PlaneGeometry(rect.w, rect.d),
-    new THREE.MeshBasicMaterial({ color: '#9fd3dc', alphaMap: mask.texture, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
+    new THREE.MeshBasicMaterial({ color: PENCIL_SKETCH, alphaMap: mask.texture, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
   )
   paint.rotation.x = -Math.PI / 2 // 판 위쪽(캔버스 위) = 먼 쪽(−z)
   paint.position.set(rect.x + rect.w / 2, rect.y, rect.z + rect.d / 2)
