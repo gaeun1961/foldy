@@ -8,18 +8,20 @@ import { faceNormal, surfaceSteps, tileCells } from './surfaceLayout.ts'
 // 겉넓이 설명 (TODO-25, ui.md 겉넓이·부피 공통 흐름): 접힌 입체에서 같은 모양 면끼리 한 묶음씩, 대표 면 하나로 과정을 보여준다.
 // ① 그 면을 칠한다 ② 길이가 자라며 값이 나온다 (같은 길이는 같은 색) ③ (직육면체·정육면체) 1×1 칸이 한 칸씩 깔린다 ④ 같은 모양의 나머지 면을 칠한다. 식은 왼쪽 쪽에.
 // 다음 묶음으로 가면 앞 묶음의 선·칸은 사라지고 칠한 색만 남는다 (한 번에 하나만). 전체 합은 끝난 뒤 왼쪽 쪽에
-const PAIR_COLORS = ['#ffd982', '#b9dcff', '#c9f0c2'] // 노랑, 하늘, 연두. 모서리 7색과 겹치지 않는 연한 색
-const LEG_COLORS = ['#c2255c', '#2f9e44', '#1c7ed6'] // 같은 길이는 같은 색
+const NOW = '#f8df8e' // 지금 묶음
+const PASSED = '#e9e2d3' // 지나간 묶음
+const LEG_COLORS = ['#e0442e', '#2e9e4f', '#2f6fd0'] // 같은 길이는 같은 색
 
 // tiles: 1×1 칸을 깐다 (직육면체·정육면체, 면이 모두 직사각형)
 // lengthColors: 공식 글자와 맞출 길이의 색 (길이 toFixed(4) → 색). 나머지 길이는 LEG_COLORS 차례로. noLabel: 다른 곳에 이미 적힌 길이는 글자를 쓰지 않는다
 export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0], tiles = false, lengthColors = new Map<string, string>(), noLabel = new Set<string>()): LessonObject {
   const steps = surfaceSteps(poly, tiles)
-  const white = new THREE.Color('#ffffff')
+  const white = new THREE.Color('#faf6ee')
+  const passedColor = new THREE.Color(PASSED)
   const byFace = new Map<number, { materials: [THREE.Material, THREE.Material]; color: THREE.Color; step: number; first: boolean }>()
-  const face = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: '#ffffff', side, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })
+  const face = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: '#faf6ee', side, transparent: !tiles, opacity: tiles ? 1 : 0.72, depthWrite: tiles, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })
   steps.forEach((step, k) => {
-    for (const f of step.faces) byFace.set(f, { materials: [face(THREE.FrontSide), face(THREE.BackSide)], color: new THREE.Color(PAIR_COLORS[k % PAIR_COLORS.length]), step: k, first: f === step.face })
+    for (const f of step.faces) byFace.set(f, { materials: [face(THREE.FrontSide), face(THREE.BackSide)], color: new THREE.Color(NOW), step: k, first: f === step.face })
   })
 
   const size = Math.max(...poly.positions.flatMap((p) => p.map(Math.abs))) * 2
@@ -33,13 +35,13 @@ export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0
     if (!legMaterials.has(key)) legMaterials.set(key, new THREE.MeshStandardMaterial({ color: lengthColors.get(key) ?? LEG_COLORS[legMaterials.size % LEG_COLORS.length] }))
     return legMaterials.get(key)!
   }
-  const tileMaterial = new THREE.MeshBasicMaterial({ color: '#ffe08a', side: THREE.DoubleSide })
-  const tileLine = new THREE.LineBasicMaterial({ color: '#a8842a' })
+  const tileMaterial = new THREE.MeshBasicMaterial({ color: '#f8df8e', side: THREE.DoubleSide })
+  const tileLine = new THREE.LineBasicMaterial({ color: '#2f2a25' })
   const tileGeometry = new THREE.PlaneGeometry(1, 1)
   const tileEdges = new THREE.EdgesGeometry(tileGeometry)
   const sprites: ReturnType<typeof textSprite>[] = []
-  const sprite = (text: string, width: number, at: THREE.Vector3) => {
-    const s = textSprite(text, width)
+  const sprite = (text: string, width: number, color: string, at: THREE.Vector3) => {
+    const s = textSprite(text, width, false, color)
     s.sprite.position.copy(at)
     s.sprite.visible = false
     inner.add(s.sprite)
@@ -55,7 +57,7 @@ export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0
       const tube = growingTube(a, b, size * 0.012, legMaterial(length))
       inner.add(tube.mesh)
       // 3D 라벨은 값만. 딱 떨어지지 않는 길이(√)는 숫자로 쓰지 않는다
-      return { tube, label: isExact(length) && !noLabel.has(length.toFixed(4)) ? sprite(lengthText(length), size * 0.3, a.clone().lerp(b, 0.5).addScaledVector(normal, size * 0.06)) : null }
+      return { tube, label: isExact(length) && !noLabel.has(length.toFixed(4)) ? sprite(lengthText(length), size * 0.3, (legMaterial(length) as THREE.MeshStandardMaterial).color.getStyle(), a.clone().lerp(b, 0.5).addScaledVector(normal, size * 0.06)) : null }
     })
     // 1×1 칸: 면의 한 귀퉁이에서 가로로 깔고, 다음 줄로 올라간다
     const cells = useTiles
@@ -79,7 +81,8 @@ export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0
     for (const { materials, color, step, first } of byFace.values()) {
       const others = parts[step].cells.length ? 0.85 : 0.5 // 나머지 면은 대표 면을 다 본 뒤에
       const paint = first ? clamp01(qs[step] / 0.1) : clamp01((qs[step] - others) / 0.15)
-      for (const m of materials) (m as THREE.MeshStandardMaterial).color.copy(white).lerp(color, paint)
+      const passed = clamp01((qs[step + 1] ?? 0) / 0.1) // 다음 묶음이 시작하면 지금 묶음만 노랑
+      for (const m of materials) (m as THREE.MeshStandardMaterial).color.copy(white).lerp(color, paint).lerp(passedColor, passed)
     }
     parts.forEach(({ legs, cells }, k) => {
       const q = qs[k]

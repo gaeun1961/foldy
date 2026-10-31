@@ -150,9 +150,9 @@ export function curvedLinePoints(shape: CurvedShape, size: RoundSize, line: Line
 }
 
 // 만나는 선 색 (ui.md 색 기준): 자른 선 둘, 위 둘레와 위 원, 아래 둘레와 아래 원
-const PAIR = { seam: '#e5484d', top: '#3e63dd', bottom: '#3e63dd' } // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
-const PLAIN = '#3c4048'
-const DRAWN = '#7048e8' // 곡면 위 선 (실 감기와 같은 색)
+const PAIR = { seam: '#e0442e', top: '#2f6fd0', bottom: '#2f6fd0' } // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
+const PLAIN = '#2f2a25'
+const DRAWN = '#2e9e4f' // 곡면 위 선 (실 감기와 같은 색)
 
 export function buildCurvedNet(shape: CurvedShape, size: RoundSize, faces: [THREE.Material, THREE.Material], lineRadius: number, drawn: Line<CylinderPoint | ConePoint>[] = [], seam = 0): CurvedNet {
   const { radius: r, height: h } = size

@@ -11,10 +11,11 @@ import type { LessonObject } from './index.ts'
 import { lengthText } from './lengthLabels.ts'
 import { faceNormal, stripIndex, surfaceSteps, unrollChain } from './surfaceLayout.ts'
 
-const BASE = '#ffd982'
-const SIDE = '#b9dcff'
-const INK = '#3c4048'
-const AROUND = '#c2255c' // 밑면 둘레 = 옆면 띠의 가로
+const BASE = '#f8df8e'
+const SIDE = '#f8df8e'
+const PASSED = '#e9e2d3' // 지나간 면
+const INK = '#2f2a25'
+const AROUND = '#e0442e' // 밑면 둘레 = 옆면 띠의 가로
 
 // areas: 다 편 뒤 면에 남기는 넓이 값. triangle: 삼각기둥 윗면의 직각삼각형 글자 (다 편 뒤에도 그린다)
 export function buildPrismSurfaceLesson(poly: Polyhedron, { sides: n, edge: a, height: h }: PolygonSize, areas: { base: string | null; side: string }, triangle?: { edge: string; leg: string; rise: string }): LessonObject {
@@ -41,7 +42,7 @@ export function buildPrismSurfaceLesson(poly: Polyhedron, { sides: n, edge: a, h
   }
 
   const material = (color: string) => own(new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }))
-  const [baseMaterial, sideMaterial] = [material('#ffffff'), material('#ffffff')]
+  const [baseMaterial, sideMaterial] = [material('#faf6ee'), material('#faf6ee')]
   const live = (index: number[], count: number, m: THREE.Material) => {
     const geometry = own(new THREE.BufferGeometry())
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3))
@@ -82,15 +83,15 @@ export function buildPrismSurfaceLesson(poly: Polyhedron, { sides: n, edge: a, h
   // 오각형부터: 가운데에서 삼각형으로 나눈다. 한 칸을 칠해 같은 모양임을 보인다
   const cuts = n >= 5 ? line(2 * n, thin * 0.8, INK) : null
   cuts?.set([...Array(2 * n + 1).keys()].map((i): Point => (i % 2 ? topAt(center[0], center[1], 0) : topAt(...ring[(i / 2) % n], 0))))
-  const wedgeMaterial = own(new THREE.MeshBasicMaterial({ color: '#ffb74d', side: THREE.DoubleSide }))
+  const wedgeMaterial = own(new THREE.MeshBasicMaterial({ color: '#f8df8e', side: THREE.DoubleSide }))
   const wedge = cuts
     ? new THREE.Mesh(own(new THREE.BufferGeometry().setFromPoints([topAt(center[0], center[1], 0), topAt(...ring[0], 0), topAt(...ring[1], 0)].map(([x, y, z]) => new THREE.Vector3(x, y + reach * 0.002, z)))), wedgeMaterial)
     : null
   if (wedge) group.add(wedge)
 
   const sprites: ReturnType<typeof textSprite>[] = []
-  const label = (text: string, at: Point) => {
-    const s = textSprite(text, reach * (text.length > 6 ? 0.26 : 0.14))
+  const label = (text: string, at: Point, color?: string) => {
+    const s = textSprite(text, reach * (text.length > 6 ? 0.26 : 0.14), false, color)
     s.sprite.position.set(...at)
     group.add(s.sprite)
     sprites.push(s)
@@ -98,8 +99,8 @@ export function buildPrismSurfaceLesson(poly: Polyhedron, { sides: n, edge: a, h
   }
   const flatBottom = stripAt(1, false)
   const flatTop = stripAt(1, true)
-  const edgeLabel = label(lengthText(a), [(ring[0][0] + ring[1][0]) / 2, h / 2 + reach * 0.02, front + reach * 0.04])
-  const aroundLabel = label(lengthText(n * a), [(flatBottom[0][0] + flatBottom[n][0]) / 2, floor + reach * 0.02, front + reach * 0.05])
+  const edgeLabel = label(lengthText(a), [(ring[0][0] + ring[1][0]) / 2, h / 2 + reach * 0.02, front + reach * 0.04], '#e0442e')
+  const aroundLabel = label(lengthText(n * a), [(flatBottom[0][0] + flatBottom[n][0]) / 2, floor + reach * 0.02, front + reach * 0.05], '#e0442e')
   const flatCenter = (flatBottom[0][0] + flatBottom[n][0]) / 2
   const sideArea = label(`옆면 ${areas.side}`, [flatCenter, floor + reach * 0.02, front + h / 2])
   const flatTopCenter = topAt(center[0], center[1], 1)
@@ -112,14 +113,14 @@ export function buildPrismSurfaceLesson(poly: Polyhedron, { sides: n, edge: a, h
   const topLeg = surfaceSteps(poly).find((step) => poly.faces[step.face].vertices.length === 3)
   const onFlatTop = (p: number[]) => new THREE.Vector3(...topAt(p[0], p[2], 1)).setY(floor + reach * 0.004)
   const flatTriangle = triangle && topLeg
-    ? rightTriangleOverlay(group, { foot: onFlatTop(topLeg.legs[1].from), end: onFlatTop(topLeg.legs[0].to), top: onFlatTop(topLeg.legs[1].to), out: new THREE.Vector3(0, reach * 0.02, 0), reach: a * 0.7, edgeFirst: true, text: triangle })
+    ? rightTriangleOverlay(group, { foot: onFlatTop(topLeg.legs[1].from), end: onFlatTop(topLeg.legs[0].to), top: onFlatTop(topLeg.legs[1].to), out: new THREE.Vector3(0, reach * 0.02, 0), reach: a * 0.7, edgeFirst: true, edgeColor: '#e0442e', legColor: '#2e9e4f', text: triangle })
     : null
-  const tallLabel = label(lengthText(h), [flatBottom[n][0] + reach * 0.07, floor + reach * 0.02, (flatBottom[n][2] + flatTop[n][2]) / 2])
+  const tallLabel = label(lengthText(h), [flatBottom[n][0] + reach * 0.07, floor + reach * 0.02, (flatBottom[n][2] + flatTop[n][2]) / 2], '#2f6fd0')
 
-  const [white, base, side] = ['#ffffff', BASE, SIDE].map((c) => new THREE.Color(c))
+  const [white, base, side, passed] = ['#faf6ee', BASE, SIDE, PASSED].map((c) => new THREE.Color(c))
   const apply = (progress: number) => {
     const [q1, q2] = [0, 1].map((k) => clamp01(progress * 2 - k))
-    baseMaterial.color.copy(white).lerp(base, clamp01(q1 / 0.3))
+    baseMaterial.color.copy(white).lerp(base, clamp01(q1 / 0.3)).lerp(passed, clamp01(q2 / 0.15))
     sideMaterial.color.copy(white).lerp(side, clamp01(q2 / 0.15))
     const s = clamp01((q2 - 0.15) / 0.55)
     const [bottom, top] = [stripAt(s, false), stripAt(s, true)]
@@ -171,7 +172,7 @@ export function withTriangleCopy(lesson: LessonObject, poly: Polyhedron): Lesson
   const [foot, top] = [v3(step.legs[1].from), v3(step.legs[1].to)]
   const up = top.clone().sub(foot)
   const normal = v3(faceNormal(poly, step.face))
-  const material = new THREE.MeshBasicMaterial({ color: '#ffb74d', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
+  const material = new THREE.MeshBasicMaterial({ color: '#f8df8e', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
   const lineMaterial = new THREE.LineBasicMaterial({ color: INK })
   const halves = [a, b].map((corner) => {
     const geometry = new THREE.BufferGeometry().setFromPoints([corner, corner.clone().add(up), top])

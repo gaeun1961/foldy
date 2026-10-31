@@ -8,11 +8,11 @@ import type { LessonObject } from './index.ts'
 import type { RegularPlan } from './regularLayout.ts'
 import { faceNormal, surfaceSteps } from './surfaceLayout.ts'
 
-const FACE = '#ffd982'
-const OTHER_HALF = '#b9dcff' // 정팔면체의 아래 사각뿔
-const PLATE = '#ffb74d'
+const FACE = '#f8df8e'
+const OTHER_HALF = '#e9e2d3' // 정팔면체의 아래 사각뿔
+const PLATE = '#f8df8e'
 
-const faceMaterial = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: '#ffffff', side, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })
+const faceMaterial = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: '#faf6ee', side, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })
 
 function paintedFaces(faces: number[]) {
   const made = faces.map((f) => ({ f, pair: [faceMaterial(THREE.FrontSide), faceMaterial(THREE.BackSide)] as [THREE.MeshStandardMaterial, THREE.MeshStandardMaterial] }))
@@ -38,10 +38,10 @@ export function buildRegularSurfaceLesson(poly: Polyhedron, plan: RegularPlan): 
   // 면의 높이: 꼭짓점에서 밑변 중점으로. 면 위에 살짝 띄운다
   const lift = v3(faceNormal(poly, step.face)).multiplyScalar(reach * 0.015)
   const overlay = plan.height
-    ? rightTriangleOverlay(group, { foot: v3(step.legs[1].from).add(lift), end: v3(step.legs[0].to).add(lift), top: v3(step.legs[1].to).add(lift), out: lift.clone().multiplyScalar(5), reach, edgeFirst: true, text: { edge: `${+step.legs[0].length.toFixed(2)} cm`, leg: `${plan.height.half} cm`, rise: `${plan.height.height} cm` } })
+    ? rightTriangleOverlay(group, { foot: v3(step.legs[1].from).add(lift), end: v3(step.legs[0].to).add(lift), top: v3(step.legs[1].to).add(lift), out: lift.clone().multiplyScalar(5), reach, edgeFirst: true, edgeColor: '#e0442e', legColor: '#2e9e4f', text: { edge: `${+step.legs[0].length.toFixed(2)} cm`, leg: `${plan.height.half} cm`, rise: `${plan.height.height} cm` } })
     : null
 
-  const white = new THREE.Color('#ffffff')
+  const white = new THREE.Color('#faf6ee')
   const lit = new THREE.Color(FACE)
   const apply = (progress: number) => {
     const qs = [...plan.areaHints.keys()].map((k) => clamp01(progress * plan.areaHints.length - k))
@@ -85,12 +85,12 @@ export function buildRegularVolumeLesson(poly: Polyhedron, volume: NonNullable<R
   const plateGeometry = new THREE.BufferGeometry().setFromPoints(around.slice(1, -1).flatMap((p, i) => [around[0], p, around[i + 2]]))
   const plate = new THREE.Mesh(plateGeometry, plateMaterial)
   group.add(plate)
-  const overlay = rightTriangleOverlay(group, { foot: middle, end: ring[0], top: apex, out: new THREE.Vector3(reach * 0.08, 0, reach * 0.08), reach, edgeFirst: true, text: { edge: `${+apex.distanceTo(ring[0]).toFixed(2)} cm`, leg: `${volume.leg} cm`, rise: `${volume.rise} cm` } })
+  const overlay = rightTriangleOverlay(group, { foot: middle, end: ring[0], top: apex, out: new THREE.Vector3(reach * 0.08, 0, reach * 0.08), reach, edgeFirst: true, edgeColor: '#e0442e', legColor: '#2e9e4f', text: { edge: `${+apex.distanceTo(ring[0]).toFixed(2)} cm`, leg: `${volume.leg} cm`, rise: `${volume.rise} cm` } })
 
   const painted = paintedFaces([...poly.faces.keys()])
   const tint = new THREE.Color(FACE)
   const otherHalf = new THREE.Color(OTHER_HALF)
-  const white = new THREE.Color('#ffffff')
+  const white = new THREE.Color('#faf6ee')
   for (const { f, pair } of painted.made) {
     const top = poly.faces[f].vertices.some((v) => positions[v] === apex)
     for (const m of pair) {

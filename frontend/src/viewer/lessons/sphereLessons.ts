@@ -16,9 +16,9 @@ import { buildSphereSectionLesson } from './sphereSection.ts'
 
 const SEGMENTS = 64
 const TURNS = 20 // 구를 감는 바퀴 수
-const THREAD = '#c2255c'
-const SECTION = '#ffb74d'
-const DISC = '#fff3d6'
+const THREAD = '#e0442e'
+const SECTION = '#f8df8e'
+const DISC = '#e9e2d3'
 
 // 실: 굵기가 간격의 절반이라 빈틈없이 덮는다. points 는 같은 길이 간격이라 drawRange 가 곧 감은 길이다
 function thread(points: THREE.Vector3[], radius: number, material: THREE.Material) {
@@ -39,7 +39,7 @@ function surfaceLesson(r: number): LessonObject {
   const own = <T extends { dispose(): void }>(x: T) => (owned.push(x), x)
   const threadRadius = (Math.PI * r) / (2 * TURNS)
 
-  const sphereMaterial = own(new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true }))
+  const sphereMaterial = own(new THREE.MeshStandardMaterial({ color: '#faf6ee', transparent: true }))
   const sphere = new THREE.Mesh(own(new THREE.SphereGeometry(r, SEGMENTS, 48)), sphereMaterial)
   sphere.position.y = r
   sphere.castShadow = true
@@ -167,7 +167,7 @@ function volumeLesson(r: number): LessonObject {
   })
   // ① 구가 통에 꼭 들어가는 모습: 흐린 구를 통 안에 보인다
   const ghostGeometry = new THREE.SphereGeometry(r, SEGMENTS, 48)
-  const ghostMaterial = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })
+  const ghostMaterial = new THREE.MeshStandardMaterial({ color: '#faf6ee', transparent: true, opacity: 0.55, depthWrite: false })
   const ghost = new THREE.Mesh(ghostGeometry, ghostMaterial)
   ghost.position.set(cupX, r, 0)
   pour.group.add(ghost)
@@ -213,7 +213,7 @@ export function buildSphereBody(r: number, material: THREE.Material) {
   mesh.position.y = r
   mesh.castShadow = true
   const ringGeometry = new THREE.BufferGeometry().setFromPoints([...Array(SEGMENTS + 1).keys()].map((i) => new THREE.Vector3(r * Math.cos((i / SEGMENTS) * 2 * Math.PI), r, r * Math.sin((i / SEGMENTS) * 2 * Math.PI))))
-  const ringMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
+  const ringMaterial = new THREE.LineBasicMaterial({ color: '#2f2a25' })
   group.add(mesh, new THREE.Line(ringGeometry, ringMaterial))
   return {
     group,

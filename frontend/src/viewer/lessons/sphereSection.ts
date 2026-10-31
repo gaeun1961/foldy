@@ -8,9 +8,9 @@ import { LENGTH_COLOR, SECTION_RADIUS_COLOR } from './formulas.ts'
 import type { LessonObject } from './index.ts'
 
 const SEGMENTS = 64
-const INK = '#3c4048'
-const SECTION = '#ffb74d'
-const PLANE = '#74c0fc'
+const INK = '#2f2a25'
+const SECTION = '#f8df8e'
+const PLANE = '#8c8680'
 
 export function buildSphereSectionLesson(r: number): LessonObject {
   const group = new THREE.Group()
@@ -20,7 +20,7 @@ export function buildSphereSectionLesson(r: number): LessonObject {
   const [leftX, rightX] = [-gap, gap]
   const thick = r * 0.022
 
-  const body = own(new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }))
+  const body = own(new THREE.MeshStandardMaterial({ color: '#faf6ee', transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }))
   // 왼쪽: 평평한 면이 바닥, 둥근 쪽이 위
   const dome = new THREE.Mesh(own(new THREE.SphereGeometry(r, SEGMENTS, 32, 0, 2 * Math.PI, 0, Math.PI / 2)), body)
   dome.position.x = leftX

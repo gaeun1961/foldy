@@ -11,10 +11,11 @@ import type { LessonObject } from './index.ts'
 import { lengthText, piValue, slantText, type PiMode } from './lengthLabels.ts'
 
 const ARC = 96
-const BASE_COLOR = '#ffd982'
-const SIDE_COLOR = '#b9dcff'
-const INK = '#3c4048'
-const AROUND = '#c2255c' // 밑면 둘레 = 옆면 가로(호)
+const BASE_COLOR = '#f8df8e'
+const SIDE_COLOR = '#f8df8e'
+const PASSED = '#e9e2d3' // 지나간 면
+const INK = '#2f2a25'
+const AROUND = '#e0442e' // 밑면 둘레 = 옆면 가로(호)
 const TALL = LENGTH_COLOR.h // 높이
 const RADIUS = LENGTH_COLOR.r // 반지름
 
@@ -44,12 +45,12 @@ export function buildCurvedSurfaceLesson(shape: CurvedShape, size: RoundSize, pi
   const stepCount = cone ? 3 : 2
   const group = new THREE.Group()
   const face = (color: string) => new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })
-  const [baseMaterial, sideMaterial] = [face('#ffffff'), face('#ffffff')]
+  const [baseMaterial, sideMaterial] = [face('#faf6ee'), face('#faf6ee')]
   const inkMaterial = new THREE.MeshBasicMaterial({ color: INK })
   const aroundMaterial = new THREE.MeshBasicMaterial({ color: AROUND })
   const tallMaterial = new THREE.MeshBasicMaterial({ color: cone ? LENGTH_COLOR.l : TALL }) // 공식의 l, h 와 같은 색
   const radiusMaterial = new THREE.MeshStandardMaterial({ color: RADIUS })
-  const [white, baseColor, sideColor] = ['#ffffff', BASE_COLOR, SIDE_COLOR].map((c) => new THREE.Color(c))
+  const [white, baseColor, sideColor, passed] = ['#faf6ee', BASE_COLOR, SIDE_COLOR, PASSED].map((c) => new THREE.Color(c))
   const thin = extent * 0.0025
   const thick = extent * 0.006
   const addLine = (segments: number, radius: number, material: THREE.Material, points: (s: number) => Point[]) => {
@@ -95,8 +96,8 @@ export function buildCurvedSurfaceLesson(shape: CurvedShape, size: RoundSize, pi
 
   // 3D 라벨은 값만
   const sprites: ReturnType<typeof textSprite>[] = []
-  const label = (text: string, pos: Point) => {
-    const s = textSprite(text, extent * 0.14)
+  const label = (text: string, pos: Point, color?: string) => {
+    const s = textSprite(text, extent * 0.14, false, color)
     s.sprite.position.set(...pos)
     s.sprite.visible = false
     group.add(s.sprite)
@@ -106,9 +107,9 @@ export function buildCurvedSurfaceLesson(shape: CurvedShape, size: RoundSize, pi
   const flatEdge = at(1, 0.5, 1)
   const flatArc = at(0.5, 0, 1)
   const apexFlat = at(0.5, 1, 1)
-  const radiusLabel = label(lengthText(r), [r / 2, legY + extent * 0.02, r * 0.3])
-  const arcLabel = label(`${piValue(2 * r, pi)} cm`, [flatArc[0] + r + extent * 0.09, extent * 0.02, flatArc[2] + extent * 0.03])
-  const edgeLabel = label(`${cone ? slantText(r, h) : +h.toFixed(2)} cm`, [flatEdge[0] + extent * 0.08, extent * 0.02, flatEdge[2]])
+  const radiusLabel = label(lengthText(r), [r / 2, legY + extent * 0.02, r * 0.3], RADIUS)
+  const arcLabel = label(`${piValue(2 * r, pi)} cm`, [flatArc[0] + r + extent * 0.09, extent * 0.02, flatArc[2] + extent * 0.03], AROUND)
+  const edgeLabel = label(`${cone ? slantText(r, h) : +h.toFixed(2)} cm`, [flatEdge[0] + extent * 0.08, extent * 0.02, flatEdge[2]], cone ? LENGTH_COLOR.l : TALL)
 
   // 원뿔: 반지름이 모선인 큰 원과 그 나머지
   let bigCircle: THREE.Line | null = null
@@ -135,7 +136,7 @@ export function buildCurvedSurfaceLesson(shape: CurvedShape, size: RoundSize, pi
     const qs = [...Array(stepCount).keys()].map((k) => clamp01(progress * stepCount - k))
     const [q1, q2, q3 = 0] = qs
     // 밑면
-    baseMaterial.color.copy(white).lerp(baseColor, clamp01(q1 / 0.3))
+    baseMaterial.color.copy(white).lerp(baseColor, clamp01(q1 / 0.3)).lerp(passed, clamp01(q2 / 0.15))
     radiusLeg.grow(q2 > 0 ? 0 : clamp01((q1 - 0.3) / 0.3))
     radiusLabel.visible = q2 <= 0 && q1 >= 0.6
     // 옆면: 칠하고 → 펼친다 (s = 1 이 평면)

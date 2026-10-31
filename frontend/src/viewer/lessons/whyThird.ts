@@ -9,9 +9,9 @@ import type { LessonObject } from './index.ts'
 import { withEndLines } from './lengthLines.ts'
 import { cubePyramids, STAIR_LAYERS } from './volumeLayout.ts'
 
-const INK = '#3c4048'
-const STAIR = ['#74c0fc', '#d0ebff'] // 층이 구분되게 번갈아
-const PIECES = ['#ffb74d', '#74c0fc', '#8ce99a']
+const INK = '#2f2a25'
+const STAIR = ['#ded6c6', '#e9e2d3'] // 층이 구분되게 번갈아
+const PIECES = ['#e0442e', '#2f6fd0', '#2e9e4f']
 
 // 물 붓기 뒤에 단계를 더한다: 앞 3단계는 물 붓기, 그 뒤는 extra 만 보인다
 function afterPour(pour: LessonObject, extra: THREE.Group, show: (at: number) => void, bounds: THREE.Box3, dispose: () => void, extraSteps = 1): LessonObject {
@@ -45,7 +45,7 @@ export function withStairStep(pour: LessonObject, r: number, h: number, frames: 
   extra.position.x = middle.x
   const max = STAIR_LAYERS[STAIR_LAYERS.length - 1]
   const geometry = new THREE.CylinderGeometry(1, 1, 1, 48)
-  const material = new THREE.MeshStandardMaterial({ color: '#ffffff' })
+  const material = new THREE.MeshStandardMaterial({ color: '#faf6ee' })
   const discs = new THREE.InstancedMesh(geometry, material, max)
   discs.frustumCulled = false
   discs.castShadow = true

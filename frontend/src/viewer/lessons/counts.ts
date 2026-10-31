@@ -6,9 +6,9 @@ import { clamp01, growingTube, layerTags, v3 } from './draw.ts'
 import { edgesOf } from './edgeRelationsLayout.ts'
 import type { LessonObject } from './index.ts'
 
-const FACE = '#ffd982'
-const EDGE = '#c2255c'
-const VERTEX = '#1c7ed6'
+const FACE = '#f8df8e'
+const EDGE = '#e0442e'
+const VERTEX = '#2f6fd0'
 
 export function buildCountsLesson(poly: Polyhedron): LessonObject {
   const middle = (points: Vec3[]) => points.reduce((c, p) => c.add(v3(p)), new THREE.Vector3()).multiplyScalar(1 / points.length)
@@ -23,9 +23,9 @@ export function buildCountsLesson(poly: Polyhedron): LessonObject {
       .map(({ item }) => item)
 
   const group = new THREE.Group()
-  const white = new THREE.Color('#ffffff')
+  const white = new THREE.Color('#faf6ee')
   const faceColor = new THREE.Color(FACE)
-  const faceMat = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: '#ffffff', side, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })
+  const faceMat = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: '#faf6ee', side, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })
   const faceAt = (f: number) => middle(poly.faces[f].vertices.map((v) => poly.positions[v]))
   const faces = inOrder([...poly.faces.keys()], faceAt).map((f) => ({ f, materials: [faceMat(THREE.FrontSide), faceMat(THREE.BackSide)] as [THREE.Material, THREE.Material] }))
 

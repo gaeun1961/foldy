@@ -3,7 +3,7 @@
 import type { Polyhedron, Vec3 } from '../polyhedra.ts'
 
 // 위치 관계 색. 화면 색 설명(ui.md)과 3D 가 같이 쓴다
-export const RELATION_COLORS = { ref: '#e03131', kinds: ['#2f9e44', '#f08c00', '#7048e8'] } // 기준, [평행, 만남, 꼬인 위치]
+export const RELATION_COLORS = { ref: '#e0442e', kinds: ['#2e9e4f', '#2f6fd0', '#f5c518'] } // 기준, [평행, 만남, 꼬인 위치]
 
 export type Edge = [number, number]
 

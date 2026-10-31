@@ -76,8 +76,10 @@ function lessonBody(scene: ShapeScene, poly: Polyhedron, tree: FaceTree, kind: L
   }
   // show: 그 글자가 지금 필요한가 (ui.md 공식 시각화 규칙 5)
   const labelled = (lesson: LessonObject, labels: LengthLabel[], show: (label: LengthLabel, k: number, progress: number) => boolean) => {
-    const sprites = labels.map((l) => {
-      const s = textSprite(l.text, size * 0.3)
+    const sprites = labels.map((l, k) => {
+      // 길이 글자는 해당 색연필 색
+      const color = box ? [LENGTH_COLOR.a, LENGTH_COLOR.b, LENGTH_COLOR.c][k] : scene.shape === 'prism' && l.text === lengthText(scene.size.height) ? LENGTH_COLOR.h : LENGTH_COLOR.r
+      const s = textSprite(l.text, size * 0.3, false, color)
       s.sprite.position.copy(v3(l.at))
       lesson.group.add(s.sprite)
       return s

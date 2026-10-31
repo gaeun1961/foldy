@@ -6,8 +6,8 @@ import type { Polyhedron } from '../polyhedra.ts'
 import { clamp01, growingTube, solidGeometry, textSprite, v3 } from './draw.ts'
 import type { LessonObject } from './index.ts'
 
-const PIECE = ['#f08c00', '#1c7ed6', '#2f9e44'] // 길이 조각 (similar.ts 와 같은 색)
-const TILE = '#ffe8a8'
+const PIECE = ['#e0442e', '#2f6fd0', '#2e9e4f'] // 길이 조각 (similar.ts 와 같은 색)
+const TILE = '#f8df8e'
 
 export function buildSimilarSolidLesson(poly: Polyhedron, k: number, radius: number): LessonObject {
   const group = new THREE.Group()
@@ -22,7 +22,7 @@ export function buildSimilarSolidLesson(poly: Polyhedron, k: number, radius: num
   // 큰 도형 틀: 작은 도형 오른쪽, 바닥과 앞면을 맞춘다
   const bigMin = new THREE.Vector3(box.max.x + gap, box.min.y, box.max.z - k * size.z)
   const toBig = (p: THREE.Vector3) => p.clone().sub(box.min).multiplyScalar(k).add(bigMin)
-  const edgeMaterial = own(new THREE.LineBasicMaterial({ color: '#3c4048' }))
+  const edgeMaterial = own(new THREE.LineBasicMaterial({ color: '#2f2a25' }))
   const edges = own(new THREE.EdgesGeometry(geometry, 1))
   const frame = new THREE.LineSegments(edges, edgeMaterial)
   frame.scale.setScalar(k)
@@ -67,8 +67,8 @@ export function buildSimilarSolidLesson(poly: Polyhedron, k: number, radius: num
   group.add(tileLabel.sprite, copyLabel.sprite)
 
   // ③ 부피: 작은 도형 k³ 개를 층마다 늘어놓는다
-  const normal = own(new THREE.MeshStandardMaterial({ color: '#ffffff' }))
-  const active = own(new THREE.MeshStandardMaterial({ color: '#ffe8a8' }))
+  const normal = own(new THREE.MeshStandardMaterial({ color: '#faf6ee' }))
+  const active = own(new THREE.MeshStandardMaterial({ color: '#f8df8e' }))
   const copies = Array.from({ length: k ** 3 }, (_, n) => {
     const layer = Math.floor(n / (k * k))
     const index = n % (k * k)
