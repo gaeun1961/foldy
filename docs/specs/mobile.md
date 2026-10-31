@@ -70,14 +70,15 @@ cd frontend && npm run dev -- --host                                 # .env: VIT
 
 ## E. M3: 원근 보정 (종이 펴기)
 
-- 흐름: 사진 고르기 → (M2 줄이기) → **종이 펴기** 단계 → 지금의 네모 감싸기·읽기
-  - 종이 펴기: 사진 위 네 귀퉁이 손잡이(처음엔 사진 네 모서리)를 학습지 귀퉁이로 끌어 맞추고 "펴기" 또는 "그대로 쓰기"
-  - "펴기" 결과 그림이 이후 단계의 `photo`가 된다 (네모·crop·`onPhoto` 모두 편 그림 기준)
+- 흐름: 사진 고르기 → (M2 줄이기) → 네모 감싸기·읽기. 네모 단계 버튼 아래 **"비스듬히 찍혔으면 종이 펴기"**를 누를 때만 펴기 단계로 간다 (반듯한 스캔은 한 단계를 더 거치지 않게. 2026-10-31 구현하며 바꿈)
+  - 종이 펴기: 사진 위 네 손잡이(처음엔 사진 안쪽 8%)를 학습지 귀퉁이로 끌어 맞추고 "펴기" 또는 "그대로 쓰기"
+  - "펴기" 결과 그림이 이후 단계의 `photo`가 된다 (네모·crop·`onPhoto` 모두 편 그림 기준. `PhotoUpload`의 `setBase`)
+  - 1200×1600 사진을 펴는 데 PC 크롬에서 약 0.9초
 - 새 파일 `ui/perspective.ts` (three.js·DOM 없음, 검사 대상)
   - `homography(src: Pt[4], dst: Pt[4]): number[]` (3×3, 9개)
   - `warp(img: ImageData, corners: Pt[4], outW: number, outH: number): ImageData` (역변환 + 이중선형 보간)
   - 출력 크기: 귀퉁이 사이 변 길이의 평균으로 정하고 `fitSize(…, 1600)`로 제한
-- 새 파일 `ui/CornerPick.tsx`: 네 귀퉁이 끌기 UI. 결과는 `onDone(file: File)`
+- 새 파일 `ui/CornerPick.tsx`: 네 귀퉁이 끌기 UI. 결과는 `onDone(file: File)`, 취소는 `onCancel()`
 - 새 검사 `ui/perspective.test.ts` (정사각형 ↔ 사다리꼴 왕복, 점이 제자리로 오는지)
 - **의존성 추가 없음**. 귀퉁이 자동 찾기(OpenCV.js 등)는 용량이 커서 이번에 넣지 않는다. 넣을 때는 `stack.md` 절차를 따른다
 - 문서: `specs/ui.md` 화면 배치 2번(사진 업로드)에 종이 펴기 단계를 먼저 적는다

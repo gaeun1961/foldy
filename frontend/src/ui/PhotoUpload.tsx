@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types'
 import { analyze, OfflineError } from './api'
+import { CornerPick } from './CornerPick'
 import { prepPhoto } from './photoPrep'
 import type { PhotoBox } from './manualScene.ts'
 
@@ -8,7 +9,8 @@ import type { PhotoBox } from './manualScene.ts'
 // (그 부분만 잘라 /analyze) 또는 "사진 전체 읽기". 결과 도형과 고른 네모(사진 비율 0~1, 전체면 null)를 onScene 으로 넘긴다.
 // 휴대폰은 input[type=file] 이 카메라 촬영과 앨범을 함께 보여준다. 올린 사진 주소는 onPhoto 로도 넘겨 전개도 그리기 칸 밑에 깐다 (TODO-37)
 // 사진은 모두 pick 으로 들어오고, 거기서 줄이고 방향을 맞춘 뒤(photoPrep) 그 사진을 기준으로 네모·자르기를 한다 (docs/specs/mobile.md)
-type State = { kind: 'idle' } | { kind: 'preparing' } | { kind: 'picking' } | { kind: 'loading' } | { kind: 'done' } | { kind: 'error'; message: string } | { kind: 'soft'; message: string }
+// 비스듬히 찍었으면 "종이 펴기"(CornerPick)로 편 사진이 그 뒤의 기준 사진이 된다
+type State = { kind: 'idle' } | { kind: 'preparing' } | { kind: 'straighten' } | { kind: 'picking' } | { kind: 'loading' } | { kind: 'done' } | { kind: 'error'; message: string } | { kind: 'soft'; message: string }
 export type PhotoPlace = { box: PhotoBox; aspect: number } // 고른 네모와 사진 가로/세로
 interface Props {
   onScene: (scene: ShapeScene, place: PhotoPlace | null) => void
@@ -38,14 +40,18 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   const loading = state.kind === 'loading' || state.kind === 'preparing'
 
-  const pick = async (original: File) => {
-    setState({ kind: 'preparing' })
-    const file = await prepPhoto(original)
+  // 이 사진을 기준 사진으로 (고른 사진, 편 사진)
+  const setBase = (file: File) => {
     const url = URL.createObjectURL(file)
     setPhoto({ file, url })
     setBox(null)
     onPhoto(url)
     setState({ kind: 'picking' })
+  }
+
+  const pick = async (original: File) => {
+    setState({ kind: 'preparing' })
+    setBase(await prepPhoto(original))
   }
 
   const read = async (part: PhotoBox | null) => {
@@ -90,7 +96,10 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
           }}
         />
       </label>
-      {photo && (
+      {photo && state.kind === 'straighten' && (
+        <CornerPick url={photo.url} onDone={setBase} onCancel={() => setState({ kind: 'picking' })} />
+      )}
+      {photo && state.kind !== 'straighten' && (
         <div
           className={`photo-pick${loading ? ' disabled' : ''}`}
           onPointerDown={(e) => {
@@ -107,7 +116,7 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
           {box && <div className="pick-box" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }} />}
         </div>
       )}
-      {photo && (
+      {photo && state.kind !== 'straighten' && (
         <div className="pick-buttons">
           <button type="button" className="primary-button" disabled={loading || !usable} onClick={() => read(box)}>
             이 부분 읽기
@@ -115,11 +124,15 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
           <button type="button" className="secondary-button" disabled={loading} onClick={() => read(null)}>
             사진 전체 읽기
           </button>
+          <button type="button" className="secondary-button wide" disabled={loading} onClick={() => setState({ kind: 'straighten' })}>
+            비스듬히 찍혔으면 종이 펴기
+          </button>
         </div>
       )}
       <p className={`upload-status ${state.kind}`} role="status">
         {state.kind === 'idle' && '학습지 사진을 올리면 도형이 나타나요'}
         {state.kind === 'preparing' && '사진을 준비하고 있어요…'}
+        {state.kind === 'straighten' && '동그라미 네 개를 학습지 네 귀퉁이에 맞춰 주세요'}
         {state.kind === 'picking' && '읽을 전개도를 네모로 딱 맞게 감싸 주세요'}
         {state.kind === 'loading' && '사진에서 도형을 찾고 있어요…'}
         {state.kind === 'done' && '도형을 찾았어요. 접어 보세요! 다른 부분도 감싸서 읽을 수 있어요'}
