@@ -36,6 +36,13 @@ async def analyze(file: UploadFile, problem: UploadFile | None = None) -> ShapeS
         )  # 원인(429 한도, 시간 초과 등)은 서버 로그에만
         if e.unavailable:
             raise HTTPException(503, "지금은 사진 인식을 쓸 수 없어요") from e
+        if isinstance(
+            e, vision.NotSolidError
+        ):  # 입체도형 문제가 아님 (#163, api.md "/analyze 에러")
+            raise HTTPException(
+                422,
+                "이 문제는 입체도형 전개도 문제가 아니에요. 아래에서 직접 만들어 볼 수 있어요",
+            ) from e
         raise HTTPException(422, "사진에서 도형을 찾지 못했어요") from e
 
 
