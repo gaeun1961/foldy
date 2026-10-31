@@ -158,11 +158,11 @@ def _run_agy(
 
 
 def warm_up() -> None:
-    """VISION_ENGINE=agy 면 backend 시작 때 agy 를 미리 띄워 둔다 (도형 2, 문제 글 1. 하나에 약 170MB).
-    도형이 셋이면 셋째는 그때 띄운다."""
+    """VISION_ENGINE=agy 면 backend 시작 때 agy 를 미리 띄워 둔다 (도형 3, 문제 글 1. 하나에 약 170MB).
+    도형 셋을 동시에 읽거나 두 개 읽다 25초 넘겨 하나 더 보낼 때도 새로 띄우는 5.5초가 없게 (#156)."""
     if os.environ.get("VISION_ENGINE") != "agy":
         return
-    agy.warm(os.environ.get("VISION_AGY_MODEL") or AGY_MODEL, 2)
+    agy.warm(os.environ.get("VISION_AGY_MODEL") or AGY_MODEL, 3)
     agy.warm(os.environ.get("VISION_AGY_TEXT_MODEL") or AGY_TEXT_MODEL, 1)
 
 
