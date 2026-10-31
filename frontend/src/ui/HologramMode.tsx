@@ -21,20 +21,38 @@ export function HologramMode({ scene, photo, onClose }: { scene: ShapeScene; pho
   const [panel, setPanel] = useState(true) // 처음에는 놓는 법을 보여 준다
   const root = useRef<HTMLDivElement>(null)
   const wakeLock = useRef<WakeLock | null>(null)
+  const wantAwake = useRef(false) // 전체 화면을 눌러 화면 꺼짐 방지를 켰는지
 
   const close = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
     onClose()
   }
 
+  // onClose 는 App 이 그릴 때마다 새 함수라, 화면 꺼짐 방지를 거기에 묶으면 App 이 다시 그려질 때마다(챗봇 답, 인식 결과) 풀렸다 (코드 검토)
+  const onCloseRef = useRef(onClose)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.fullscreenElement && onClose()
+    onCloseRef.current = onClose
+  }, [onClose])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.fullscreenElement && onCloseRef.current()
+    // 다른 화면에 갔다 오면 브라우저가 화면 꺼짐 방지를 스스로 푼다. 켜 두었던 것이면 다시 건다
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible' || !wantAwake.current) return
+      try {
+        wakeLock.current = (await (navigator as WakeLockNavigator).wakeLock?.request('screen')) ?? null
+      } catch {
+        // 지원하지 않으면 그냥 둔다
+      }
+    }
     window.addEventListener('keydown', onKey)
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
       window.removeEventListener('keydown', onKey)
-      wakeLock.current?.release().catch(() => {})
+      document.removeEventListener('visibilitychange', onVisible)
+      wakeLock.current?.release().catch(() => {}) // 홀로그램을 닫을 때 한 번만
+      wakeLock.current = null
     }
-  }, [onClose])
+  }, [])
 
   const fullscreen = async () => {
     try {
@@ -45,6 +63,7 @@ export function HologramMode({ scene, photo, onClose }: { scene: ShapeScene; pho
     }
     try {
       // 화면 꺼짐 방지. HTTPS 나 localhost 에서만 된다
+      wantAwake.current = true
       wakeLock.current ??= (await (navigator as WakeLockNavigator).wakeLock?.request('screen')) ?? null
     } catch {
       // 지원하지 않으면 그냥 둔다
