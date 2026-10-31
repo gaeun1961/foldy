@@ -290,3 +290,50 @@ export function startPenDraw(opts: {
     },
   }
 }
+
+// 읽는 중 (viewer.md "빈 책" 읽는 중): 사진 위(rect, 월드 x·z, 높이 y)를 펜이 반투명 칠로 계속 칠한다.
+// 얼마나 걸릴지 몰라서 다 칠하면 칠을 지우고 처음부터 되풀이한다. 칠은 가림 그림을 alphaMap 으로 쓰는 판 하나
+const SKETCH_MS = 3500
+export function startPenSketch(rect: { x: number; z: number; w: number; d: number; y: number }, size: number) {
+  const scale = 512 / Math.max(rect.w, rect.d)
+  const area = { x: 0, y: 0, w: rect.w * scale, h: rect.d * scale }
+  const mask = new SweepMask(area.w, area.h, area, 9)
+  const paint = new THREE.Mesh(
+    new THREE.PlaneGeometry(rect.w, rect.d),
+    new THREE.MeshBasicMaterial({ color: '#9fd3dc', alphaMap: mask.texture, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
+  )
+  paint.rotation.x = -Math.PI / 2 // 판 위쪽(캔버스 위) = 먼 쪽(−z)
+  paint.position.set(rect.x + rect.w / 2, rect.y, rect.z + rect.d / 2)
+  const pen = penModel(size)
+  const at = (p: Point) => new THREE.Vector3(rect.x + p.x / scale, rect.y, rect.z + p.y / scale)
+  pen.position.copy(at(mask.points[0]))
+  const group = new THREE.Group()
+  group.add(paint, pen)
+  let start: number | null = null
+  let round = -1
+  return {
+    group,
+    update: (now: number) => {
+      start ??= now
+      const t = (now - start) / SKETCH_MS
+      if (Math.floor(t) !== round) {
+        round = Math.floor(t)
+        mask.paint(0, area) // 한 바퀴 끝: 칠을 지우고 처음부터
+      }
+      const d = mask.length * smooth(t - round)
+      mask.paint(d)
+      pen.position.copy(at(pointAt(mask.points, d)))
+    },
+    dispose: () => {
+      mask.texture.dispose()
+      paint.geometry.dispose()
+      ;(paint.material as THREE.Material).dispose()
+      pen.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.geometry.dispose()
+          ;(o.material as THREE.Material).dispose()
+        }
+      })
+    },
+  }
+}

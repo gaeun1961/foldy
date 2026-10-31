@@ -20,6 +20,7 @@ interface Props {
   onScene: (scene: ShapeScene, place: PhotoPlace | null) => void
   onPhoto: (url: string) => void
   onManual?: () => void // 인식이 실패해 직접 만들기로 안내할 때 (접혀 있으면 펼친다, worksheets.md)
+  onReading?: (reading: boolean) => void // 사진을 읽는 중인지. 그동안 3D 책에서 펜이 사진 위를 칠한다 (viewer.md "빈 책" 읽는 중)
 }
 
 const MIN_BOX = 0.03 // 이보다 작은 네모는 누른 것으로 보고 무시
@@ -44,7 +45,7 @@ function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
   )
 }
 
-export function PhotoUpload({ onScene, onPhoto, onManual }: Props) {
+export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
   const [box, setBox] = useState<PhotoBox | null>(null)
@@ -66,6 +67,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual }: Props) {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [state.kind])
+  const reading = state.kind === 'loading'
+  useEffect(() => onReading?.(reading), [reading, onReading])
   const seconds = state.kind === 'loading' ? Math.max(0, Math.round((now - state.since) / 1000)) : 0
 
   // 이 사진을 기준 사진으로 (고른 사진, 편 사진)

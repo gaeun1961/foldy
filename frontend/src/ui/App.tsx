@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PerfMeter } from './PerfMeter'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, hologramSupported, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
@@ -86,6 +87,8 @@ const firstLesson = (scene: ShapeScene): Lesson | null => (scene.shape === 'revo
 
 // 화면 (docs/specs/ui.md 화면 배치): 3D 책 장면(stage) + 아래 바(dock: 안내·접기·선 긋기·보기) + 만들기 카드(사진·직접 만들기) + 챗봇.
 // 넓은 화면은 stage 가 화면을 채우고 dock·카드가 그 위에 뜬다. 좁은 화면은 위 3D, 아래로 dock·카드
+const PERF = new URLSearchParams(location.search).has('perf') // 실측용 계측기 (PerfMeter, #142)
+
 export default function App() {
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
@@ -96,8 +99,10 @@ export default function App() {
     setOpening(false)
   }
   const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
+  const [reading, setReading] = useState(false) // 사진을 읽는 중 (PhotoUpload onReading)
   const [drawIn, setDrawIn] = useState(0) // 사진 인식 결과가 올 때마다 1 늘린다. 책에 펜이 그려 낸다 (viewer.md "펜으로 그려 내기")
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
+  const readingNow = reading && !!photo && !hologram // 읽는 동안 3D 는 사진 깐 빈 책
   // 사진이 있으면 직접 만들기를 접어 둔다. 고치기를 누르거나 인식이 실패하면 그 사진에서만 펼친다 (worksheets.md, 수동 경로는 늘 한 번에 닿는다)
   const [manualFor, setManualFor] = useState<string | null>(null)
   const manualOpen = !photo || manualFor === photo
@@ -210,12 +215,14 @@ export default function App() {
             건너뛰기
           </button>
         )}
-        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onPick={(k) => {
+        {/* 사진을 읽는 동안은 빈 책 오른쪽 쪽에 사진을 깔고 펜이 칠한다 (ui.md 화면 배치 2번, viewer.md "빈 책" 읽는 중) */}
+        {readingNow && <EmptyBook pageText={[]} contents={[]} reading={photo!} onPick={() => {}} />}
+        {!scene && !readingNow && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
             }} />}
-        {scene && !hologram && (
+        {scene && !hologram && !readingNow && (
           <Viewer
             scene={scene}
             unfold={unfold}
@@ -414,6 +421,7 @@ export default function App() {
               setFit(NO_FIT)
             }}
             onManual={() => setManualFor(photo)}
+            onReading={setReading}
           />
           {!manualOpen && (
             <button type="button" className="secondary-button" style={{ width: '100%' }} onClick={() => setManualFor(photo)}>
@@ -445,6 +453,7 @@ export default function App() {
           )}
         </div>
       </details>
+      {PERF && <PerfMeter reading={reading} />}
       {hologram && scene && <HologramMode scene={scene} photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined} onClose={() => setHologram(false)} />}
       <ChatPanel
         scene={scene}
