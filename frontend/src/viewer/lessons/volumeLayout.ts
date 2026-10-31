@@ -49,12 +49,12 @@ export function stairRatio(layers: number, r = 1, h = 1) {
   return sum / (Math.PI * r * r * h)
 }
 
-// 정육면체(0~a)를 꼭짓점 (0,0,0) 에서 잘라 똑같은 사각뿔 3개로: 밑면은 그 꼭짓점이 없는 세 면. dir 은 빠져나가는 방향
+// 정육면체(0~a)를 위쪽 구석 (0, a, 0) 에서 잘라 똑같은 사각뿔 3개로: 밑면은 그 구석이 없는 세 면. 첫째가 바닥 면, 나머지는 dir 쪽에서 들어온다
 export function cubePyramids(a: number) {
-  const apex: [number, number, number] = [0, 0, 0]
+  const apex: [number, number, number] = [0, a, 0]
   const pieces: { base: [number, number, number][]; dir: [number, number, number] }[] = [
+    { base: [[0, 0, 0], [a, 0, 0], [a, 0, a], [0, 0, a]], dir: [0, 0, 0] },
     { base: [[a, 0, 0], [a, a, 0], [a, a, a], [a, 0, a]], dir: [1, 0, 0] },
-    { base: [[0, a, 0], [a, a, 0], [a, a, a], [0, a, a]], dir: [0, 1, 0] },
     { base: [[0, 0, a], [a, 0, a], [a, a, a], [0, a, a]], dir: [0, 0, 1] },
   ]
   return pieces.map((p) => ({ apex, ...p }))

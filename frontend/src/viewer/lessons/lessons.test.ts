@@ -6,7 +6,7 @@ import { boxCenterOf, boxSizeOf, CONE_THIRD_LINK, lessonGrade, lessonHint, lesso
 import { defaultEdge, edgeRelations, edgesOf, meetPoint } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { similarLayout, similarSteps } from './similarLayout.ts'
-import { curvedSurfaceSteps, faceArea, faceNormal, oppositeFacePairs, surfaceGroups, surfaceStepHint, surfaceSteps, tileCells, tileFormula } from './surfaceLayout.ts'
+import { curvedSurfaceSteps, stripIndex, unrollChain, faceArea, faceNormal, oppositeFacePairs, surfaceGroups, surfaceStepHint, surfaceSteps, tileCells, tileFormula } from './surfaceLayout.ts'
 import { slantPlan, surd } from './regularLayout.ts'
 import { boxLengthLabels, computedLengthText, faceLengthLabels, piValue, slantText } from './lengthLabels.ts'
 import { colorTokens, generalFormula, LENGTH_COLOR, SECTION_RADIUS_COLOR } from './formulas.ts'
@@ -180,7 +180,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(groupsOf(prism) === '5,2' && groupsOf(pyramid) === '4,1' && groupsOf(cube) === '6', `같은 모양 묶음 ${groupsOf(prism)} ${groupsOf(pyramid)} ${groupsOf(cube)}`)
   check(lessonSummary(cube, 'surface-area')!.formula === '6 × 9' && lessonSummary(cube, 'surface-area')!.value === '54 cm²', '정육면체 겉넓이 6 × 9')
   // 각뿔: 밑넓이 9 × 높이 4 × ⅓ = 12, 단계 3 (세 번 붓기)
-  check(lessonSummary(pyramid, 'volume')!.value === '12 cm³' && lessonStepCount(pyramid, 'volume') === 4, `각뿔 부피 ${lessonSummary(pyramid, 'volume')!.value}`)
+  check(lessonSummary(pyramid, 'volume')!.value === '12 cm³' && lessonStepCount(pyramid, 'volume') === 5, `각뿔 부피 ${lessonSummary(pyramid, 'volume')!.value}`)
   // 오각기둥: 밑넓이가 √ 라 숫자로 계산하지 않는다, 단계 = 밑면 + 층 수
   check(lessonSummary(prism, 'volume')!.formula === '밑넓이 × 높이 4' && lessonSummary(prism, 'volume')!.value === undefined && lessonStepCount(prism, 'volume') === 5, `오각기둥 부피 ${lessonSummary(prism, 'volume')!.value}`)
   // 정다면체 개수: V − E + F = 2 인 알려진 값
@@ -203,7 +203,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(lessonHint({ kind: 'surface-area', progress: 2 / 3 }, tetra) === '높이 = √(3² − 1.5²) = 3√3/2 cm. 넓이 = 3 × 3√3/2 ÷ 2 = 9√3/4 cm²', `피타고라스 안내 ${lessonHint({ kind: 'surface-area', progress: 2 / 3 }, tetra)}`)
   // 각뿔·원뿔·삼각기둥 겉넓이: 피타고라스 단계가 앞에 하나 더. 정오각형 밑면, 사각기둥에는 없다
   const square = solid('pyramid', { sides: 4, edge: 6, height: 4 })
-  check(slantPlan(square)!.hint === '옆면 높이 = √(4² + 3²) = 5 cm' && lessonStepCount(square, 'surface-area') === surfaceGroups(polyhedronOf(square)!).length + 1 && lessonHint({ kind: 'surface-area', progress: 1 / lessonStepCount(square, 'surface-area') }, square) === '옆면 높이 = √(4² + 3²) = 5 cm', `사각뿔 ${slantPlan(square)?.hint}`)
+  check(slantPlan(square)!.hint === '밑변 6 cm 의 절반 3 cm. 옆면 높이 = √(4² + 3²) = 5 cm' && lessonStepCount(square, 'surface-area') === surfaceGroups(polyhedronOf(square)!).length + 1 && lessonHint({ kind: 'surface-area', progress: 1 / lessonStepCount(square, 'surface-area') }, square) === '밑변 6 cm 의 절반 3 cm. 옆면 높이 = √(4² + 3²) = 5 cm', `사각뿔 ${slantPlan(square)?.hint}`)
   check(slantPlan(solid('pyramid', { sides: 5, edge: 2, height: 4 })) === null && slantPlan(solid('prism', { sides: 4, edge: 3, height: 5 })) === null, '구하지 않는 값은 단계 없음')
   check(slantPlan(solid('pyramid', { sides: 3, edge: 2, height: 4 })) === null && slantPlan(solid('pyramid', { sides: 6, edge: 2, height: 4 }))!.hint === '옆면 높이 = √(4² + (√3)²) = √19 cm', '삼각뿔은 제곱이 떨어질 때만, 육각뿔 √19')
   const triPrism = solid('prism', { sides: 3, edge: 2, height: 4 })
@@ -219,7 +219,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(lessonTabs(cube).join() === 'surface-area,volume,edge-relations,diagonal,similar,shortest-path' && lessonTabs(prism).join() === 'surface-area,volume' && lessonTabs(pyramid).join() === 'surface-area,volume' && lessonTabs(ico).join() === 'counts,surface-area,volume', '도형별 탭')
   // 단위는 최종 값에만: 식에는 단위가 없고, 값이 없으면 안 쓴다
   const triangular = solid('prism', { sides: 3, edge: 2, height: 4 })
-  check(lessonSummary(triangular, 'surface-area')!.formula === '3 × 8 + 2 × √3' && lessonSummary(triangular, 'surface-area')!.value === '24 + 2√3 cm²', `삼각기둥 겉넓이 ${lessonSummary(triangular, 'surface-area')!.formula}`)
+  check(lessonSummary(triangular, 'surface-area')!.formula === '√3 × 2 + 옆넓이 24' && lessonSummary(triangular, 'surface-area')!.value === '24 + 2√3 cm²', `삼각기둥 겉넓이 ${lessonSummary(triangular, 'surface-area')!.formula}`)
   // 기본 치수가 떨어지는 값인가: 사각기둥 3·5, 사각뿔 6·4
   check(lessonSummary(solid('prism', { sides: 4, edge: 3, height: 5 }), 'surface-area')!.value === '78 cm²' && lessonSummary(solid('pyramid', { sides: 4, edge: 6, height: 4 }), 'surface-area')!.value === '96 cm²' && lessonSummary(solid('pyramid', { sides: 4, edge: 6, height: 4 }), 'volume')!.value === '48 cm³', '각기둥·각뿔 기본값')
   for (const scene of [prism, pyramid]) {
@@ -237,6 +237,12 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   const tokens = colorTokens('2πr² + 2πrh')
   check(tokens.map((t) => t.text).join('') === '2πr² + 2πrh' && tokens.find((t) => t.text === 'r')!.color === LENGTH_COLOR.r && tokens.find((t) => t.text === 'h')!.color === LENGTH_COLOR.h, '글자 색')
   check(colorTokens('밑넓이 × 높이').find((t) => t.text === '높이')!.color === LENGTH_COLOR.h && colorTokens('밑넓이 × 높이')[0].color === undefined, '말 공식의 색, 밑넓이는 평소 색')
+}
+
+// 정육면체 나누기는 사각뿔만: 다른 각뿔은 물 붓기까지
+{
+  const pentagon = { shape: 'pyramid', size: { sides: 5, edge: 2, height: 4 }, vertexLabels: Array(6).fill(null), lines: [], net: { layout: 'default' } } as unknown as ShapeScene
+  check(lessonStepCount(pentagon, 'volume') === 3 && lessonHint({ kind: 'volume', progress: 1 }, pentagon) === '세 번 부으니 딱 찼어요. 그래서 각뿔의 부피는 각기둥의 ⅓이에요' && lessonHint({ kind: 'volume', progress: 1 / 3 }, pentagon)!.startsWith('1번 부었어요'), `오각뿔 ${lessonHint({ kind: 'volume', progress: 1 }, pentagon)}`)
 }
 
 // 구 단면 비교: 어느 높이에서도 반구 단면 = 고리. 탭에는 없다
@@ -273,7 +279,37 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(lessonNote({ kind: 'surface-area', progress: 1 }, tetraScene)!.startsWith('높이 = √(3² − 1.5²)') && lessonNote({ kind: 'surface-area', progress: 2 / 3 }, tetraScene) === null && lessonNote({ kind: 'volume', progress: 1 }, coneScene) === null, '정사면체 높이가 끝까지, 부피에는 없음')
 }
 
-// 뿔이 왜 ⅓인지: 원판 합 ÷ 원기둥이 ⅓로 가까워지고, 정육면체는 똑같은 사각뿔 3개로 빈틈없이 나뉜다
+// 각기둥 겉넓이: 옆면을 펴면 가로 = 밑면 둘레. 각뿔: 같은 삼각형을 붙여 직사각형
+{
+  for (const n of [3, 4, 5, 6, 7]) {
+    const ring = [...Array(n).keys()].map((k): [number, number] => { const t = ((k + 0.5) * 2 * Math.PI) / n; return [Math.sin(-Math.PI + t) * 2, Math.cos(-Math.PI + t) * -2] })
+    const seg = (p: [number, number][]) => p.slice(1).map((q, i) => Math.hypot(q[0] - p[i][0], q[1] - p[i][1]))
+    const side = Math.hypot(ring[1][0] - ring[0][0], ring[1][1] - ring[0][1])
+    for (const s of [0, 0.4, 1]) check(unrollChain(ring, s).length === n + 1 && seg(unrollChain(ring, s)).every((l) => Math.abs(l - side) < 1e-9), `${n}각형 펴도 변 길이 그대로 s=${s}`)
+    check(stripIndex(n).every((v) => v < 2 * (n + 1)) && new Set(stripIndex(n)).size === 2 * (n + 1) && stripIndex(n).length === 6 * n, `${n}각형 띠의 번호: 없는 점을 가리키지 않고 모든 점을 쓴다`)
+    const closed = unrollChain(ring, 0)
+    check(Math.hypot(closed[0][0] - closed[n][0], closed[0][1] - closed[n][1]) < 1e-9, `${n}각형 s=0 은 닫힘`)
+    const flat = unrollChain(ring, 1)
+    check(Math.abs(Math.hypot(flat[n][0] - flat[0][0], flat[n][1] - flat[0][1]) - n * side) < 1e-9, `${n}각형 s=1 은 가로 = 둘레`)
+    const fixed = unrollChain(ring, 0.5)
+    const i = fixed.findIndex((p) => Math.hypot(p[0] - ring[0][0], p[1] - ring[0][1]) < 1e-9)
+    check(i >= 0 && Math.hypot(fixed[i + 1][0] - ring[1][0], fixed[i + 1][1] - ring[1][1]) < 1e-9, `${n}각형 앞 변은 그대로`)
+  }
+  const prism = (sides: number, edge: number, height: number) => ({ shape: 'prism', size: { sides, edge, height }, vertexLabels: Array(2 * sides).fill(null), lines: [], net: { layout: 'default' } }) as unknown as ShapeScene
+  check(lessonSummary(prism(4, 3, 5), 'surface-area')!.formula === '밑넓이 9 × 2 + 옆넓이 60' && lessonSummary(prism(4, 3, 5), 'surface-area')!.value === '78 cm²' && lessonStepCount(prism(4, 3, 5), 'surface-area') === 2, '사각기둥')
+  check(lessonStepCount(prism(3, 2, 4), 'surface-area') === 3 && lessonSummary(prism(5, 2, 4), 'surface-area')!.formula === '밑넓이 × 2 + 옆넓이 40' && lessonSummary(prism(5, 2, 4), 'surface-area')!.value === undefined, '삼각기둥 단계, 오각기둥은 식만')
+  check(lessonHint({ kind: 'surface-area', progress: 1 / 2 }, prism(4, 3, 5)) === '밑넓이 = 3 × 3 = 9 cm²' && lessonHint({ kind: 'surface-area', progress: 1 }, prism(4, 3, 5))!.includes('밑면 둘레 4 × 3 = 12 cm') && lessonHint({ kind: 'surface-area', progress: 1 / 2 }, prism(5, 2, 4))!.includes('삼각형 5개'), '각기둥 안내')
+  // 각기둥 부피: 다 쌓은 뒤 맨 위 면에서 밑넓이. 삼각기둥은 √ 로 답까지
+  check(lessonSummary(prism(3, 3, 5), 'volume')!.formula === '밑넓이 9√3/4 × 높이 5' && lessonSummary(prism(3, 3, 5), 'volume')!.value === '45√3/4 cm³', `삼각기둥 부피 ${lessonSummary(prism(3, 3, 5), 'volume')!.value}`)
+  check(lessonHint({ kind: 'volume', progress: 5 / 6 }, prism(3, 3, 5)) === '한 층 = 밑넓이 × 1 · 5층까지 밑넓이 × 5' && lessonHint({ kind: 'volume', progress: 1 }, prism(3, 3, 5))!.startsWith('밑면 높이 = √(3² − 1.5²)') && lessonHint({ kind: 'volume', progress: 1 }, prism(4, 3, 5)) === '밑넓이 = 3 × 3 = 9 cm²', '각기둥 부피 안내')
+  const pyramid = { shape: 'pyramid', size: { sides: 4, edge: 6, height: 4 }, vertexLabels: Array(5).fill(null), lines: [], net: { layout: 'default' } } as unknown as ShapeScene
+  check(lessonSummary(pyramid, 'surface-area')!.formula === '밑넓이 36 + 옆넓이 4 × 15' && lessonSummary(pyramid, 'surface-area')!.value === '96 cm²', `사각뿔 ${lessonSummary(pyramid, 'surface-area')!.formula}`)
+  const steps = lessonStepCount(pyramid, 'surface-area')
+  const hints = [...Array(steps).keys()].map((k) => lessonHint({ kind: 'surface-area', progress: (k + 1) / steps }, pyramid)!)
+  check(hints.some((h) => h.startsWith('같은 삼각형을 붙이면 직사각형이에요. 그 반이라 6 × 5 ÷ 2 = 15 cm²')), `각뿔 안내 ${hints}`)
+}
+
+// 뿔이 왜 ⅓인지: 원판 합 ÷ 원기둥이 ⅓로 가까워지고, 정육면체는 똑같은 사각뿔 3개로 빈틈없이 나뉜다 (구석 꼭대기가 어느 밑면에도 없다)
 {
   check(['0.469', '0.385', '0.343', '0.338'].every((v, k) => stairRatio(STAIR_LAYERS[k], 3, 4).toFixed(3) === v), `원판 비율 ${STAIR_LAYERS.map((n) => stairRatio(n).toFixed(3))}`)
   check(STAIR_LAYERS.every((n, k) => k === 0 || stairRatio(n) < stairRatio(STAIR_LAYERS[k - 1])) && stairRatio(100000) - 1 / 3 < 1e-4, '층이 많아질수록 ⅓에 가까워짐')
@@ -285,9 +321,9 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   const volumes = cubePyramids(3).map(volumeOf)
   check(volumes.every((v) => Math.abs(v - 9) < 1e-9) && Math.abs(volumes.reduce((a, b) => a + b) - 27) < 1e-9, `사각뿔 3개 ${volumes}`)
   const cone = { shape: 'cone', size: { radius: 3, height: 4 }, vertexLabels: [null], lines: [], net: { layout: 'default' } } as unknown as ShapeScene
-  check(lessonStepCount(cone, 'volume') === 4 && lessonHint({ kind: 'volume', progress: 1, layers: 10 }, cone)!.startsWith('원판 10층 ÷ 원기둥 = 0.385') && lessonHint({ kind: 'volume', progress: 3 / 4 }, cone)!.startsWith('세 번 부으니 딱 찼어요') && lessonHint({ kind: 'volume', progress: 1 / 4 }, cone)!.startsWith('1번 부었어요'), `원뿔 안내 ${lessonHint({ kind: 'volume', progress: 1, layers: 10 }, cone)}`)
+  check(lessonStepCount(cone, 'volume') === 5 && lessonHint({ kind: 'volume', progress: 4 / 5, layers: 10 }, cone)!.startsWith('원판 10층 ÷ 원기둥 = 0.385') && lessonHint({ kind: 'volume', progress: 1, layers: 10 }, cone)!.startsWith('판을 옆으로 밀어') && lessonHint({ kind: 'volume', progress: 3 / 5 }, cone)!.startsWith('세 번 부으니 딱 찼어요') && lessonHint({ kind: 'volume', progress: 1 / 5 }, cone)!.startsWith('1번 부었어요'), `원뿔 안내 ${lessonHint({ kind: 'volume', progress: 1, layers: 10 }, cone)}`)
   const pyramid = { shape: 'pyramid', size: { sides: 4, edge: 3, height: 4 }, vertexLabels: Array(5).fill(null), lines: [], net: { layout: 'default' } } as unknown as ShapeScene
-  check(lessonStepCount(pyramid, 'volume') === 4 && lessonHint({ kind: 'volume', progress: 1 }, pyramid)!.endsWith('사각뿔 1개 = 정육면체의 ⅓'), '각뿔 안내')
+  check(lessonStepCount(pyramid, 'volume') === 5 && lessonHint({ kind: 'volume', progress: 1 }, pyramid)!.endsWith('사각뿔 1개 = 정육면체의 ⅓'), '각뿔 안내')
 }
 
 // 구: 겉넓이 4πr², 부피 ⁴⁄₃πr³. 기본 r = 6 은 두 값이 달라 헷갈리지 않는다. 전개도가 없어 접기 단계 없음
@@ -310,7 +346,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   const [cylinder, cone] = [round('cylinder', 2, 5), round('cone', 3, 4)]
   check(lessonSummary(round('cylinder', 3, 5), 'surface-area')!.value === '48π cm²' && lessonSummary(round('cylinder', 3, 5), 'volume')!.value === '45π cm³', '원기둥 기본값')
   check(lessonSummary(cylinder, 'volume')!.value === '20π cm³' && lessonSummary(cylinder, 'volume', 2, '3.14')!.value === '62.8 cm³' && lessonStepCount(cylinder, 'volume') === 6, `원기둥 부피 ${lessonSummary(cylinder, 'volume')!.value}`)
-  check(lessonSummary(cone, 'volume')!.value === '12π cm³' && lessonStepCount(cone, 'volume') === 4, `원뿔 부피 ${lessonSummary(cone, 'volume')!.value}`)
+  check(lessonSummary(cone, 'volume')!.value === '12π cm³' && lessonStepCount(cone, 'volume') === 5, `원뿔 부피 ${lessonSummary(cone, 'volume')!.value}`)
   check(lessonSummary(cylinder, 'surface-area')!.value === '28π cm²' && lessonSummary(cylinder, 'surface-area')!.formula === '밑면 2 × 4π + 옆면 20π' && lessonSummary(cylinder, 'surface-area', 2, '3.14')!.value === '87.92 cm²', `원기둥 겉넓이 ${lessonSummary(cylinder, 'surface-area')!.value}`)
   check(lessonSummary(cone, 'surface-area')!.value === '24π cm²' && lessonSummary(round('cone', 3, 5), 'surface-area')!.value === '9π + 3√34π cm²', `원뿔 겉넓이 (모선 5) ${lessonSummary(cone, 'surface-area')!.value}`)
   check(lessonSummary(cone, 'similar')!.ratios![1].value === '1 : 2³' && lessonStepCount(cone, 'similar') === 4, '원뿔 닮음')
@@ -378,8 +414,8 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   const cone = { shape: 'cone', size: { radius: 3, height: 4 }, vertexLabels: [null], lines: [], net: { layout: 'default' } } as unknown as ShapeScene
   check(lessonHint({ kind: 'volume', progress: 3 / 4 }, box) === '한 층에 작은 정육면체 8개 · 2층까지 16개', `상자 안내 ${lessonHint({ kind: 'volume', progress: 3 / 4 }, box)}`)
   check(lessonHint({ kind: 'volume', progress: 1 / 4 }, box) === '밑넓이 = 4 × 2 = 8 cm²', '밑면 먼저')
-  check(lessonHint({ kind: 'volume', progress: 1 / 4 }, cone)!.startsWith('1번 부었어요. 통의 ⅓'), '원뿔 안내')
-  check(lessonHint({ kind: 'volume', progress: 3 / 4 }, cone)!.includes('원기둥의 ⅓'), '원뿔 끝 안내')
+  check(lessonHint({ kind: 'volume', progress: 1 / 5 }, cone)!.startsWith('1번 부었어요. 통의 ⅓'), '원뿔 안내')
+  check(lessonHint({ kind: 'volume', progress: 3 / 5 }, cone)!.includes('원기둥의 ⅓'), '원뿔 끝 안내')
   check(lessonSummary(cone, 'volume')!.formula === '밑넓이 9π × 높이 4 ÷ 3', `원뿔 식 ${lessonSummary(cone, 'volume')!.formula}`)
   check(piValue(1, 'pi') === 'π' && piValue(6, '3.14') === '18.84' && slantText(3, 4) === '5' && slantText(3, 5) === '√34', '표기')
 }
