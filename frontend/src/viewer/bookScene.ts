@@ -9,6 +9,9 @@ export const DESK_COLOR = '#c9a983' // 나무 책상 (index.css --desk 와 같�
 // 책 장면 카메라 방향: 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게.
 // 순서가 없는 도형(정다면체·각뿔)을 눕히는 방향(facingYaw)과 접는 순서(farFirstOrder)도 이 방향으로 정한다. 홀로그램 무대(stage.ts)도 같은 값을 써서 같은 순서로 접힌다
 export const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1)
+// 설명(왼쪽 쪽 메뉴) 중 카메라 방향: 수평에서 40°. 높이·단면이 보이게 모든 설명이 같은 각도로 본다.
+// 설명을 켤 때만 이 방향으로 옮기고, 설명끼리 바꿀 때는 돌려 둔 방향을 그대로 둔다
+export const LESSON_VIEW = new THREE.Vector3(0.3, 0.88, 1)
 const COVER_COLOR = '#b08d57' // 차분한 황토
 const PAPER_COLOR = '#faf6ee' // 따뜻한 미색
 const PAPER_EDGE = '#efe8da'
@@ -504,39 +507,18 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
   }
 }
 
-// 빈 책 구도 (EmptyBook): 펼친 두 쪽이 다 들어오게. 가로로 긴 화면은 아래 바가 위에 떠 있어서 보는 점을 앞으로 옮긴다
-// 반지름은 쪽 너비에 비례한다 (빈 책 쪽 너비 7.8 에서 8.5). 그래서 책 크기가 달라도 화면에 같은 크기로 보인다
-export function wholeBookView(book: { center: THREE.Vector3; page: { w: number } }, camera: THREE.PerspectiveCamera) {
-  const radius = (book.page.w * 8.5) / 7.8
+// 책 장면 구도 (viewer.md "카메라"): 빈 책·도형 화면이 모두 이 식을 써서 차례에서 넘어갈 때 확대 정도가 바뀌지 않는다.
+// 범위의 구를 가로·세로 중 좁은 시야에 1.15배 넉넉히 넣는다. 가로로 긴 화면은 아래 바가 3D 위에 떠 있어서 보는 점을 앞으로 옮긴다
+export function bookView(fit: { center: THREE.Vector3; radius: number }, camera: THREE.PerspectiveCamera) {
   const vfov = THREE.MathUtils.degToRad(camera.fov)
   const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect))
-  return { target: book.center.clone().add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? radius * 0.2 : 0)), distance: (radius / Math.sin(fov / 2)) * 1.05 }
+  return { target: fit.center.clone().add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? fit.radius * 0.45 : 0)), distance: (fit.radius / Math.sin(fov / 2)) * 1.15 }
 }
 
-// 차례에서 넘어왔을 때 (TODO-44): 빈 책 구도에서 이 화면 구도로 다가간다. 보는 방향은 그대로, 보는 점과 거리만.
-// 화면 구도를 잡은(resize) 직후에 만들고, 구도를 다시 잡을 때마다 sync, 프레임마다 step. 다가가는 동안 돌리기는 꺼 둔다
-const GLIDE_SECONDS = 0.9
-export function bookGlide(book: { center: THREE.Vector3; page: { w: number } }, camera: THREE.PerspectiveCamera, controls: { target: THREE.Vector3; enabled: boolean }) {
-  const end = { target: controls.target.clone(), position: camera.position.clone() }
-  const from = wholeBookView(book, camera)
-  let start = -1
-  controls.enabled = false
-  const sync = () => {
-    end.target.copy(controls.target)
-    end.position.copy(camera.position)
-  }
-  const step = (now: number) => {
-    if (start < 0) start = now
-    const u = Math.min(1, (now - start) / (GLIDE_SECONDS * 1000))
-    const p = 1 - (1 - u) ** 3 // 빨리 출발해 천천히 자리 잡는다
-    const dir = end.position.clone().sub(end.target)
-    const distance = from.distance + (dir.length() - from.distance) * p
-    controls.target.lerpVectors(from.target, end.target, p)
-    camera.position.copy(controls.target).addScaledVector(dir.normalize(), distance)
-    if (u >= 1) controls.enabled = true
-    return u < 1
-  }
-  controls.target.copy(from.target)
-  camera.position.copy(from.target).addScaledVector(end.position.clone().sub(end.target).normalize(), from.distance)
-  return { sync, step }
+// 책 장면이 늘 담는 범위: 왼쪽 쪽 글 시작점부터 오른쪽 쪽 끝까지 (도형은 오른쪽 쪽 위, 메뉴·결과는 왼쪽 쪽 글)
+export function readingRange(book: { center: THREE.Vector3; textCorner: THREE.Vector3; page: { w: number; d: number } }) {
+  return new THREE.Box3(new THREE.Vector3(book.textCorner.x, 0, book.center.z - book.page.d / 2), new THREE.Vector3(book.center.x + book.page.w, 0, book.center.z + book.page.d / 2))
 }
+
+// 범위 → bookView 에 넘길 구
+export const fitOf = (range: THREE.Box3) => ({ center: range.getCenter(new THREE.Vector3()), radius: range.getBoundingSphere(new THREE.Sphere()).radius })

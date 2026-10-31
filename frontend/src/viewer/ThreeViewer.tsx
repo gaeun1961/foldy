@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { bookGlide, buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
+import { bookView, buildBook, DESK_COLOR, LESSON_VIEW, readingRange, VIEW_DIR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
@@ -77,16 +77,11 @@ export function ThreeViewer({
   onFacePick,
   faceMarking = false,
   onFaceMark,
-  fromContents = false,
 }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 도형을 새로 만들 때 지금 값으로 시작하려고
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson })
   const applyRef = useRef<(() => void) | null>(null)
-  const fromRef = useRef(fromContents) // 처음 만들 때만 읽는다
-  useEffect(() => {
-    fromRef.current = fromContents
-  }, [fromContents])
   const sceneRef = useRef(scene) // 선을 더할 때 지금 scene 을 쓰려고
   const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
@@ -491,9 +486,9 @@ export function ThreeViewer({
           bookRange = box
         } else bookRange = lesson && LESSON_POSE[lesson.kind] === 'solid' ? solidBounds : null
         rebuildBook?.()
-        // 높이가 중요한 설명은 카메라를 낮추고, 끝나면 돌아온다 (lessons/index.ts view)
-        if (lessonObject?.view || lowered) aim?.(lessonObject?.view ?? VIEW_DIR)
-        lowered = !!lessonObject?.view
+        // 설명을 켜면 카메라를 LESSON_VIEW 로 낮추고, 끄면 돌아온다. 설명끼리 바꿀 때는 돌려 둔 방향 그대로
+        if (!!lessonObject !== lowered) aim?.(lessonObject ? LESSON_VIEW : VIEW_DIR)
+        lowered = !!lessonObject
       }
       lessonObject?.setCut?.(lesson?.cut ?? 0.5)
       lessonObject?.apply(lesson?.progress ?? 0)
@@ -602,8 +597,8 @@ export function ThreeViewer({
     // 비스듬히 위에서 내려다보는 구도 (수평에서 약 40°, 시안 net-folding-ref.png). 거리는 아래 resize 에서 잡는다.
     // 도형 가운데를 보되 책등 쪽으로 조금 옮겨 왼쪽 페이지가 살짝 보이게 한다
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
-    // 왼쪽 쪽에 메뉴·결과가 있으므로 평소에도 왼쪽 쪽 글까지 담는다
-    const floorRange = bounds.clone().expandByPoint(book.textCorner)
+    // 왼쪽 쪽에 메뉴·결과가 있으므로 평소에도 왼쪽 쪽 글까지 담는다. 빈 책과 같은 readingRange 라 차례에서 넘어와도 구도가 그대로다
+    const floorRange = bounds.clone().union(readingRange(book))
     floorRange.getCenter(floorFit.center)
     floorFit.radius = floorRange.getBoundingSphere(new THREE.Sphere()).radius
     const target = floorFit.center.clone()
@@ -617,19 +612,15 @@ export function ThreeViewer({
     // 화면 비율이 바뀌면(휴대폰 세로 등) 가로·세로 중 좁은 시야에 맞춰 거리를 다시 잡는다. 보는 방향은 유지.
     // 가로로 긴 화면은 아래 바(ui.md 화면 배치)가 3D 위에 떠 있어서, 보는 점을 앞쪽으로 옮겨 도형을 화면 위쪽에 둔다
     // 설명 모드를 켜고 끌 때도 같은 식으로 범위(fit)만 바꿔 다시 맞춘다
-    // 차례에서 넘어왔으면 빈 책 구도에서 이 구도로 다가간다 (glide)
-    let glide: ReturnType<typeof bookGlide> | null = null
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
-      const vfov = THREE.MathUtils.degToRad(camera.fov)
-      const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect))
       const dir = camera.position.clone().sub(controls.target).normalize()
-      controls.target.copy(fit.center).add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? fit.radius * 0.45 : 0))
-      camera.position.copy(controls.target).addScaledVector(dir, (fit.radius / Math.sin(fov / 2)) * 1.15)
-      glide?.sync()
+      const view = bookView(fit, camera)
+      controls.target.copy(view.target)
+      camera.position.copy(controls.target).addScaledVector(dir, view.distance)
     }
     refit = resize
     aim = (dir) => {
@@ -639,7 +630,6 @@ export function ThreeViewer({
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
-    if (fromRef.current) glide = bookGlide(book, camera, controls)
 
     // 꼭짓점·모서리 누르기: 끌어서 돌린 것은 클릭이 아니다. 같은 것을 다시 누르거나 빈 곳을 누르면 풀린다.
     // 꼭짓점과 모서리 쌍은 하나만 고른다. 면도 같이 맞혀서, 면에 가려진 뒤쪽 꼭짓점·모서리는 고르지 않는다
@@ -742,8 +732,7 @@ export function ThreeViewer({
     renderer.domElement.addEventListener('pointerup', onUp)
     renderer.domElement.addEventListener('pointermove', onMove)
 
-    renderer.setAnimationLoop((now) => {
-      if (glide && !glide.step(now)) glide = null
+    renderer.setAnimationLoop(() => {
       controls.update()
       renderer.render(world, camera)
     })

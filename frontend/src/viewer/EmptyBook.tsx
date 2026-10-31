@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { buildBook, DESK_COLOR, VIEW_DIR, wholeBookView, type BookContent, type BookMenuItem } from './bookScene.ts'
+import { buildBook, DESK_COLOR, VIEW_DIR, bookView, fitOf, readingRange, type BookContent, type BookMenuItem } from './bookScene.ts'
 import { buildOpening, buildPageTurn, LOW_ANGLE, OPENING_SECONDS } from './opening.ts'
 
 // 빈 책 (docs/specs/viewer.md "빈 책"): 도형이 없을 때 같은 책 장면을 도형 없이 그린다.
@@ -64,7 +64,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     controls.enableDamping = true
     controls.maxPolarAngle = Math.PI / 2 - 0.05
 
-    // 펼친 두 쪽이 다 들어오게 (wholeBookView: 도형 화면이 차례에서 넘어왔을 때 이 구도에서 시작한다)
+    // 도형 화면과 같은 구도 (bookView + readingRange): 차례에서 넘어가도 확대 정도·위치가 그대로다
     let distance = 0
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
@@ -72,7 +72,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       const dir = camera.position.clone().sub(controls.target).normalize()
-      const view = wholeBookView(book, camera)
+      const view = bookView(fitOf(readingRange(book)), camera)
       controls.target.copy(view.target)
       distance = view.distance
       camera.position.copy(controls.target).addScaledVector(dir, distance)

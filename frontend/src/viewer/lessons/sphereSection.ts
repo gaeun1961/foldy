@@ -133,7 +133,6 @@ export function buildSphereSectionLesson(r: number): LessonObject {
   return {
     group,
     bounds: new THREE.Box3(new THREE.Vector3(-gap - 1.2 * r, 0, -1.2 * r), new THREE.Vector3(gap + 1.2 * r, r * 1.1, 1.2 * r)),
-    view: new THREE.Vector3(0.3, 0.88, 1), // 수평에서 40°: 높이와 단면이 함께 보이게
     setCut(next) {
       if (next === cut) return
       cut = next
