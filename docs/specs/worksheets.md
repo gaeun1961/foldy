@@ -34,6 +34,8 @@ P4 준비 — #122가 아직 머지 전(로컬에서 계속 고치는 중)이라
 
 **홀로그램 세션 공유 (2026-10-31)**: 시험 통합 브랜치(`test/holo-photo`, 로컬)에서 사진 → 도형 → 홀로그램이 PC·휴대폰 모두 동작. 휴대폰에서 "도형에 프레임을 씌우면 잘 잡힘". #130에 필요한 확정 사항: `HologramProps = { scene, center, showGuide, onTap }`, `stageSupported`는 다면체 면 2개 이상일 때만, 잘못 그린 전개도도 그대로 접힘. 학습지 정답 13개가 `viewer/worksheetScenes.ts`에 복사돼 `stage.test`가 쓴다 → **`evals/answers.json`을 바꾸면 그 파일도 맞춘다**. 합칠 때 충돌은 `package.json` test 줄뿐이었다
 
+**정합성 확인 (2026-10-31, 이 세션)**: `feature/worksheets`(최신) + `feature/122-hologram-mode`(최신)를 임시 작업 폴더에서 합쳐 봄 → 충돌은 `package.json` test 줄뿐(양쪽 검사 합쳐 11개 줄), `App.tsx`·`index.css`·TODO 목록은 자동으로 합쳐짐. 합친 상태 build·lint·검사 13개 통과. #130 연결 메모: 무대 면 i의 사진 조각은 `gridPolyhedron(net).netFaces[i]`로 `net.faces` 칸을 찾아 `faceUvs`에 넣는다. `gridNet.ts` 213줄 근처가 면 좌표를 (0,0)부터로 옮기므로, 사진 좌표(`netPhoto`)와 원점이 같은지 연결할 때 화면으로 확인한다. `HologramProps`에 `photo?: NetPhoto`를 더하는 것은 홀로그램 세션과 맞춘다
+
 **순서**: P0 → P1 → (P2 합의를 기다리는 동안 W2) → P2 → P3 → P4. P1은 계약 변경 없이 바로 할 수 있다.
 
 **브랜치**: 지금 `feature/worksheets`(W1·문서)를 P1까지 이어 가고 PR. P2는 계약 이슈 번호로 새 브랜치, P3·P4도 각각 새 브랜치 (TODO 하나에 PR 하나).
