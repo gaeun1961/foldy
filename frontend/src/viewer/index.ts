@@ -35,7 +35,6 @@ export interface ViewerProps {
   onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
   faceMarking?: boolean // 면 표시 모드: 면을 누르면 마주 보는 면 보기 대신 onFaceMark (기본 false)
   onFaceMark?: (netFace: number) => void // 면 표시 모드에서 누른 면의 scene.net.faces 인덱스 (학습지 전개도 grid 만)
-  fromContents?: boolean // 빈 책 차례에서 골라 넘어왔다: 처음 열 때 빈 책 구도에서 이 화면 구도로 다가간다 (viewer.md "빈 책", 처음 만들 때만 읽음)
 }
 
 // 누른 면과 다 접었을 때 마주 보는 면. text 는 학습지 전개도 면에 쓰인 글자 (없으면 null)

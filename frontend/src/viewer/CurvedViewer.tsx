@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
-import { bookGlide, buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookView, buildBook, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
 import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape } from './curved.ts'
 import { textSprite } from './lessons/draw.ts'
 import { buildCurvedLesson } from './lessons/curvedLessons.ts'
@@ -16,13 +16,12 @@ import { PAPER } from './theme.ts'
 
 // 곡면 도형(원기둥·원뿔·구) 화면 (docs/specs/viewer.md "곡면 도형"): 같은 책 위에서 옆면을 말고 밑면 원을 접는다. 구는 전개도가 없어 입체만.
 // 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 scene.lines 그대로 그리고, 화면에서 긋는 입력은 없다
-export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers, fromContents = false, onReady }: ViewerProps) {
+export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers, onReady }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef({ unfold, showMatchingEdges, showVertexLabels, lesson })
   const applyRef = useRef<(() => void) | null>(null)
   const pageRef = useRef({ pageText, pageResult, pageMenu, pageNumbers })
   const menuRef = useRef(onPageMenu)
-  const fromRef = useRef(fromContents)
   const rebuildBookRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
@@ -34,9 +33,6 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     menuRef.current = onPageMenu
     readyRef.current = onReady
   }, [onPageMenu, onReady])
-  useEffect(() => {
-    fromRef.current = fromContents
-  }, [fromContents])
   useEffect(() => {
     pageRef.current = { pageText, pageResult, pageMenu, pageNumbers }
   }, [pageText, pageResult, pageMenu, pageNumbers])
@@ -93,23 +89,9 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     const page = () => pageRef.current
     let book = buildBook(flatNet, radius, page().pageText, [], page().pageNumbers, page().pageResult, page().pageMenu)
     world.add(book.group)
-    const rebuildBook = () => {
-      world.remove(book.group)
-      book.dispose()
-      book = buildBook(bookRange ?? flatNet, radius, page().pageText, [], page().pageNumbers, page().pageResult, page().pageMenu)
-      world.add(book.group)
-    }
-    rebuildBookRef.current = rebuildBook
-
-    world.add(new THREE.HemisphereLight('#fffaf0', '#d9cbb3', 1.7))
-    const light = new THREE.DirectionalLight('#fff4e2', 1.5)
-    light.position.set(-0.4, 1, 0.5).multiplyScalar(radius * 3)
-    light.castShadow = true
-    light.shadow.mapSize.set(2048, 2048)
-    light.shadow.radius = 4
-    light.shadow.bias = -0.0005
-    Object.assign(light.shadow.camera, { left: -radius * 1.5, right: radius * 1.5, top: radius * 1.5, bottom: -radius * 1.5, far: radius * 6 })
-    world.add(light)
+    const { ambient, light } = bookLights()
+    aimLight(light, book)
+    world.add(ambient, light, light.target)
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -117,34 +99,34 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     controls.maxPolarAngle = Math.PI / 2 - 0.05
     camera.position.copy(VIEW_DIR)
 
-    // 왼쪽 쪽에 메뉴·결과가 있어서 카메라는 늘 왼쪽 쪽 글까지 담는다. 차례에서 넘어왔으면 빈 책 구도에서 다가간다(glide)
-    let glide: ReturnType<typeof bookGlide> | null = null
+    // 카메라는 늘 책(readingRange)만 담는다: 차례·접기·설명 어디서든 책이 화면에서 같은 자리·크기로 보인다 (viewer.md "카메라")
     const resize = () => {
-      const range = (bookRange ?? bounds).clone().expandByPoint(book.textCorner)
-      const center = range.getCenter(new THREE.Vector3())
-      const fit = range.getBoundingSphere(new THREE.Sphere()).radius
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
-      const vfov = THREE.MathUtils.degToRad(camera.fov)
-      const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect))
       const dir = camera.position.clone().sub(controls.target).normalize()
-      controls.target.copy(center).add(new THREE.Vector3(0, 0, camera.aspect > 1.1 ? fit * 0.45 : 0))
-      const distance = (fit / Math.sin(fov / 2)) * 1.15
+      const { target, distance } = bookView(fitOf(readingRange(book)), camera)
+      controls.target.copy(target)
       camera.position.copy(controls.target).addScaledVector(dir, distance)
-      // 안개는 책 너머 책상만 흐리게: 설명으로 카메라가 멀어져도 책이 뿌옇게 되지 않는다
-      world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6)
-      glide?.sync()
+      world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6) // 책 너머 책상만 흐리게
     }
+    // 설명마다 책 크기가 달라서 다시 만들면 빛·카메라도 다시 맞춘다
+    const rebuildBook = () => {
+      world.remove(book.group)
+      book.dispose()
+      book = buildBook(bookRange ?? flatNet, radius, page().pageText, [], page().pageNumbers, page().pageResult, page().pageMenu)
+      world.add(book.group)
+      aimLight(light, book)
+      resize()
+    }
+    rebuildBookRef.current = rebuildBook
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
-    if (fromRef.current) glide = bookGlide(book, camera, controls)
 
     let lessonObject: LessonObject | null = null
     let lessonKey: string | null = null
-    let lowered = false
     const apply = () => {
       const { unfold, showMatchingEdges, showVertexLabels, lesson } = viewRef.current
       const nextKey = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.pi ?? 'pi'}:${lesson.cutKind ?? ''}` : null
@@ -154,11 +136,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
         lessonKey = nextKey
         if (lessonObject) world.add(lessonObject.group)
         bookRange = lessonObject?.bounds ?? null // 공식 화면에서는 책을 도형에 맞춘다: 도형이 오른쪽 쪽의 대부분을 차지하게 (ui.md 공식 시각화 규칙)
-        // 높이가 중요한 설명은 카메라를 낮추고, 끝나면 돌아온다
-        if (lessonObject?.view || lowered) camera.position.copy(controls.target).add(lessonObject?.view ?? VIEW_DIR)
-        lowered = !!lessonObject?.view
         rebuildBook()
-        resize()
       }
       lessonObject?.setLayers?.(lesson?.layers ?? STAIR_LAYERS[0])
       lessonObject?.setCut?.(lesson?.cut ?? 0.5)
@@ -192,8 +170,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     renderer.domElement.addEventListener('pointermove', onMove)
 
     let told = false // 첫 프레임을 그렸다고 알렸는가 (onReady)
-    renderer.setAnimationLoop((now) => {
-      if (glide && !glide.step(now)) glide = null
+    renderer.setAnimationLoop(() => {
       controls.update()
       renderer.render(world, camera)
       if (!told) {

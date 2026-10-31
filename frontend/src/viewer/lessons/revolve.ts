@@ -120,7 +120,6 @@ export function buildRevolveLesson(size: RevolutionSize): LessonObject {
   return {
     group,
     bounds: new THREE.Box3(new THREE.Vector3(-reach - span * 0.1, 0, -reach), new THREE.Vector3(reach + span * 0.25, h + span * 0.4, reach + span * 0.15)),
-    view: new THREE.Vector3(0.3, 0.88, 1), // 수평에서 40°: 축과 높이가 보이게
     apply,
     dispose() {
       sprites.forEach((s) => s.dispose())
@@ -237,7 +236,6 @@ export function buildRevolutionSectionLesson(size: RevolutionSize, kind: CutKind
   return {
     group,
     bounds: new THREE.Box3(new THREE.Vector3(-reach - span * 0.25, 0, -reach), new THREE.Vector3(reach + span * 0.25, h + span * 0.25, reach)),
-    view: new THREE.Vector3(0.15, kind === 'vertical' ? 0.5 : 1.1, 1), // 세로는 앞에서, 가로·비스듬히는 위에서 단면이 보이게
     setCut(next) {
       if (next === cut) return
       cut = next

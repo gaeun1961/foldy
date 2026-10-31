@@ -155,7 +155,6 @@ export default function App() {
   // 지금 전개도가 정육면체 전개도 11가지 중 몇 번째인지 (십자형은 0, 그리기 칸에서 고쳤거나 학습지 전개도면 null)
   const [variant, setVariant] = useState<number | null>(null)
   const [dockOffset, setDockOffset] = useState({ x: 0, y: 0 }) // 손잡이로 옮긴 아래 바 위치 (넓은 화면)
-  const [fromContents, setFromContents] = useState(false) // 빈 책 차례에서 골라 열었다: 도형 화면이 빈 책 구도에서 다가간다 (viewer.md "빈 책")
   const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
   const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true, shapeName(scene)))
@@ -277,7 +276,6 @@ export default function App() {
     setDrawState('idle')
     setLesson(firstLesson(next))
     setVariant(next.net.layout === 'cross' ? 0 : null)
-    setFromContents(false)
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
@@ -305,7 +303,6 @@ export default function App() {
               return { text: pageTextOf(next, first, hint, false), pageNumbers: pageNumbersOf(next), menu: pageMenuOf(next, first, next.net.layout === 'cross' ? 0 : null, 1) }
             }} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
-              setFromContents(true)
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
             }} />}
@@ -324,7 +321,6 @@ export default function App() {
             pageMenu={pageMenu}
             onPageMenu={pickMenu}
             pageNumbers={pageNumbersOf(scene)}
-            fromContents={fromContents}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             drawIn={drawIn || undefined}
             onReady={() => setHoldFrom(null)}

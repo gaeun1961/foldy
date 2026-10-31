@@ -34,7 +34,6 @@ export interface LessonObject {
   group: THREE.Group
   faceMaterials?: (face: number) => [THREE.Material, THREE.Material] | null
   bounds?: THREE.Box3
-  view?: THREE.Vector3 // 카메라를 이 방향으로 낮춘다 (높이가 중요한 설명). 설명을 끄면 처음 방향으로 돌아간다
   pickTargets?: THREE.Object3D[]
   pick?(target: THREE.Object3D): void
   hideSolid?: boolean // 면 트리를 숨긴다: 설명이 입체를 직접 그린다 (각기둥 옆면 펴기)
