@@ -76,6 +76,18 @@ function variantScene(scene: ShapeScene, k: number): ShapeScene {
 // 도형을 처음 열 때의 설명: 회전체는 돌리기가 메인이라 처음부터 돌리기 화면
 const firstLesson = (scene: ShapeScene): Lesson | null => (scene.shape === 'revolution' ? { kind: 'revolve', progress: 0 } : null)
 
+// 책 왼쪽 쪽 메뉴 (ui.md 왼쪽 페이지): 이 도형에 있는 공식 + 다른 전개도 보기
+function pageMenuOf(scene: ShapeScene, lesson: Lesson | null, variant: number | null, unfold: number): PageMenuItem[] {
+  return [
+    ...lessonTabs(scene)
+      .filter((k) => lessonStepCount(scene, k) > 0)
+      .map((k) => ({ id: k as string, label: LESSON_LABEL[k], active: lesson?.kind === k, enabled: true })),
+    ...(scene.net.layout === 'cross' || scene.net.layout === 'grid'
+      ? [{ id: 'variant', label: `다른 전개도 보기${variant !== null ? ` (${variant + 1}/${NET_VARIANTS.length})` : ''}`, active: false, enabled: !lesson && unfold >= 1 && scene.lines.length === 0 }]
+      : []),
+  ]
+}
+
 // 화면 (docs/specs/ui.md 화면 배치): 3D 책 장면(stage) + 아래 바(dock: 안내·접기·선 긋기·보기) + 만들기 카드(사진·직접 만들기) + 챗봇.
 // 넓은 화면은 stage 가 화면을 채우고 dock·카드가 그 위에 뜬다. 좁은 화면은 위 3D, 아래로 dock·카드
 export default function App() {
@@ -117,6 +129,7 @@ export default function App() {
   // 지금 전개도가 정육면체 전개도 11가지 중 몇 번째인지 (십자형은 0, 그리기 칸에서 고쳤거나 학습지 전개도면 null)
   const [variant, setVariant] = useState<number | null>(null)
   const [dockOffset, setDockOffset] = useState({ x: 0, y: 0 }) // 손잡이로 옮긴 아래 바 위치 (넓은 화면)
+  const [fromContents, setFromContents] = useState(false) // 빈 책 차례에서 골라 열었다: 도형 화면이 빈 책 구도에서 다가간다 (viewer.md "빈 책")
   const [lesson, setLesson] = useState<Lesson | null>(null) // 설명 모드. 고르면 그 설명의 자세(입체/전개도)로 두고 접기 패널 대신 설명 조작을 보인다
   const steps = scene ? foldStepCount(scene) : 0
   const status = scene && (lesson ? lessonStatus(lesson, playing) : foldStatus(scene.shape, unfold, playing, netCheck(scene)?.closed ?? true, shapeName(scene)))
@@ -137,18 +150,7 @@ export default function App() {
   const viewerLesson = useMemo(() => (lesson ? { ...lesson, pi: piMode } : null), [lesson, piMode])
   const explain = scene && viewerLesson ? lessonHint(viewerLesson, scene) : null // 공식 설명은 왼쪽 쪽에만 (멈췄을 때)
   const makeCard = useRef<HTMLDetailsElement>(null)
-  const canVariant = scene?.net.layout === 'cross' || scene?.net.layout === 'grid'
-  // 책 왼쪽 쪽 메뉴 (ui.md 왼쪽 페이지): 이 도형에 있는 공식 + 다른 전개도 보기
-  const pageMenu: PageMenuItem[] = !scene
-    ? []
-    : [
-        ...lessonTabs(scene)
-          .filter((k) => lessonStepCount(scene, k) > 0)
-          .map((k) => ({ id: k as string, label: LESSON_LABEL[k], active: lesson?.kind === k, enabled: true })),
-        ...(canVariant
-          ? [{ id: 'variant', label: `다른 전개도 보기${variant !== null ? ` (${variant + 1}/${NET_VARIANTS.length})` : ''}`, active: false, enabled: !lesson && unfold >= 1 && scene.lines.length === 0 }]
-          : []),
-      ]
+  const pageMenu = scene ? pageMenuOf(scene, lesson, variant, unfold) : []
   const pickMenu = (id: string) => {
     if (!scene) return
     // 구 단면 비교의 "⅓ 왜?": 같은 반지름·높이의 원뿔 부피 끝(원판 쌓기)으로
@@ -185,6 +187,7 @@ export default function App() {
     setDrawState('idle')
     setLesson(firstLesson(next))
     setVariant(next.net.layout === 'cross' ? 0 : null)
+    setFromContents(false)
   }
 
   // 안내 문구: 애니메이션 중에는 숨기고, 선 긋기 안내가 먼저다 (ui.md 친절한 설명 원칙, 안내 문구)
@@ -198,8 +201,15 @@ export default function App() {
             건너뛰기
           </button>
         )}
-        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onPick={(k) => {
+        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} pageOf={(k) => {
+              // 넘어가는 종이에 찍을 차례 k번째 도형의 쪽: 그 도형을 처음 연 화면과 같게
+              const next = crossScene(SHAPES[k].shape, { ...SHAPES[k].size })
+              const first = firstLesson(next)
+              const hint = first && lessonHint({ ...first, pi: piMode }, next)
+              return { text: pageTextOf(next, first, hint, false), pageNumbers: pageNumbersOf(next), menu: pageMenuOf(next, first, next.net.layout === 'cross' ? 0 : null, 1) }
+            }} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
+              setFromContents(true)
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
             }} />}
@@ -218,6 +228,7 @@ export default function App() {
             pageMenu={pageMenu}
             onPageMenu={pickMenu}
             pageNumbers={pageNumbersOf(scene)}
+            fromContents={fromContents}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             onSceneChange={(next) => {
               setStrokes([...strokes, next.lines.length - scene.lines.length])
