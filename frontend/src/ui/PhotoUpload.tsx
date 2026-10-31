@@ -6,6 +6,7 @@ import { CornerPick } from './CornerPick'
 import { NetPreview } from './NetPreview'
 import { TOUCH } from './device'
 import { prepPhoto, rotatePhoto } from './photoPrep'
+import { suggestShapes } from './suggestBoxes'
 import { WorksheetShelf } from './WorksheetShelf'
 import { defaultName, deleteWorksheet, getWorksheet, listWorksheets, renameWorksheet, saveWorksheet, type WorksheetItem } from './worksheetStore'
 import type { PhotoBox } from './manualScene.ts'
@@ -56,6 +57,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
   const [problemBox, setProblemBox] = useState<PhotoBox | null>(null)
   const [step, setStep] = useState<'problem' | 'shape'>('problem')
   const [shapes, setShapes] = useState<PhotoBox[]>([]) // ② 에서 "도형 더하기"로 모은 네모 (①②③…, 최대 6개)
+  const [suggested, setSuggested] = useState(false) // shapes 가 ① 문제 칸에서 찾은 추천 네모인지 (worksheets.md "추천 네모")
   const img = useRef<HTMLImageElement>(null)
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   const loading = state.kind === 'loading' || state.kind === 'preparing'
@@ -234,6 +236,10 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
               setProblemBox(box)
               setBox(null)
               setStep('shape')
+              // 문제 칸 안 색칠된 도형을 찾아 ② 네모로 미리 깔아 둔다. 못 찾으면 빈 목록 → 지금처럼 직접 감싼다
+              const found = img.current && box ? suggestShapes(img.current, box).slice(0, MAX_ITEMS) : []
+              setShapes(found)
+              setSuggested(found.length > 0)
             }}
           >
             다음: 도형 고르기
@@ -263,14 +269,28 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             onClick={() => {
               setShapes([...shapes, box!])
               setBox(null)
+              setSuggested(false)
             }}
           >
             도형 더하기 +
           </button>
+          {shapes.length > 0 && (
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={loading}
+              onClick={() => {
+                setShapes([])
+                setSuggested(false)
+              }}
+            >
+              네모 지우기
+            </button>
+          )}
           <button
             type="button"
             className="secondary-button"
-            style={{ gridColumn: '1 / -1' }}
+            style={shapes.length ? undefined : { gridColumn: '1 / -1' }}
             disabled={loading}
             onClick={() => {
               setBox(problemBox)
@@ -303,7 +323,9 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
         {state.kind === 'picking' &&
           (step === 'problem'
             ? '① 문제 전체(문장과 그림)를 네모로 감싸 주세요'
-            : shapes.length
+            : shapes.length && suggested
+              ? `② 찾은 도형 ${shapes.length}개를 감쌌어요. 맞으면 읽고, 틀리면 "네모 지우기" 뒤 직접 감싸 주세요`
+              : shapes.length
               ? `② 도형 ${shapes.length}개를 골랐어요. 더 있으면 감싸고 "도형 더하기", 다 골랐으면 읽어요`
               : '② 이제 도형(그림)만 네모로 딱 맞게 감싸 주세요. 도형이 여러 개면 하나씩 감싸고 "도형 더하기"')}
         {state.kind === 'loading' && (
