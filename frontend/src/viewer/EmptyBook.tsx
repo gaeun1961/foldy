@@ -97,8 +97,22 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, opening = f
     renderer.domElement.addEventListener('pointermove', onMove)
 
     // 오프닝: 같은 장면 위에서 돌고, 끝나면 빈 책 그대로 이어진다. 카메라는 조금 멀리서 다가온다
+    // 오프닝 동안만 그림자: 떠 있는 도형과 넘기는 종이만 그림자를 드리운다(책은 드리우지 않아 끝난 뒤 모습이 같다)
+    if (openingRef.current) book.group.traverse((o) => (o.castShadow = false))
     const show = openingRef.current ? buildOpening(book, size) : null
     let intro = show
+    if (show) {
+      renderer.shadowMap.enabled = true
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      light.castShadow = true
+      light.shadow.mapSize.set(2048, 2048)
+      light.shadow.bias = -0.0005
+      light.shadow.normalBias = 0.02
+      Object.assign(light.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: size * 8 })
+      light.target.position.copy(book.center)
+      light.position.add(book.center) // 빛 방향은 그대로, 책 가운데를 비춘다
+      world.add(light.target)
+    }
     // 시간은 프레임마다 더한다(한 번에 최대 1/30초). 첫 프레임이 늦거나 멈칫해도 단계를 건너뛰지 않는다
     let t = 0
     let last = -1
@@ -111,6 +125,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, opening = f
         if (!openingRef.current || t >= OPENING_SECONDS) {
           intro.finish()
           intro = null
+          light.castShadow = false
           controls.enabled = true
           camera.position.copy(controls.target).addScaledVector(dir, distance)
           openedRef.current?.()

@@ -15,9 +15,11 @@ const FLUTTER_TIME = 1.0 // 레퍼런스(KOKUYO Turn the page) 한 장 넘김 �
 const FIRST_TIME = 1.8 // 첫 장은 천천히: 왼쪽에 처음 펴지는 종이가 갑자기 생기는 것처럼 보이지 않게. 다음 장들은 그만큼 늦게 출발
 const PAGES = 5 // 넘어오는 종이 장 수
 const POP = 2.8 // 도형이 하나씩 떠오르기 시작
-const DIVE = 5.2 // 도형이 속표지로 빨려 들어가기 시작
-const TURN = [5.6, 6.6] // 속표지가 넘어간다
-export const OPENING_SECONDS = 6.8
+const GATHER = 5.2 // 도형이 왼쪽 쪽 위 자리로 모여 선다 (팝업처럼)
+const TURN = [6.0, 7.0] // 속표지가 넘어가며 왼쪽 쪽의 도형을 눌러 접는다
+export const OPENING_SECONDS = 7.2
+const SHAPE_SIZE = 1.8 // 떠 있을 때 도형 크기 (배)
+const SLOT_SIZE = 1.25 // 왼쪽 쪽에 모여 섰을 때 크기 (한 쪽에 11개가 들어가게)
 
 // 넘기는 종이 모양 (레퍼런스 C 구간): 바로 출발해 후반에 감속하고, 휨은 0 → 최대 → 0. 책등 쪽이 앞서고 바깥 끝이 뒤처진다
 const TURN_EASE = 1.6 // 넘어가는 각도 = π·(1 − (1 − p)^TURN_EASE). 2 면 power2.out. 1.6 이면 진행률 약 35% 에 수직
@@ -72,7 +74,10 @@ function turningPage(book: Book, front: THREE.Texture, back: THREE.Texture, own:
   backMap.offset.x = 1
   backMap.needsUpdate = true
   const group = new THREE.Group()
-  group.add(new THREE.Mesh(geometry, own(new THREE.MeshStandardMaterial({ map: front }))), new THREE.Mesh(geometry, own(new THREE.MeshStandardMaterial({ map: backMap, side: THREE.BackSide }))))
+  for (const mesh of [new THREE.Mesh(geometry, own(new THREE.MeshStandardMaterial({ map: front }))), new THREE.Mesh(geometry, own(new THREE.MeshStandardMaterial({ map: backMap, side: THREE.BackSide })))]) {
+    mesh.castShadow = mesh.receiveShadow = true
+    group.add(mesh)
+  }
   group.position.set(book.center.x, 0, book.center.z) // 높이는 아래에서 정한다 (책등 골 바닥 근처)
   book.group.add(group)
 
@@ -104,12 +109,17 @@ function turningPage(book: Book, front: THREE.Texture, back: THREE.Texture, own:
   // 누운 종이의 평평한 곳이 페이지 윗면 높이가 되게: 휜 모양이 올라오는 높이를 재서 책등 쪽 시작점을 그만큼 내린다
   set(0, 0)
   group.position.y = book.top - ys[N]
-  // 종이 위 한 점 (책등에서 s, 앞뒤 z) 의 지금 위치
-  const pointAt = (s: number, z: number) => {
-    const i = Math.round((s / w) * N)
-    return new THREE.Vector3(xs[i], ys[i] + height, z).add(group.position)
+  // 가로 위치 x(책 좌표) 바로 위를 덮은 종이의 높이. 종이가 아직 그 위까지 넘어오지 않았으면 Infinity
+  const heightAt = (x: number) => {
+    const local = x - group.position.x
+    for (let i = 1; i <= N; i++) {
+      if (xs[i] > local) continue
+      const k = (xs[i - 1] - local) / (xs[i - 1] - xs[i] || 1)
+      return group.position.y + height + ys[i - 1] + (ys[i] - ys[i - 1]) * k
+    }
+    return Infinity
   }
-  return { group, set, pointAt }
+  return { group, set, heightAt }
 }
 
 export function buildOpening(book: Book, size: number) {
@@ -186,19 +196,24 @@ export function buildOpening(book: Book, size: number) {
   titleMap.needsUpdate = true
   const title = turningPage(book, titleMap, text, own)
 
-  // 2. 도형: 두 쪽 위에 타원으로 흩어 두고, 페이지에서 떠올라 둥실 뜬다
+  // 2. 도형: 두 쪽 위에 타원으로 흩어 두고, 페이지에서 떠올라 둥실 뜬다. 그림자가 페이지에 떨어진다
   const edgeMaterial = own(new THREE.LineBasicMaterial({ color: INK }))
   const shapes = shapeGeometries().map((geometry, k, all) => {
     const mesh = new THREE.Mesh(own(geometry), own(new THREE.MeshStandardMaterial({ color: COLORS[k % COLORS.length], flatShading: true, roughness: 0.6 })))
+    mesh.castShadow = true
     mesh.add(new THREE.LineSegments(own(new THREE.EdgesGeometry(geometry, 20)), edgeMaterial))
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+    const half = box.max.y * SLOT_SIZE // 자리에 똑바로 섰을 때 높이의 반
+    const reach = Math.max(box.max.x, box.max.z) * SLOT_SIZE * 1.2 // 돌아도 닿는 가로 반경
     const angle = (k / all.length) * Math.PI * 2
     const ground = new THREE.Vector3(spine.x + Math.cos(angle) * w * 0.62, book.top, spine.z + Math.sin(angle) * d * 0.3)
-    const air = ground.clone().setY(1.6 + (k % 3) * 0.8)
-    // 속표지에서 빨려 들어갈 자리 (책등에서 s, 앞뒤 z)
-    const spot = { s: w * (0.25 + 0.5 * ((k * 0.37) % 1)), z: (((k * 0.61) % 1) - 0.5) * d * 0.6 }
+    const air = ground.clone().setY(2 + (k % 3) * 0.9)
+    // 3. 모여 설 자리: 왼쪽 쪽 위 3 × 4 칸 (책등에서 떨어진 거리, 앞뒤)
+    const slot = new THREE.Vector3(spine.x - w * [0.22, 0.5, 0.78][k % 3], book.top + half, spine.z + d * [-0.3, -0.1, 0.1, 0.3][Math.floor(k / 3)])
     mesh.scale.setScalar(0)
     book.group.add(mesh)
-    return { mesh, ground, air, spot, start: new THREE.Vector3() }
+    return { mesh, ground, air, slot, half, reach, start: new THREE.Vector3() }
   })
 
   let dived = false
@@ -215,22 +230,30 @@ export function buildOpening(book: Book, size: number) {
     stack(landed / PAGES)
     const turn = span(t, TURN[0], TURN[1])
     title.set(turn, lerp(eps, eps * (PAGES + 1), turn))
-    if (t >= DIVE && !dived) {
+    if (t >= GATHER && !dived) {
       dived = true
       for (const s of shapes) s.start.copy(s.mesh.position)
     }
-    shapes.forEach(({ mesh, ground, air, spot, start }, k) => {
-      mesh.rotation.set(Math.sin(t + k) * 0.4, t * 0.8 + k, 0)
-      if (t < DIVE) {
+    shapes.forEach(({ mesh, ground, air, slot, half, reach, start }, k) => {
+      // 돌던 것은 모일 때 부드럽게 멈춘다 (세로축 회전만 남는다)
+      const settle = easeInOut(span(t, GATHER, TURN[0]))
+      const spin = 0.8 * Math.min(t, GATHER) + 0.28 * (1 - Math.exp(-Math.max(0, t - GATHER) / 0.35))
+      mesh.rotation.set(Math.sin(t + k) * 0.4 * (1 - settle), k + spin, 0)
+      if (t < GATHER) {
         const p = easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))
         mesh.position.lerpVectors(ground, air, p).y += Math.sin(t * 2 + k) * 0.15 * span(t, POP + 1, POP + 2)
-        mesh.scale.setScalar(Math.max(0, p) * 1.1)
+        mesh.scale.setScalar(Math.max(0, p) * SHAPE_SIZE)
         return
       }
-      // 3. 속표지 위 자리로 가서 종이 속으로 줄어든다. 속표지가 넘어가기 시작하면 그 종이를 따라간다
-      const q = easeInOut(span(t, DIVE, DIVE + 1))
-      mesh.position.lerpVectors(start, title.pointAt(spot.s, spot.z), q)
-      mesh.scale.setScalar(1.1 * (1 - q))
+      // 3. 팝업북처럼: 왼쪽 쪽 위 자리에 내려와 서고, 속표지가 넘어와 닫히는 만큼 눌려 납작하게 접힌다.
+      // 도형의 책등 쪽 끝 바로 위 종이 높이까지만 설 수 있다
+      mesh.position.lerpVectors(start, slot, settle)
+      const room = title.heightAt(mesh.position.x + reach) - book.top - eps * 2
+      const q = Math.min(1, Math.max(0, room / (2 * half)))
+      const size = lerp(SHAPE_SIZE, SLOT_SIZE, settle)
+      mesh.visible = q > 0.03
+      mesh.scale.set(size, size * q, size)
+      if (settle === 1) mesh.position.y = book.top + half * q // 아랫면은 페이지 위 그대로
     })
   }
 
