@@ -14,7 +14,8 @@ import { lessonStatus } from './lessonStatus.ts'
 import { LineControls } from './LineControls'
 import { ManualInput } from './ManualInput'
 import { crossScene, crossToGrid, fitToBox, netPhoto, NO_FIT, SHAPES } from './manualScene.ts'
-import { PhotoUpload } from './PhotoUpload'
+import { PhotoUpload, type PhotoPlace } from './PhotoUpload'
+import { ShapeTabs } from './ShapeTabs'
 import { ViewMenu } from './ViewMenu'
 import { SPEEDS, type Speed } from './player'
 import type { ViewOptionValues } from './ViewOptions'
@@ -100,6 +101,9 @@ export default function App() {
   }
   const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
   const [reading, setReading] = useState(false) // 사진을 읽는 중 (PhotoUpload onReading)
+  // 여러 도형 문제 (worksheets.md 여러 도형): 읽은 도형들과 지금 접는 것. 고른 하나만 책에서 접고 홀로그램에도 그것만
+  const [gallery, setGallery] = useState<{ scene: ShapeScene; place: PhotoPlace | null }[] | null>(null)
+  const [galleryIndex, setGalleryIndex] = useState(0)
   const [drawIn, setDrawIn] = useState(0) // 사진 인식 결과가 올 때마다 1 늘린다. 책에 펜이 그려 낸다 (viewer.md "펜으로 그려 내기")
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
   const readingNow = reading && !!photo && !hologram // 읽는 동안 3D 는 사진 깐 빈 책
@@ -193,6 +197,21 @@ export default function App() {
   }
 
   // 새 도형(사진 인식 결과 등): 펼친 전개도에서 새로 시작한다
+  // 사진에서 읽은 도형 하나를 책에 (여러 도형이면 고른 것). 네모로 읽은 전개도면 사진 위치를 그 네모에 맞춘다 (ui.md 화면 배치 2번)
+  // draw: 펜이 그려 낼지. 결과가 처음 올 때 한 번만 (여러 도형이면 모두 같이). 고른 도형만 바꿀 때는 그리지 않는다
+  const showShape = (next: ShapeScene, place: PhotoPlace | null, draw = true) => {
+    loadScene(next)
+    if (draw) setDrawIn((n) => n + 1)
+    if (place && next.net.layout === 'grid') setFit(fitToBox(place.box, place.aspect, next.net.faces))
+  }
+
+  // 여러 도형에서 접을 것 고르기 (아래 바 ①②…, 책에서 누르기)
+  const pickShape = (i: number) => {
+    if (!gallery?.[i] || i === galleryIndex) return
+    setGalleryIndex(i)
+    showShape(gallery[i].scene, gallery[i].place, false)
+  }
+
   const loadScene = (next: ShapeScene) => {
     setScene(next)
     setUnfold(1)
@@ -239,6 +258,9 @@ export default function App() {
             pageNumbers={pageNumbersOf(scene)}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             drawIn={drawIn || undefined}
+            gallery={gallery && gallery.length > 1 ? gallery.map((g) => g.scene) : undefined}
+            galleryIndex={galleryIndex}
+            onPickGallery={pickShape}
             onSceneChange={(next) => {
               setStrokes([...strokes, next.lines.length - scene.lines.length])
               setScene(next)
@@ -282,6 +304,13 @@ export default function App() {
         {hint && <p className="viewer-hint">{hint}</p>}
         {scene && (
           <>
+            {gallery && gallery.length > 1 && (
+              <ShapeTabs
+                scenes={gallery.map((g) => g.scene)}
+                index={galleryIndex}
+                onPick={pickShape}
+              />
+            )}
             <LessonControls scene={scene} lesson={lesson} onChange={changeLesson} onPlayingChange={setPlaying} speed={speed} />
             {!lesson && !noFold && <FoldControls unfold={unfold} onChange={setUnfold} mode={foldMode} speed={speed} steps={steps} onPlayingChange={setPlaying} target={foldTarget} />}
             <div className="dock-row">
@@ -381,6 +410,7 @@ export default function App() {
                 onClick={() => {
                   // 차례로: 도형을 내리고 빈 책으로 (사진·사진 위치는 그대로, ui.md 화면 배치 6번)
                   setScene(null)
+                  setGallery(null)
                   setLesson(null)
                   setMarking(false)
                   setDrawLines(false)
@@ -411,14 +441,18 @@ export default function App() {
         <div className="make-body">
           <PhotoUpload
             onScene={(next, place) => {
-              loadScene(next)
-              setDrawIn((n) => n + 1)
-              // 네모로 읽은 전개도면 사진 위치를 그 네모에 맞춘다 (ui.md 화면 배치 2번)
-              if (place && next.net.layout === 'grid') setFit(fitToBox(place.box, place.aspect, next.net.faces))
+              setGallery(null)
+              showShape(next, place)
+            }}
+            onShapes={(list) => {
+              setGallery(list)
+              setGalleryIndex(0)
+              showShape(list[0].scene, list[0].place)
             }}
             onPhoto={(url) => {
               setPhoto(url)
               setFit(NO_FIT)
+              setGallery(null)
             }}
             onManual={() => setManualFor(photo)}
             onReading={setReading}

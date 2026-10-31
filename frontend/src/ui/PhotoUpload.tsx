@@ -20,6 +20,7 @@ interface Props {
   onScene: (scene: ShapeScene, place: PhotoPlace | null) => void
   onPhoto: (url: string) => void
   onManual?: () => void // 인식이 실패해 직접 만들기로 안내할 때 (접혀 있으면 펼친다, worksheets.md)
+  onShapes?: (shapes: { scene: ShapeScene; place: PhotoPlace | null }[]) => void // 도형을 여러 개 읽었을 때 (①부터 순서대로). 없으면 onScene 으로 첫 도형만
   onReading?: (reading: boolean) => void // 사진을 읽는 중인지. 그동안 3D 책에서 펜이 사진 위를 칠한다 (viewer.md "빈 책" 읽는 중)
 }
 
@@ -45,7 +46,7 @@ function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
   )
 }
 
-export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
+export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }: Props) {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
   const [box, setBox] = useState<PhotoBox | null>(null)
@@ -53,6 +54,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
   // 2단계 네모 (worksheets.md): ① 문제 전체(문장과 그림) → ② 그 안에서 도형만. 문제 칸은 글자만, 도형 칸은 모양만 따로 동시에 읽는다
   const [problemBox, setProblemBox] = useState<PhotoBox | null>(null)
   const [step, setStep] = useState<'problem' | 'shape'>('problem')
+  const [shapes, setShapes] = useState<PhotoBox[]>([]) // ② 에서 "도형 더하기"로 모은 네모 (①②③…, 최대 6개)
   const img = useRef<HTMLImageElement>(null)
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   const loading = state.kind === 'loading' || state.kind === 'preparing'
@@ -77,6 +79,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
     setPhoto({ file, url })
     setBox(null)
     setProblemBox(null)
+    setShapes([])
     setStep('problem')
     onPhoto(url)
     setState({ kind: 'picking' })
@@ -100,7 +103,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
     if (!w) return refreshShelf()
     const file = new File([w.photo], 'photo.jpg', { type: w.photo.type || 'image/jpeg' })
     setBase(file)
-    onScene(w.scene, w.place)
+    if (w.more?.length && onShapes) onShapes([{ scene: w.scene, place: w.place }, ...w.more])
+    else onScene(w.scene, w.place)
     setState({ kind: 'done', scene: w.scene })
   }
 
@@ -110,21 +114,32 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
     if (file) pick(file)
   }
 
-  const read = async (part: PhotoBox | null, problemPart: PhotoBox | null = null) => {
+  // parts: 도형 네모들 (없으면 사진 전체). 여러 개면 동시에 읽고, 문제 글은 ① 하나에만 보내 모두에 붙인다 (worksheets.md 여러 도형)
+  const read = async (parts: PhotoBox[] | null, problemPart: PhotoBox | null = null) => {
     if (!photo || !img.current) return
     setState({ kind: 'loading', since: Date.now() })
     setNow(Date.now())
     try {
-      const file = part ? await crop(img.current, part) : photo.file
-      const problemFile = problemPart ? await crop(img.current, problemPart) : undefined
-      const scene = await analyze(file, problemFile)
-      // 전체를 읽었으면 인식이 알려 준 사진 속 전개도 네모(photoBox)로 칸 밑 사진을 맞춘다 (worksheets.md W8)
-      const where = part ?? (scene.photoBox ? clampBox(scene.photoBox) : null)
-      const place = where && { box: where, aspect: img.current.naturalWidth / img.current.naturalHeight }
-      onScene(scene, place)
-      setState({ kind: 'done', scene })
+      const pic = img.current
+      const aspect = pic.naturalWidth / pic.naturalHeight
+      const problemFile = problemPart ? await crop(pic, problemPart) : undefined
+      const boxes = parts?.length ? parts : [null] // null 도 사진 전체로 (화면 갱신 중 옛 버튼이 read(null) 로 부른 적이 있다)
+      const files = await Promise.all(boxes.map((b) => (b ? crop(pic, b) : Promise.resolve(photo.file))))
+      const scenes = await Promise.all(files.map((f, i) => analyze(f, i === 0 ? problemFile : undefined)))
+      const problem = scenes[0].problem
+      const found = scenes.map((scene, i) => {
+        const withProblem = problem && !scene.problem ? ({ ...scene, problem } as ShapeScene) : scene
+        // 전체를 읽었으면 인식이 알려 준 사진 속 전개도 네모(photoBox)로 칸 밑 사진을 맞춘다 (worksheets.md W8)
+        const where = boxes[i] ?? (scene.photoBox ? clampBox(scene.photoBox) : null)
+        return { scene: withProblem, place: where && { box: where, aspect } }
+      })
+      const [first, ...more] = found
+      if (more.length && onShapes) onShapes(found)
+      else onScene(first.scene, first.place)
+      setShapes([])
+      setState({ kind: 'done', scene: first.scene })
       const thumb = await prepPhoto(photo.file, 240)
-      await saveWorksheet({ name: defaultName(scene, new Date()), photo: photo.file, thumb, scene, place })
+      await saveWorksheet({ name: defaultName(first.scene, new Date()) + (more.length ? ` 외 ${more.length}개` : ''), photo: photo.file, thumb, scene: first.scene, place: first.place, more })
       refreshShelf()
     } catch (e) {
       setState({ kind: e instanceof OfflineError ? 'soft' : 'error', message: (e as Error).message })
@@ -192,6 +207,11 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
               style={{ position: 'absolute', pointerEvents: 'none', border: '2px dashed #e07a3f', borderRadius: 4, left: `${problemBox.x * 100}%`, top: `${problemBox.y * 100}%`, width: `${problemBox.w * 100}%`, height: `${problemBox.h * 100}%` }}
             />
           )}
+          {shapes.map((s, i) => (
+            <div key={i} aria-hidden style={{ position: 'absolute', pointerEvents: 'none', border: '2px solid #3a7d87', borderRadius: 4, left: `${s.x * 100}%`, top: `${s.y * 100}%`, width: `${s.w * 100}%`, height: `${s.h * 100}%` }}>
+              <span style={{ position: 'absolute', left: 2, top: 0, font: 'bold 13px sans-serif', color: '#fff', background: '#3a7d87', borderRadius: 3, padding: '0 3px' }}>{'①②③④⑤⑥'[i]}</span>
+            </div>
+          ))}
           {box && <div className="pick-box" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }} />}
         </div>
       )}
@@ -213,23 +233,41 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
           <button type="button" className="secondary-button" disabled={loading} onClick={() => setStep('shape')}>
             문제 없이 도형만
           </button>
-          <button type="button" className="secondary-button" disabled={loading} onClick={() => read(null)}>
+          <button type="button" className="secondary-button" disabled={loading} onClick={() => read([])}>
             사진 전체 읽기
           </button>
         </div>
       )}
       {photo && state.kind !== 'straighten' && step === 'shape' && (
         <div className="pick-buttons">
-          <button type="button" className="primary-button" disabled={loading || !usable} onClick={() => read(box, problemBox)}>
-            이 도형 읽기
+          <button
+            type="button"
+            className="primary-button"
+            disabled={loading || (!usable && !shapes.length)}
+            onClick={() => read([...shapes, ...(usable && box ? [box] : [])], problemBox)}
+          >
+            {shapes.length ? `도형 ${shapes.length + (usable ? 1 : 0)}개 읽기` : '이 도형 읽기'}
           </button>
           <button
             type="button"
             className="secondary-button"
+            disabled={loading || !usable || shapes.length >= 5}
+            onClick={() => {
+              setShapes([...shapes, box!])
+              setBox(null)
+            }}
+          >
+            도형 더하기 +
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            style={{ gridColumn: '1 / -1' }}
             disabled={loading}
             onClick={() => {
               setBox(problemBox)
               setProblemBox(null)
+              setShapes([])
               setStep('problem')
             }}
           >
@@ -254,7 +292,12 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading }: Props) {
         {state.kind === 'idle' && '학습지 사진을 올리면 도형이 나타나요'}
         {state.kind === 'preparing' && '사진을 준비하고 있어요…'}
         {state.kind === 'straighten' && '동그라미 네 개를 학습지 네 귀퉁이에 맞춰 주세요'}
-        {state.kind === 'picking' && (step === 'problem' ? '① 문제 전체(문장과 그림)를 네모로 감싸 주세요' : '② 이제 도형(그림)만 네모로 딱 맞게 감싸 주세요')}
+        {state.kind === 'picking' &&
+          (step === 'problem'
+            ? '① 문제 전체(문장과 그림)를 네모로 감싸 주세요'
+            : shapes.length
+              ? `② 도형 ${shapes.length}개를 골랐어요. 더 있으면 감싸고 "도형 더하기", 다 골랐으면 읽어요`
+              : '② 이제 도형(그림)만 네모로 딱 맞게 감싸 주세요. 도형이 여러 개면 하나씩 감싸고 "도형 더하기"')}
         {state.kind === 'loading' && (
           <>
             사진에서 도형을 찾고 있어요… {seconds}초
