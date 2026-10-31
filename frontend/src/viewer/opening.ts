@@ -26,8 +26,8 @@ export const LOW_ANGLE = 24 // 오프닝 동안 카메라 높이각(도): 낮게
 const WANDER = 1.0 // 날아다니는 폭
 const ABSORB_TIME = 0.7 // 오른쪽 도형: 넘어가는 종이에 흡수되는 시간 (종이가 그 도형에 닿을 때 끝난다)
 const ABSORB_MIN = 0.35 // 넘기기 시작하자마자 닿는 도형도 이만큼은 날아 들어간다
-const SINK_TIME = 0.8 // 왼쪽 도형: 곡선을 그리며 왼쪽 쪽 안으로 들어가는 시간 (종이가 오기 전에 끝나게 줄어들 수 있다)
-const SINK_GAP = 0.12 // 왼쪽 도형이 하나씩 들어가는 간격 (넘기기 시작할 때부터)
+const SINK_TIME = 1.0 // 왼쪽 도형: 곡선을 그리며 왼쪽 쪽 안으로 들어가는 시간 (종이가 오기 전에 끝나게 줄어들 수 있다)
+const SINK_GAP = 0.06 // 왼쪽 도형이 하나씩 들어가는 간격 (넘기기 시작할 때부터)
 
 // 넘기는 종이 모양 (레퍼런스 C 구간): 바로 출발해 후반에 감속하고, 휨은 0 → 최대 → 0. 책등 쪽이 앞서고 바깥 끝이 뒤처진다
 const TURN_EASE = 1.6 // 넘어가는 각도 = π·(1 − (1 − p)^TURN_EASE). 2 면 power2.out. 1.6 이면 진행률 약 35% 에 수직
@@ -217,11 +217,12 @@ export function buildOpening(book: Book, size: number) {
     const theta = Math.atan2(dy, dx)
     // 오른쪽 도형: 그 시각까지 넘어가는 종이 위 자기 자리로 빨려 들어간다 (종이가 쓸고 가며 잡아챈다)
     const start = Math.max(TURN[0], turnTime(theta) - ABSORB_TIME)
-    // 왼쪽 도형: 종이가 오기 전에 곡선을 그리며 바로 아래 왼쪽 쪽 안으로 들어간다 (자리는 쪽 안쪽으로)
-    const spot = new THREE.Vector3(Math.min(spine.x - w * 0.15, Math.max(spine.x - w * 0.85, air.x)), book.top, Math.min(spine.z + d * 0.4, Math.max(spine.z - d * 0.4, air.z)))
+    // 도형은 바깥 그룹(holder)에 넣는다: holder 가 자리·늘이기(빨려 가는 방향으로)를, 안쪽 mesh 가 스스로 도는 회전과 크기를 맡는다
+    const holder = new THREE.Group()
+    holder.add(mesh)
     mesh.scale.setScalar(0)
-    book.group.add(mesh)
-    return { mesh, ground, air, size: SIZES[k % SIZES.length], left: theta > Math.PI / 2, theta, spot, start, end: Math.max(start + ABSORB_MIN, turnTime(theta)), reach: Math.min(Math.hypot(dx, dy), w * 0.95) }
+    book.group.add(holder)
+    return { holder, mesh, ground, air, size: SIZES[k % SIZES.length], left: theta > Math.PI / 2, theta, start, end: Math.max(start + ABSORB_MIN, turnTime(theta)), reach: Math.min(Math.hypot(dx, dy), w * 0.95) }
   })
   // 왼쪽 도형은 넘기기 시작할 때부터 책등 가까운 것부터 하나씩. 종이가 그 자리를 덮기 전에 끝나게
   shapes
@@ -249,7 +250,9 @@ export function buildOpening(book: Book, size: number) {
   const from = new THREE.Vector3()
   const to = new THREE.Vector3()
   const via = new THREE.Vector3()
-  const via2 = new THREE.Vector3()
+  const spot = new THREE.Vector3()
+  const dir = new THREE.Vector3()
+  const UP = new THREE.Vector3(0, 1, 0)
   const smooth = (a: number, b: number, x: number) => {
     const u = span(x, a, b)
     return u * u * (3 - 2 * u)
@@ -268,36 +271,43 @@ export function buildOpening(book: Book, size: number) {
     stack(landed / PAGES)
     const turn = span(t, TURN[0], TURN[1])
     title.set(turn, lerp(eps, eps * (PAGES + 1), turn))
-    shapes.forEach(({ mesh, size, left, spot, start, end, reach }, k) => {
+    shapes.forEach(({ holder, mesh, size, left, start, end, reach }, k) => {
       // 축마다 빠르기가 다른 회전, 살짝 늘었다 줄었다 (말랑한 느낌)
       mesh.rotation.set(Math.sin(t * 0.6 + k) * 0.5, k + t * (0.5 + 0.12 * (k % 3)), Math.cos(t * 0.45 + k * 1.3) * 0.3)
-      const breathe = 0.06 * Math.sin(t * 2.6 + k)
-      const a = easeInOut(span(t, start, end))
-      if (a === 0) {
-        flying(k, t, mesh.position)
-        const s = Math.max(0, easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))) * size
-        mesh.scale.set(s * (1 - breathe / 2), s * (1 + breathe), s * (1 - breathe / 2))
+      const u = span(t, start, end)
+      if (u === 0) {
+        flying(k, t, holder.position)
+        mesh.scale.setScalar(Math.max(0, easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))) * size)
+        const breathe = 0.06 * Math.sin(t * 2.6 + k)
+        holder.scale.set(1 - breathe / 2, 1 + breathe, 1 - breathe / 2)
         return
       }
       flying(k, start, from)
-      const b = 1 - a
+      holder.visible = u < 1
       if (left) {
-        // 왼쪽: 살짝 떴다가 미끄러지듯 내려앉는 곡선(3차 베지어)으로 왼쪽 쪽 안으로. 높이 솟으면 넘어오는 종이에 걸려서 조금만 뜬다.
-        // 가는 동안 늘어났다가, 닿으면서 납작해지며 종이 속으로 사라진다
-        via.copy(from).add(new THREE.Vector3(0, 0.4, 0.4))
-        via2.copy(spot).y += 1
-        mesh.position.set(0, 0, 0).addScaledVector(from, b * b * b).addScaledVector(via, 3 * a * b * b).addScaledVector(via2, 3 * a * a * b).addScaledVector(spot, a * a * a)
-        const s = size * (1 - smooth(0.4, 1, a))
-        mesh.scale.set(s * (1 + 0.3 * smooth(0.7, 1, a)), s * (1 + 0.3 * Math.sin(Math.PI * a) - 0.5 * smooth(0.75, 1, a)), s * (1 + 0.3 * smooth(0.7, 1, a)))
-      } else {
-        // 오른쪽: 위로 부푼 곡선(2차 베지어)으로 넘어가는 종이 위 자기 자리로 빨려 들어가 작아진다. 끝점은 종이를 따라 움직인다
-        title.pointAt(reach, from.z - spine.z, to)
-        via.lerpVectors(from, to, 0.5).y += 1.2
-        mesh.position.set(0, 0, 0).addScaledVector(from, b * b).addScaledVector(via, 2 * a * b).addScaledVector(to, a * a)
-        const s = size * (1 - a) ** 0.7
-        mesh.scale.set(s, s * (1 - 0.5 * a), s) // 종이에 눌리듯 조금 납작해지며
+        // 왼쪽: 바로 아래 왼쪽 쪽으로 가라앉는다. 물에 잠기듯 처음엔 천천히, 닿으면서 납작하게 퍼지며 종이 속으로 사라진다.
+        // 내려갈수록 책등에서 본 각도가 커져 넘어오는 종이에서 멀어진다
+        const a = easeInOut(u)
+        spot.set(Math.min(spine.x - w * 0.15, Math.max(spine.x - w * 0.85, from.x)), book.top, Math.min(spine.z + d * 0.4, Math.max(spine.z - d * 0.4, from.z)))
+        holder.position.lerpVectors(from, spot, a)
+        holder.quaternion.identity()
+        mesh.scale.setScalar(size * (1 - smooth(0.5, 1, a)))
+        const press = smooth(0.6, 1, a)
+        holder.scale.set(1 + 0.4 * press, 1 - 0.7 * press, 1 + 0.4 * press)
+        return
       }
-      mesh.visible = a < 1
+      // 오른쪽: 블랙홀에 빨려 들어가듯, 넘어가는 종이 위 자기 자리로 점점 빨라지며 들어간다.
+      // 들어가는 쪽으로 길게 늘어나고 옆은 가늘어지다가 끝에서 한 점으로 사라진다. 끝점은 종이를 따라 움직인다
+      const a = u * u // 점점 빨라진다
+      title.pointAt(reach, from.z - spine.z, to)
+      via.lerpVectors(from, to, 0.5).y += 0.8
+      const b = 1 - a
+      holder.position.set(0, 0, 0).addScaledVector(from, b * b).addScaledVector(via, 2 * a * b).addScaledVector(to, a * a)
+      dir.subVectors(to, holder.position)
+      if (dir.lengthSq() > 1e-6) holder.quaternion.setFromUnitVectors(UP, dir.normalize())
+      const long = 1 + 3.5 * u * u
+      holder.scale.set(1 / Math.sqrt(long), long, 1 / Math.sqrt(long))
+      mesh.scale.setScalar(size * (1 - smooth(0.55, 1, u)))
     })
   }
 
@@ -312,7 +322,7 @@ export function buildOpening(book: Book, size: number) {
     leftPage.visible = true
     stack(1)
     face.map = text
-    book.group.remove(flap, title.group, ...flutter.map((f) => f.page.group), ...shapes.map((s) => s.mesh))
+    book.group.remove(flap, title.group, ...flutter.map((f) => f.page.group), ...shapes.map((s) => s.holder))
   }
 
   update(0)
