@@ -106,7 +106,11 @@ export default function App() {
   const [galleryIndex, setGalleryIndex] = useState(0)
   const [drawIn, setDrawIn] = useState(0) // 사진 인식 결과가 올 때마다 1 늘린다. 책에 펜이 그려 낸다 (viewer.md "펜으로 그려 내기")
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
-  const readingNow = reading && !!photo && !hologram // 읽는 동안 3D 는 사진 깐 빈 책
+  // 읽은 뒤 결과 뷰어가 첫 프레임을 그릴 때까지(onReady) 읽는 중 빈 책을 위에 덮어 둔다 (viewer.md "빈 책" 읽는 중).
+  // holdFrom: 읽기를 시작할 때의 drawIn. 결과가 와서 drawIn 이 바뀌었는데 뷰어가 아직 알리지 않았으면 덮는다 (실패해서 안 바뀌면 덮지 않는다)
+  const [holdFrom, setHoldFrom] = useState<number | null>(null)
+  const holding = holdFrom !== null && drawIn !== holdFrom && !reading
+  const readingNow = (reading || holding) && !!photo && !hologram // 3D 에 사진 깐 빈 책 (읽는 중, 결과 뷰어 준비 중)
   // 사진이 있으면 직접 만들기를 접어 둔다. 고치기를 누르거나 인식이 실패하면 그 사진에서만 펼친다 (worksheets.md, 수동 경로는 늘 한 번에 닿는다)
   const [manualFor, setManualFor] = useState<string | null>(null)
   const manualOpen = !photo || manualFor === photo
@@ -216,9 +220,20 @@ export default function App() {
   useEffect(() => {
     sceneNow.current = scene
   }, [scene])
+  const drawInNow = useRef(drawIn)
+  useEffect(() => {
+    drawInNow.current = drawIn
+  }, [drawIn])
   useEffect(() => {
     if (reading) readStart.current = { scene: sceneNow.current }
+    if (reading) setHoldFrom(drawInNow.current)
   }, [reading])
+  // 뷰어가 끝내 알리지 않아도(오류 등) 4초 뒤에는 걷는다
+  useEffect(() => {
+    if (!holding) return
+    const t = setTimeout(() => setHoldFrom(null), 4000)
+    return () => clearTimeout(t)
+  }, [holding])
   // 여러 도형에 원기둥·원뿔·구가 섞이면 다면체만 같이 놓고 곡면 도형은 뺀다 (책에 같이 못 놓는다, viewer.md "여러 도형").
   // 모두 곡면이면 첫 도형 하나만. 뺀 도형은 만들기 카드에 한 줄로 알린다
   const [leftOut, setLeftOut] = useState<string | null>(null)
@@ -269,13 +284,17 @@ export default function App() {
           </button>
         )}
         {/* 사진을 읽는 동안은 빈 책 오른쪽 쪽에 사진을 깔고 펜이 칠한다 (ui.md 화면 배치 2번, viewer.md "빈 책" 읽는 중) */}
-        {readingNow && <EmptyBook pageText={[]} contents={[]} reading={photo!} onPick={() => {}} />}
+        {readingNow && (
+          <div className="stage-cover">
+            <EmptyBook pageText={[]} contents={[]} reading={photo!} onPick={() => {}} />
+          </div>
+        )}
         {!scene && !readingNow && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
             }} />}
-        {scene && !hologram && !readingNow && (
+        {scene && !hologram && !(reading && photo) && (
           <Viewer
             scene={scene}
             unfold={unfold}
@@ -292,6 +311,7 @@ export default function App() {
             pageNumbers={pageNumbersOf(scene)}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             drawIn={drawIn || undefined}
+            onReady={() => setHoldFrom(null)}
             gallery={gallery && gallery.length > 1 ? gallery.map((g) => g.scene) : undefined}
             galleryIndex={galleryIndex}
             onPickGallery={pickShape}
