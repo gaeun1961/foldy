@@ -1,4 +1,4 @@
-# 내 학습지 (보관함 · 팀 테스트용 인식 엔진 · 인식 대기 화면)
+# 내 학습지 (보관함 · 팀 테스트용 인식 엔진 · 문제 글 · 홀로그램 사진)
 
 [mobile.md](mobile.md) 다음 단계의 계획과 명세입니다. **상태: 계획 (2026-10-31, 구현 전)**. 팀원 작업과 겹치지 않게 경계·변경 지도를 먼저 정한다.
 
@@ -6,6 +6,37 @@
   - 사진 인식은 API 비용이 커서 **팀 테스트에서는 Antigravity CLI(`agy`)로** 읽는다. 학생이 쓰는 배포 서버에서는 켜지 않는다
   - 찍은 학습지를 다시 볼 수 있게 **보관함**을 둔다. 책의 "차례"(예시 도형)와 따로
 - **바꾸지 않는 것**: ShapeScene 계약, `/analyze`·`/chat` 요청·응답, `ViewerProps`, `PhotoUpload`의 Props, **`App.tsx`**(10/28 이후 수정 21건 중 팀원 17건, 겹침이 가장 높다)
+
+---
+
+## 통합 작업 계획 (2026-10-31, 우리 작업 + 홀로그램 세션 인계)
+
+**목표**: 학생이 찍은 학습지가 ① 정확히 읽히고 ② 사진과 전개도가 딱 겹치고 ③ 문제 글까지 책에 나오고 ④ 보관함에 남고 ⑤ 홀로그램에서도 자기 학습지로 접힌다.
+
+| 단계 | 작업 | 내용 | 선행 | 고치는 곳 | 확인 지점 (사용자) |
+|---|---|---|---|---|---|
+| **P0 정리** | 모바일 PR | `feature/mobile-web`(M1~M5) push·PR. 원격 main(#123)을 `feature/worksheets`에 합치기 | 사용자 결정 | - | PR 확인 |
+| **P1 사진 놓기** | W5 사진 돌리기 | 네모 단계 "돌리기 ↻ 90°", 돌린 사진이 기준 사진 ([B2](../todo/B2-photo-overlay-rotated.md) 해결) | 없음 | `PhotoUpload.tsx`, `photoPrep.ts` | ① 3-2를 돌려 읽으면 칸 밑 사진과 전개도가 같은 방향 |
+| | W4 대기·비교 화면 | 읽는 중 표시와 지난 초, 결과가 오면 사진과 인식한 전개도를 나란히 (틀린 인식을 사람이 알아채게, W0 3-2 low 사례) | W5 | `PhotoUpload.tsx`, `index.css` | ① 같이 |
+| **P2 계약 묶음** | W7 문제 글 + W8 사진 자동 맞춤 | ShapeScene 선택 항목 `problem?: string`(인쇄된 문제 문장), `photoBox?: {x,y,w,h}`(사진에서 전개도가 있는 곳, 0~1). **`[계약]` 이슈 하나로 팀 합의 → shape-scene.md → types.ts·schema.py·프롬프트 한 PR**. 문제 글은 책 왼쪽 쪽(`pageText`) 제목 아래, 챗봇 프롬프트에도. "사진 전체 읽기"도 `photoBox`로 칸 밑 사진을 자동으로 맞춘다(`fitToBox` 재사용) | 팀 합의 | backend `ai/`, `shared/types.ts`, `App.tsx` 몇 줄 | ② 29번·3-2: 왼쪽 쪽에 문제 글, 사진과 전개도가 저절로 겹침 |
+| **P3 보관함** | W3 | 기기 안 저장(문제 글·맞춤 포함), 다시 열기·이름·지우기 | P2 (저장할 모양이 정해진 뒤) | `worksheetStore.ts`·`WorksheetShelf.tsx` 새로, `PhotoUpload.tsx` | ③ 저장했다 다시 열기 |
+| **P4 홀로그램 사진** | W6 (인계) | 면마다 사진 UV → `buildStage(scene, theme, { photo })`, 홀로그램은 반전·어두운 곳 투명 | #122 머지, P1·P2 (사진이 전개도와 겹쳐야 면에 맞게 입혀짐) | `viewer/stage.ts` 사진 경로, `HologramMode` prop 한 줄, `App.tsx` 한 줄 | ④ 홀로그램에서 자기 학습지가 접힘 |
+| **언제든** | W2 모델 비교 | `vision_eval --engine agy --model …` (계정 사용량) | W1 (끝남) | backend `evals/` | 숫자 표 |
+| **넘김** | [B1](../todo/B1-viewer-wheel-zoom.md) | 3D 휠 거리 제한 | - | `viewer/` (프론트 담당) | - |
+
+**순서**: P0 → P1 → (P2 합의를 기다리는 동안 W2) → P2 → P3 → P4. P1은 계약 변경 없이 바로 할 수 있다.
+
+**브랜치**: 지금 `feature/worksheets`(W1·문서)를 P1까지 이어 가고 PR. P2는 계약 이슈 번호로 새 브랜치, P3·P4도 각각 새 브랜치 (TODO 하나에 PR 하나).
+
+**홀로그램 브랜치(`feature/122-hologram-mode`)와 겹치는 파일**
+
+| 파일 | 홀로그램 | 우리 | 규칙 |
+|---|---|---|---|
+| `ui/App.tsx` | 홀로그램 버튼·모드 | P2 문제 글 `pageText`, P4 prop 한 줄 | 늦게 머지하는 쪽이 맞춘다. 우리는 줄 단위로만 더한다 |
+| `index.css` | 홀로그램 화면 | P1 비교 화면 | 각자 자기 블록 끝에만 더한다 |
+| `package.json` `test` 줄 | `stage.test`, `holoLayout.test` | `photoPrep`·`perspective`(이미), P3 `worksheetStore.test` | 양쪽 검사를 모두 남긴다 |
+| `viewer/stage.ts` | 무대 전체 | P4 사진 경로만 | P4는 #122 머지 뒤에만 시작 |
+| `docs/todo/00-todo-list.md` | TODO-43 줄 | 버그·모바일 섹션 | 섹션이 달라 줄 단위로 합친다 |
 
 ---
 
