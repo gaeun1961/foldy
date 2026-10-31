@@ -17,10 +17,12 @@ const PAGES = 5 // 넘어오는 종이 장 수
 const POP = 2.8 // 도형이 하나씩 떠오르기 시작. 그 뒤로 곡선을 그리며 날아다닌다
 const TURN = [5.6, 7.4] // 속표지가 넘어간다. 넘어가기 시작하면 도형이 종이가 지나가는 순서대로 하나씩 흡수된다
 export const OPENING_SECONDS = 7.6
-const SHAPE_SIZE = 1.8 // 도형 크기 (배)
-const WANDER = 0.9 // 날아다니는 폭
-const ABSORB_TIME = 0.7 // 도형 하나가 곡선을 그리며 종이에 흡수되는 시간 (종이가 그 도형에 닿을 때 끝난다)
+const SIZES = [2.2, 1.4, 1.9, 1.6, 1.3, 2.0, 1.5, 2.4, 1.7, 1.25, 1.85] // 도형마다 다른 크기 (배)
+const WANDER = 1.0 // 날아다니는 폭
+const ABSORB_TIME = 0.7 // 오른쪽 도형: 넘어가는 종이에 흡수되는 시간 (종이가 그 도형에 닿을 때 끝난다)
 const ABSORB_MIN = 0.35 // 넘기기 시작하자마자 닿는 도형도 이만큼은 날아 들어간다
+const SINK_TIME = 0.8 // 왼쪽 도형: 곡선을 그리며 왼쪽 쪽 안으로 들어가는 시간 (종이가 오기 전에 끝나게 줄어들 수 있다)
+const SINK_GAP = 0.12 // 왼쪽 도형이 하나씩 들어가는 간격 (넘기기 시작할 때부터)
 
 // 넘기는 종이 모양 (레퍼런스 C 구간): 바로 출발해 후반에 감속하고, 휨은 0 → 최대 → 0. 책등 쪽이 앞서고 바깥 끝이 뒤처진다
 const TURN_EASE = 1.6 // 넘어가는 각도 = π·(1 − (1 − p)^TURN_EASE). 2 면 power2.out. 1.6 이면 진행률 약 35% 에 수직
@@ -203,28 +205,49 @@ export function buildOpening(book: Book, size: number) {
     const angle = (k / all.length) * Math.PI * 2
     const ground = new THREE.Vector3(spine.x + Math.cos(angle) * w * 0.62, book.top, spine.z + Math.sin(angle) * d * 0.3)
     const air = ground.clone().setY(2.2 + (k % 3) * 0.9)
-    // 3. 흡수: 책등을 축으로 도는 종이가 이 도형이 떠 있는 방향(θ)에 닿는 순간 종이 속으로 들어가 끝나게 한다.
-    // 그래서 오른쪽에 떠 있던 것부터 하나씩, 왼쪽 것은 종이가 왼쪽 쪽에 닫힐 무렵 그 사이로 들어간다 (팝업북을 닫을 때처럼)
+    // 3. 흡수. 책등을 축으로 도는 종이가 이 도형이 떠 있는 방향(θ)에 닿는 시각
     const dx = air.x - spine.x
     const dy = air.y - book.top
-    const hit = turnTime(Math.atan2(dy, dx))
-    const start = Math.max(TURN[0], hit - ABSORB_TIME)
+    const theta = Math.atan2(dy, dx)
+    // 오른쪽 도형: 그 시각까지 넘어가는 종이 위 자기 자리로 빨려 들어간다 (종이가 쓸고 가며 잡아챈다)
+    const start = Math.max(TURN[0], turnTime(theta) - ABSORB_TIME)
+    // 왼쪽 도형: 종이가 오기 전에 곡선을 그리며 바로 아래 왼쪽 쪽 안으로 들어간다 (자리는 쪽 안쪽으로)
+    const spot = new THREE.Vector3(Math.min(spine.x - w * 0.15, Math.max(spine.x - w * 0.85, air.x)), book.top, Math.min(spine.z + d * 0.4, Math.max(spine.z - d * 0.4, air.z)))
     mesh.scale.setScalar(0)
     book.group.add(mesh)
-    return { mesh, ground, air, start, end: Math.max(start + ABSORB_MIN, hit), reach: Math.min(Math.hypot(dx, dy), w * 0.95) }
+    return { mesh, ground, air, size: SIZES[k % SIZES.length], left: theta > Math.PI / 2, theta, spot, start, end: Math.max(start + ABSORB_MIN, turnTime(theta)), reach: Math.min(Math.hypot(dx, dy), w * 0.95) }
   })
-  // 날아다니는 자리: 떠오른 곳을 중심으로 도형마다 다른 리사주 곡선
+  // 왼쪽 도형은 넘기기 시작할 때부터 책등 가까운 것부터 하나씩. 종이가 그 자리를 덮기 전에 끝나게
+  shapes
+    .filter((s) => s.left)
+    .sort((a, b) => a.theta - b.theta)
+    .forEach((s, n) => {
+      s.start = TURN[0] + n * SINK_GAP
+      // 떠 있던 방향에 종이가 닿기 0.15초 전에 다 들어간다 (내려갈수록 책등에서 본 각도가 커져 종이에서 멀어진다)
+      s.end = Math.max(s.start + 0.4, Math.min(s.start + SINK_TIME, turnTime(s.theta) - 0.15))
+    })
+  // 날아다니는 자리: 떠오른 곳을 중심으로, 빠르기가 다른 두 곡선을 겹쳐 도형마다 다르게 부드럽게 휘돈다
   const flying = (k: number, t: number, out: THREE.Vector3) => {
     const { ground, air } = shapes[k]
     const p = easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))
-    const wander = WANDER * span(t, POP + 0.6, POP + 2)
-    return out
-      .lerpVectors(ground, air, p)
-      .add(new THREE.Vector3(Math.sin(t * 0.9 + k * 1.3) * wander, Math.sin(t * 1.4 + k * 2.1) * wander * 0.35, Math.cos(t * 0.7 + k * 1.7) * wander * 0.8))
+    const W = WANDER * span(t, POP + 0.6, POP + 2)
+    const f = 0.55 + 0.07 * (k % 4)
+    return out.lerpVectors(ground, air, p).add(
+      new THREE.Vector3(
+        (Math.sin(t * f + k * 1.3) + 0.45 * Math.sin(t * f * 2.3 + k * 0.7)) * W,
+        (Math.sin(t * f * 1.6 + k * 2.1) * 0.4 + 0.15 * Math.sin(t * 3.1 + k)) * W,
+        (Math.cos(t * f * 0.8 + k * 1.7) + 0.4 * Math.cos(t * 1.9 + k * 2.6)) * W * 0.8,
+      ),
+    )
   }
   const from = new THREE.Vector3()
   const to = new THREE.Vector3()
   const via = new THREE.Vector3()
+  const via2 = new THREE.Vector3()
+  const smooth = (a: number, b: number, x: number) => {
+    const u = span(x, a, b)
+    return u * u * (3 - 2 * u)
+  }
 
   let done = false
   const update = (t: number) => {
@@ -239,24 +262,36 @@ export function buildOpening(book: Book, size: number) {
     stack(landed / PAGES)
     const turn = span(t, TURN[0], TURN[1])
     title.set(turn, lerp(eps, eps * (PAGES + 1), turn))
-    shapes.forEach(({ mesh, start, end, reach }, k) => {
-      mesh.rotation.set(Math.sin(t + k) * 0.4, k + 0.8 * t, 0)
+    shapes.forEach(({ mesh, size, left, spot, start, end, reach }, k) => {
+      // 축마다 빠르기가 다른 회전, 살짝 늘었다 줄었다 (말랑한 느낌)
+      mesh.rotation.set(Math.sin(t * 0.6 + k) * 0.5, k + t * (0.5 + 0.12 * (k % 3)), Math.cos(t * 0.45 + k * 1.3) * 0.3)
+      const breathe = 0.06 * Math.sin(t * 2.6 + k)
       const a = easeInOut(span(t, start, end))
       if (a === 0) {
         flying(k, t, mesh.position)
-        mesh.scale.setScalar(Math.max(0, easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))) * SHAPE_SIZE)
+        const s = Math.max(0, easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))) * size
+        mesh.scale.set(s * (1 - breathe / 2), s * (1 + breathe), s * (1 - breathe / 2))
         return
       }
-      // 3. 날던 곡선에서 이어서, 위로 부푼 곡선(2차 베지어)을 그리며 넘어가는 종이 위 자기 자리로 빨려 들어가 작아진다.
-      // 끝점은 종이를 따라 움직인다 (종이가 도형에 닿는 순간 다 들어간다)
       flying(k, start, from)
-      title.pointAt(reach, from.z - spine.z, to)
-      via.lerpVectors(from, to, 0.5).y += 1.2
       const b = 1 - a
-      mesh.position.set(0, 0, 0).addScaledVector(from, b * b).addScaledVector(via, 2 * a * b).addScaledVector(to, a * a)
-      const size = SHAPE_SIZE * (1 - a) ** 0.7
+      if (left) {
+        // 왼쪽: 살짝 떴다가 미끄러지듯 내려앉는 곡선(3차 베지어)으로 왼쪽 쪽 안으로. 높이 솟으면 넘어오는 종이에 걸려서 조금만 뜬다.
+        // 가는 동안 늘어났다가, 닿으면서 납작해지며 종이 속으로 사라진다
+        via.copy(from).add(new THREE.Vector3(0, 0.4, 0.4))
+        via2.copy(spot).y += 1
+        mesh.position.set(0, 0, 0).addScaledVector(from, b * b * b).addScaledVector(via, 3 * a * b * b).addScaledVector(via2, 3 * a * a * b).addScaledVector(spot, a * a * a)
+        const s = size * (1 - smooth(0.4, 1, a))
+        mesh.scale.set(s * (1 + 0.3 * smooth(0.7, 1, a)), s * (1 + 0.3 * Math.sin(Math.PI * a) - 0.5 * smooth(0.75, 1, a)), s * (1 + 0.3 * smooth(0.7, 1, a)))
+      } else {
+        // 오른쪽: 위로 부푼 곡선(2차 베지어)으로 넘어가는 종이 위 자기 자리로 빨려 들어가 작아진다. 끝점은 종이를 따라 움직인다
+        title.pointAt(reach, from.z - spine.z, to)
+        via.lerpVectors(from, to, 0.5).y += 1.2
+        mesh.position.set(0, 0, 0).addScaledVector(from, b * b).addScaledVector(via, 2 * a * b).addScaledVector(to, a * a)
+        const s = size * (1 - a) ** 0.7
+        mesh.scale.set(s, s * (1 - 0.5 * a), s) // 종이에 눌리듯 조금 납작해지며
+      }
       mesh.visible = a < 1
-      mesh.scale.set(size, size * (1 - 0.5 * a), size) // 종이에 눌리듯 조금 납작해지며
     })
   }
 
