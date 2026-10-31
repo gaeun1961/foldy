@@ -49,3 +49,5 @@ export { CONE_THIRD_LINK, LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonGrade, l
 export { SIMILAR_SCALES } from './lessons/similarLayout'
 export { RELATION_COLORS } from './lessons/edgeRelationsLayout'
 export { STAIR_LAYERS } from './lessons/volumeLayout'
+export { HologramViewer, type HologramProps } from './HologramViewer'
+export { stageSupported as hologramSupported } from './stage' // 아크릴 피라미드 홀로그램 (viewer.md "홀로그램"). 무대가 그리는 도형이면 홀로그램도 된다

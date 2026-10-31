@@ -5,10 +5,13 @@ import * as THREE from 'three'
 
 // 색은 docs/specs/ui.md 색 기준 "3D 뷰 배경"
 export const DESK_COLOR = '#c9a983' // 나무 책상 (index.css --desk 와 같게, ui.md 컨셉)
+// 책 장면 카메라 방향: 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게.
+// 순서가 없는 도형(정다면체·각뿔)을 눕히는 방향(facingYaw)과 접는 순서(farFirstOrder)도 이 방향으로 정한다. 홀로그램 무대(stage.ts)도 같은 값을 써서 같은 순서로 접힌다
+export const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1)
 const COVER_COLOR = '#b08d57' // 차분한 황토
 const PAPER_COLOR = '#faf6ee' // 따뜻한 미색
 const PAPER_EDGE = '#efe8da'
-const INK = '#2f2a25'
+export const INK = '#2f2a25'
 const PAGE_SCALE = 2
 const ANSWER = '#e0442e' // 최종 답만 빨강
 const RESULT_FILL = '#fbecb8' // 결과 칸: 노랑 색연필로 칠한 형광펜
@@ -17,7 +20,7 @@ const PENCILS = ['#e0442e', '#2f6fd0', '#2e9e4f', '#f5c518'] // 화면의 강조
 // 매트: 밝기를 비교하는 임시 토글 때문에 하나를 같이 쓴다 (ui.md 컨셉). 정해지면 상수로
 const matMaterial = new THREE.MeshStandardMaterial({ color: '#4d4945', roughness: 0.9 })
 export const setMatColor = (color: string) => matMaterial.color.set(color)
-const FONT = "'Pretendard Variable', Pretendard, system-ui, sans-serif"
+export const FONT = "'Pretendard Variable', Pretendard, system-ui, sans-serif"
 
 // 빈 책 오른쪽 쪽의 차례 한 줄 (viewer.md "빈 책")
 // 공식 결과: 왼쪽 쪽에서 한 줄 설명 자리에 식과 값을 찍는다
@@ -31,7 +34,7 @@ export type BookContent = { title: string; page: number | null } // page: 그 �
 
 // 종이 한 장의 윗면: 종이색 + 책등 쪽 그늘 + (왼쪽 페이지) 글자 / (오른쪽, 빈 책) 차례. 캔버스 위쪽이 책의 먼 쪽(−z).
 // 차례를 그리면 줄마다 캔버스 위 세로 범위(0 = 위, 1 = 아래)를 rows 에 담는다 (누른 줄 찾기)
-function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number, result?: BookResult, menu: BookMenuItem[] = [], menuRows: { id: string; top: number; bottom: number; enabled: boolean }[] = []) {
+export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number, result?: BookResult, menu: BookMenuItem[] = [], menuRows: { id: string; top: number; bottom: number; enabled: boolean }[] = []) {
   const canvas = document.createElement('canvas')
   // 글자가 뭉개지지 않게 실제 그림은 PAGE_SCALE 배로 그린다. 아래 좌표와 글자 크기는 가로 1024 기준 그대로
   const [w, h] = [1024, Math.round((1024 * pageD) / pageW)]
@@ -419,10 +422,12 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     else leftPage = page
   }
 
-  // 표지: 종이보다 조금 크게, 종이 아래
+  // 표지: 종이보다 조금 크게, 종이 아래. 오프닝에서 왼쪽 반이 책등을 축으로 돌아 덮이므로 책등에서 둘로 나눈다
   const cover = own(new THREE.MeshStandardMaterial({ color: COVER_COLOR, roughness: 0.8 }))
   const coverY = top - thick - coverT / 2
-  add(new THREE.BoxGeometry(2 * pageW + 2 * coverMargin, coverT, pageD + 2 * coverMargin), cover, spineX, coverY, cz).castShadow = true
+  const coverW = pageW + coverMargin
+  const [leftCover, rightCover] = [-1, 1].map((s) => add(new THREE.BoxGeometry(coverW, coverT, pageD + 2 * coverMargin), cover, spineX + (s * coverW) / 2, coverY, cz))
+  leftCover.castShadow = rightCover.castShadow = true
 
   // 데스크 매트와 책상
   const matTop = coverY - coverT / 2
@@ -473,6 +478,10 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     center: new THREE.Vector3(spineX, 0, cz), // 펼친 책의 가운데 (책등 위)
     textCorner: new THREE.Vector3(spineX - pageW * 0.88, 0, cz - pageD * 0.42), // 왼쪽 쪽 글이 시작하는 곳. 공식 결과를 보여 줄 때 카메라가 담는다
     top, // 페이지 윗면 높이 (평평한 곳)
+    page: { w: pageW, d: pageD }, // 한 쪽 크기 (오프닝에서 넘기는 종이)
+    leftCover, // 표지 왼쪽 반 (오프닝에서 책을 덮었다 펼친다)
+    thick, // 종이 묶음 두께
+    gutter: { curl, dip }, // 책등 골: 책등에서 curl 안쪽이 dip 만큼 말려 들어간다 (오프닝의 넘기는 종이가 여기서 올라온다)
     // 빈 책: 광선이 맞힌 곳이 오른쪽 쪽 차례의 몇 번째 줄인가 (윗면 텍스처 v 는 위쪽이 1). 아니면 null
     contentAt: (hit: THREE.Intersection | undefined) => {
       if (!hit || hit.object !== rightPage || hit.face?.materialIndex !== 2 || !hit.uv) return null
