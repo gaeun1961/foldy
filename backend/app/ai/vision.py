@@ -3,6 +3,7 @@
 recognize(): 비전 LLM(Gemini)에 사진과 VISION_PROMPT 를 보내 ShapeScene 을 받는다 (TODO-7 정확도 측정에도 쓴다).
 analyze_image(): /analyze 가 부른다. 같은 사진은 기억해 둔 결과를 쓰고, 모델이 붐비면 한 번 더 부른다 (api.md "/analyze 에러").
   API 를 못 쓰고 VISION_CLI=1 이면 recognize_cli() 로 Gemini CLI 에 한 번 더 묻는다 (시연 노트북용 비상 경로).
+  VISION_ENGINE=agy 면 API 대신 recognize_agy() 로 Antigravity CLI 가 읽는다 (팀 테스트용, docs/specs/worksheets.md).
 """
 
 import hashlib
@@ -12,6 +13,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -130,6 +132,51 @@ def recognize_cli(image: bytes, content_type: str) -> ShapeScene:
     return cli_scene(done.stdout)
 
 
+AGY_MODEL = "gemini-3.8-flash-medium"  # low 는 15초지만 전개도 모양을 틀렸다 (worksheets.md W0, 2026-10-31)
+AGY_TIMEOUT_S = 300  # medium 은 사진 한 장에 2분쯤 걸린다
+_agy_lock = threading.Lock()  # 한 번에 하나만 (팀원 여럿이 동시에 올리면 차례로)
+
+
+def recognize_agy(image: bytes, content_type: str) -> ShapeScene:
+    """팀 테스트용 엔진 (worksheets.md W1): 이 컴퓨터에 로그인된 Antigravity CLI(agy)로 사진을 읽는다.
+    사진은 임시 폴더에 두고 프롬프트 앞 @파일 로 붙인다. 명령 실행은 허락하지 않는다(--sandbox, 권한 건너뛰기 없음).
+    출력은 {"response": "```json ...```"} 모양이라 cli_scene 으로 읽는다."""
+    exe = shutil.which("agy")
+    if not exe:
+        raise VisionError("Antigravity CLI(agy) 가 설치돼 있지 않다")
+    model = os.environ.get("VISION_AGY_MODEL") or AGY_MODEL
+    with _agy_lock, tempfile.TemporaryDirectory() as folder:
+        name = "photo" + (mimetypes.guess_extension(content_type) or ".jpg")
+        (Path(folder) / name).write_bytes(image)
+        ask = (
+            f"@{name}\n\n{VISION_PROMPT}\n\n붙인 {name} 이 학습지 사진이다. "
+            "명령을 실행하거나 파일을 만들지 말고, 사진을 보고 위 지시대로 JSON 하나만 답해."
+        )
+        try:
+            # agy 는 .exe 라 긴 프롬프트도 인자로 넘어간다 (Gemini CLI 의 .cmd 와 다름)
+            done = subprocess.run(
+                [exe, "-p", ask, "--output-format", "json", "--model", model]
+                + [
+                    "--sandbox",
+                    "--add-dir",
+                    folder,
+                    "--print-timeout",
+                    f"{AGY_TIMEOUT_S - 20}s",
+                ],
+                check=False,  # 실패는 아래 returncode 로 본다
+                cwd=folder,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=AGY_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise VisionError("Antigravity CLI 시간 초과") from e
+    if done.returncode != 0:
+        raise VisionError(f"Antigravity CLI 실패: {done.stderr[-300:]}")
+    return cli_scene(done.stdout)
+
+
 def _recognize_api(image: bytes, content_type: str) -> ShapeScene:
     try:
         return recognize(image, content_type)
@@ -146,6 +193,10 @@ def analyze_image(image: bytes, content_type: str) -> ShapeScene:
     key = hashlib.sha256(image).hexdigest()
     if key in _remembered:
         return _remembered[key]
+    if os.environ.get("VISION_ENGINE") == "agy":
+        scene = recognize_agy(image, content_type)
+        _remember(key, scene)
+        return scene
     try:
         scene = _recognize_api(image, content_type)
     except VisionError as e:
@@ -153,7 +204,11 @@ def analyze_image(image: bytes, content_type: str) -> ShapeScene:
         if not (e.unavailable and os.environ.get("VISION_CLI") == "1"):
             raise
         scene = recognize_cli(image, content_type)
+    _remember(key, scene)
+    return scene
+
+
+def _remember(key: str, scene: ShapeScene) -> None:
     if len(_remembered) >= REMEMBER:
         _remembered.pop(next(iter(_remembered)))
     _remembered[key] = scene
-    return scene

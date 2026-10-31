@@ -60,6 +60,25 @@ npm run dev
 사진 인식은 인터넷과 Gemini 한도가 필요합니다 (무료 한도: 모델당 하루 20번, 한국 시간 오후 4시쯤 다시 채워짐). 한도를 아끼려면 시연 직전에 측정을 돌리지 않습니다.
 인터넷이나 한도가 막혀도 접기·공식 설명·전개도 그리기·사진 따라 그리기는 backend 없이 됩니다. 사진 인식 비상 경로(Gemini CLI)는 [docs/specs/api.md](docs/specs/api.md) "/analyze 에러"를 봅니다.
 
+### 휴대폰으로 열기 (같은 와이파이)
+
+PC의 와이파이 IP(`ipconfig`)가 `172.16.0.10`이라면:
+
+1. `backend/.env`에 `CORS_ORIGINS=http://172.16.0.10:5173`, `frontend/.env`에 `VITE_API_URL=http://172.16.0.10:8000` (`frontend/.env.example`을 복사)
+2. backend는 `uvicorn app.main:app --reload --env-file .env --host 0.0.0.0`, frontend는 `npm run dev -- --host`
+3. 휴대폰에서 http://172.16.0.10:5173 을 엽니다. 안 열리면 Windows 방화벽에서 5173·8000 포트를 허용합니다
+
+HTTP라서 "카메라로 찍기"(실시간 미리보기)는 보이지 않고, "학습지 사진 올리기"로 카메라 촬영을 씁니다. 자세한 것은 [docs/specs/mobile.md](docs/specs/mobile.md).
+
+### 팀 테스트: API 없이 사진 인식 (Antigravity CLI)
+
+API 비용 없이 팀원끼리 시험할 때만 씁니다. 각자 자기 컴퓨터에 Antigravity CLI(`agy`)를 설치하고 로그인합니다.
+
+1. `backend/.env`에 `VISION_ENGINE=agy` (모델을 바꾸려면 `VISION_AGY_MODEL`, 목록은 `agy models`)
+2. backend를 다시 켭니다. 사진 한 장에 2분쯤 걸리고, 같은 사진은 backend가 켜져 있는 동안 바로 나옵니다
+
+학생이 쓰는 배포 서버에서는 켜지 않습니다 (개인 계정 사용량). 자세한 것은 [docs/specs/worksheets.md](docs/specs/worksheets.md).
+
 ## 일하는 방식
 
 1. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md) 맨 위 "지금 시작 가능"에서 하나 고른다

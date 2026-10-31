@@ -132,6 +132,18 @@ if __name__ == "__main__":
     }
     ok(PRISM)
     ok(PYRAMID)
+
+    # 문제 글·사진 속 전개도 네모 (선택 항목, shape-scene.md)
+    PHOTO = {
+        **GRID,
+        "problem": "㉠, ㉡, ㉢에 알맞은 수를 구하세요.",
+        "photoBox": {"x": 0.2, "y": 0.1, "w": 0.5, "h": 0.4},
+    }
+    assert ok(PHOTO)["problem"].startswith("㉠")
+    ok({**GRID, "problem": None, "photoBox": None})
+    bad({**PHOTO, "photoBox": {"x": 0.2, "y": 0.1, "w": 0, "h": 0.4}})
+    bad({**PHOTO, "photoBox": {"x": -0.1, "y": 0.1, "w": 0.5, "h": 0.4}})
+    bad({**PHOTO, "photoBox": {"x": 0.2, "y": 0.1, "w": 1.5, "h": 0.4}})
     bad({**PRISM, "vertexLabels": [None] * 8})
     bad({**PYRAMID, "lines": [{"from": {"vertex": 5}, "to": {"vertex": 0}}]})
     bad({**PRISM, "size": {"sides": 2, "edge": 2, "height": 4}})

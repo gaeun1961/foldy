@@ -1,4 +1,4 @@
-"""비전 LLM 정확도 측정 (TODO-7). 실행: backend 폴더에서 python -m evals.vision_eval [--model 모델이름]
+"""비전 LLM 정확도 측정 (TODO-7). 실행: backend 폴더에서 python -m evals.vision_eval [--model 모델이름] [--engine api|agy]
 
 photos/ 의 학습지 사진마다 vision.recognize 를 불러 answers.json 의 정답과 비교한다.
 - 사진은 저작권 때문에 git 에 올리지 않는다 (photos/ 는 .gitignore)
@@ -11,12 +11,13 @@ photos/ 의 학습지 사진마다 vision.recognize 를 불러 answers.json 의 
 import argparse
 import json
 import mimetypes
+import os
 import sys
 import time
 from pathlib import Path
 
 from app.ai.schema import ShapeScene
-from app.ai.vision import MODEL, VisionError, recognize
+from app.ai.vision import AGY_MODEL, MODEL, VisionError, recognize, recognize_agy
 
 HERE = Path(__file__).parent
 FIELDS = ["shape", "size", "net", "labels", "marks", "lines"]
@@ -150,6 +151,12 @@ def compare(got: ShapeScene, want: ShapeScene) -> dict[str, bool]:
     }
 
 
+def _recognize_agy(image: bytes, content_type: str, model: str) -> ShapeScene:
+    """팀 테스트 엔진 (worksheets.md W2): API 비용 없이 Antigravity CLI 로 같은 측정. 느려서 재시도하지 않는다."""
+    os.environ["VISION_AGY_MODEL"] = model
+    return recognize_agy(image, content_type)
+
+
 def _recognize_retry(image: bytes, content_type: str, model: str) -> ShapeScene:
     """모델이 붐비거나(503 UNAVAILABLE) 시간이 넘으면(Timeout) 10초·30초 쉬고 다시 시도한다. 측정을 끝까지 하려고. (/analyze 의 재시도는 TODO-8 에서 정한다)"""
     for wait in (10, 30, None):
@@ -164,8 +171,12 @@ def _recognize_retry(image: bytes, content_type: str, model: str) -> ShapeScene:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default=MODEL)
-    model = parser.parse_args().model
+    parser.add_argument("--model")
+    parser.add_argument("--engine", choices=("api", "agy"), default="api")
+    args = parser.parse_args()
+    agy = args.engine == "agy"
+    model = args.model or (AGY_MODEL if agy else MODEL)
+    read = _recognize_agy if agy else _recognize_retry
     answers = json.loads((HERE / "answers.json").read_text(encoding="utf-8"))
     photos = sorted(
         p for p in (HERE / "photos").glob("*") if p.name in answers and p.is_file()
@@ -182,7 +193,7 @@ def main() -> None:
         skip = set(answer.get("skip", []))
         content_type = mimetypes.guess_type(photo.name)[0] or "image/jpeg"
         try:
-            got = _recognize_retry(photo.read_bytes(), content_type, model)
+            got = read(photo.read_bytes(), content_type, model)
         except VisionError as e:
             rows.append((photo.name, None, skip, str(e)[:80]))
             saved[photo.name] = {"error": str(e)}

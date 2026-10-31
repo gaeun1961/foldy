@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from app.ai import chat, vision
@@ -20,7 +21,10 @@ async def analyze(file: UploadFile) -> ShapeScene:
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(400, "이미지 파일만 올릴 수 있어요")
     try:
-        return vision.analyze_image(await file.read(), file.content_type)
+        # 인식은 오래 걸릴 수 있어(agy 는 2분쯤) 다른 요청(/chat 등)을 막지 않게 스레드에서
+        return await run_in_threadpool(
+            vision.analyze_image, await file.read(), file.content_type
+        )
     except vision.VisionError as e:
         logger.warning(
             "사진 인식 실패: %s", e

@@ -59,7 +59,8 @@ function pageTextOf(scene: ShapeScene, lesson: Lesson | null, explain: string | 
   const title = lesson ? `${shapeName(scene)}의 ${LESSON_LABEL[lesson.kind]}` : scene.shape === 'sphere' ? shapeName(scene) : `${shapeName(scene)}의 전개도`
   if (note) return [title, note, ...(explain && explain !== note ? [explain] : [])]
   if (explain) return [title, explain]
-  return hasResult ? [title] : [title, dims].filter(Boolean)
+  // 사진에서 읽은 문제 문장은 제목 아래에 (shape-scene.md problem, worksheets.md W7)
+  return hasResult ? [title] : [title, scene.problem ?? '', dims].filter(Boolean)
 }
 
 // 다른 전개도 보기 (ui.md 화면 배치 6번, TODO-38): 같은 치수로 k번째 정육면체 전개도 모양의 grid. 선은 꼭짓점 번호가 달라져서 옮기지 않는다
