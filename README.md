@@ -70,6 +70,15 @@ PC의 와이파이 IP(`ipconfig`)가 `172.16.0.10`이라면:
 
 HTTP라서 "카메라로 찍기"(실시간 미리보기)는 보이지 않고, "학습지 사진 올리기"로 카메라 촬영을 씁니다. 자세한 것은 [docs/specs/mobile.md](docs/specs/mobile.md).
 
+### 팀 테스트: API 없이 사진 인식 (Antigravity CLI)
+
+API 비용 없이 팀원끼리 시험할 때만 씁니다. 각자 자기 컴퓨터에 Antigravity CLI(`agy`)를 설치하고 로그인합니다.
+
+1. `backend/.env`에 `VISION_ENGINE=agy` (모델을 바꾸려면 `VISION_AGY_MODEL`, 목록은 `agy models`)
+2. backend를 다시 켭니다. 사진 한 장에 2분쯤 걸리고, 같은 사진은 backend가 켜져 있는 동안 바로 나옵니다
+
+학생이 쓰는 배포 서버에서는 켜지 않습니다 (개인 계정 사용량). 자세한 것은 [docs/specs/worksheets.md](docs/specs/worksheets.md).
+
 ## 일하는 방식
 
 1. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md) 맨 위 "지금 시작 가능"에서 하나 고른다

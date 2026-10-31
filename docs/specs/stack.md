@@ -19,6 +19,7 @@ frontend·backend 기술 스택과, 어느 영역에서든 지켜야 하는 공�
 - **프레임워크**: FastAPI + uvicorn, 데이터 검증은 Pydantic v2
 - **업로드**: python-multipart
 - **LLM**: Google Gemini (`google-genai` SDK). 키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 받아 `backend/.env`의 `LLM_API_KEY`에 넣는다. 챗봇 모델은 `gemini-3.5-flash-lite`(`backend/app/ai/chat.py`의 `MODEL`). Flash 계열은 2026-10 기준 과부하(504·503)가 잦았고, `gemini-2.5-*`는 새 사용자에게 막혀 있다
+  - 팀 테스트 엔진: `VISION_ENGINE=agy`이면 사진 인식을 Antigravity CLI로 한다(API 비용 없이 팀원끼리 시험, [worksheets.md](worksheets.md)). CLI는 저장소 의존성이 아니라 각자 설치·로그인한다
   - 사진 인식 비상 경로: `VISION_CLI=1`이면 API를 못 쓸 때 Gemini CLI로 한 번 더 시도한다([api.md](api.md) "/analyze 에러"). CLI는 저장소 의존성이 아니라 시연 컴퓨터에 따로 설치·로그인한다(`npm install -g @google/gemini-cli` 후 `gemini`로 한 번 로그인)
 - **린트/포맷**: ruff (`ruff check .`, `ruff format .`)
 - **검사**: `python -m tests.test_schema` (ShapeScene 도형별 검증), `python -m tests.test_chat` (챗봇 화면 조작 값 거르기). LLM은 부르지 않는다
