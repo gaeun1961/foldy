@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from pathlib import Path
 
 import httpx
@@ -25,7 +26,7 @@ from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
-from app.ai import agy
+from app.ai import agy, record
 from app.ai.schema import ShapeScene
 from app.ai.vision_prompt import VISION_PROMPT
 
@@ -203,9 +204,12 @@ def read_problem(image: bytes, content_type: str) -> str | None:
                 os.environ.get("VISION_AGY_TEXT_MODEL") or AGY_TEXT_MODEL,
                 _agy_text_lock,
             )
-            return _clean_text(json.loads(out).get("response", ""))
+            text = _clean_text(json.loads(out).get("response", ""))
+            record.note(problem_source="agy", problem_ok=bool(text))
+            return text
         key = os.environ.get("LLM_API_KEY")
         if not key:
+            record.note(problem_source="none", problem_ok=False)
             return None
         client = genai.Client(
             api_key=key, http_options=types.HttpOptions(timeout=TIMEOUT_MS)
@@ -217,9 +221,12 @@ def read_problem(image: bytes, content_type: str) -> str | None:
                 system_instruction=TEXT_PROMPT.replace("{name}", "사진")
             ),
         )
-        return _clean_text(response.text or "")
+        text = _clean_text(response.text or "")
+        record.note(problem_source="api", problem_ok=bool(text))
+        return text
     except Exception as e:  # noqa: BLE001 — 문제 글은 덤이라 어떤 오류든 도형 결과를 버리지 않는다 (코드 검토)
         logger.warning("문제 글 읽기 실패: %s", e)
+        record.note(problem_ok=False, problem_error=str(e)[:300])
         return None
 
 
@@ -242,12 +249,16 @@ def analyze_image(
     key = hashlib.sha256(image + (problem or b"")).hexdigest()
     with _remember_lock:
         if key in _remembered:
+            record.note(
+                source="cache"
+            )  # 같은 사진(바이트까지 같음)을 기억에서 (기록 모드)
             return _remembered[key]
     if problem is None:
         return _analyze_shape(image, content_type, key)
     pool = ThreadPoolExecutor(max_workers=1)
     try:
-        text = pool.submit(read_problem, problem, content_type)
+        # 기록판(contextvar)을 이 스레드에도 넘긴다 (기록 모드)
+        text = pool.submit(copy_context().run, read_problem, problem, content_type)
         scene = _analyze_shape(image, content_type, None)
         problem_text = text.result()
     finally:
@@ -263,16 +274,19 @@ def analyze_image(
 
 def _analyze_shape(image: bytes, content_type: str, key: str | None) -> ShapeScene:
     if os.environ.get("VISION_ENGINE") == "agy":
+        record.note(source="agy", model=os.environ.get("VISION_AGY_MODEL") or AGY_MODEL)
         scene = recognize_agy(image, content_type)
         if key:
             _remember(key, scene)
         return scene
     try:
+        record.note(source="api", model=MODEL)
         scene = _recognize_api(image, content_type)
     except VisionError as e:
         # API 를 지금 못 쓰면(한도·과부하·키 없음) VISION_CLI=1 일 때만 Gemini CLI 로 한 번 더
         if not (e.unavailable and os.environ.get("VISION_CLI") == "1"):
             raise
+        record.note(source="cli", api_error=str(e)[:300])
         scene = recognize_cli(image, content_type)
     if key:
         _remember(key, scene)
