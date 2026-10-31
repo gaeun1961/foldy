@@ -187,6 +187,7 @@ export function HologramViewer({ scene, center = 0.2, showGuide = false, onTap }
       stage?.dispose()
       clearComposite()
       renderer.dispose()
+      renderer.forceContextLoss()
       renderer.domElement.remove()
     }
   }, [scene])

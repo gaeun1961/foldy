@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
-import { aimLight, bookLights, bookView, buildBook, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookRenderer, bookView, buildBook, liftLastFrame, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
 import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape } from './curved.ts'
 import { textSprite } from './lessons/draw.ts'
 import { buildCurvedLesson } from './lessons/curvedLessons.ts'
@@ -48,9 +48,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
 
   useEffect(() => {
     const container = containerRef.current!
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.shadowMap.enabled = true
+    const renderer = bookRenderer()
     container.appendChild(renderer.domElement)
     const world = new THREE.Scene()
     world.background = new THREE.Color(DESK_COLOR)
@@ -170,6 +168,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     renderer.setAnimationLoop(() => {
       controls.update()
       renderer.render(world, camera)
+      liftLastFrame()
     })
 
     return () => {
@@ -188,6 +187,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
       book.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
+      renderer.forceContextLoss()
       container.removeChild(renderer.domElement)
     }
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps -- shape·size·라벨은 key 에 들어 있다

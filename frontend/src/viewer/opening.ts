@@ -2,7 +2,7 @@
 // 1 표지가 열리고 종이 여러 장이 넘어온다 → 2 도형들이 페이지에서 떠올라 날아다닌다 → 3 속표지가 넘어가며 도형을 하나씩 흡수한다 → 4 빈 책
 // 이미지 파일 없이 책 장면의 상자·캔버스 텍스처와 three.js 기본 도형으로만 만든다
 import * as THREE from 'three'
-import { FONT, INK, pageTexture, type BookMenuItem, type buildBook } from './bookScene'
+import { FLIP_SCALE, FONT, INK, pageTexture, type BookMenuItem, type buildBook } from './bookScene'
 
 type Book = ReturnType<typeof buildBook>
 type Own = <T extends { dispose(): void }>(x: T) => T
@@ -131,12 +131,14 @@ export function buildPageTurn(book: Book, size: number, spreads: { text: string[
   const own: Own = (x) => (owned.push(x), x)
   const { w, d } = book.page
   const face = (book.pages()[0].material as THREE.MeshStandardMaterial[])[2]
-  const right = (k: number) => own(pageTexture(w, d, 'right', [], [], [], spreads[k].pageNumbers?.[1]))
-  const eps = size * 0.002
   const sheets = spreads.length
+  // 다 넘긴 뒤 보이는 두 쪽(고른 도형)만 제 해상도, 지나가는 쪽은 FLIP_SCALE. 뒤쪽 도형은 수십 장이라 휴대폰 메모리를 넘는다 (#152)
+  const scale = (k: number) => (k === sheets - 1 ? undefined : FLIP_SCALE)
+  const right = (k: number) => own(pageTexture(w, d, 'right', [], [], [], spreads[k].pageNumbers?.[1], undefined, [], [], scale(k)))
+  const eps = size * 0.002
   // k = 0 이 맨 위라 먼저 넘어가고, 왼쪽에서는 나중에 넘어간 장이 위에 쌓인다
   const pages = spreads.map(({ text, pageNumbers, menu }, k) => ({
-    page: turningPage(book, k === 0 ? face.map! : right(k - 1), own(pageTexture(w, d, 'left', text, [], [], pageNumbers?.[0], undefined, menu)), own),
+    page: turningPage(book, k === 0 ? face.map! : right(k - 1), own(pageTexture(w, d, 'left', text, [], [], pageNumbers?.[0], undefined, menu, [], scale(k))), own),
     right: eps * (sheets - k),
     left: eps * (k + 1),
     start: k * PAGE_TURN_GAP,

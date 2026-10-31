@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { aimLight, bookLights, bookView, buildBook, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookRenderer, bookView, buildBook, liftLastFrame, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
@@ -122,9 +122,7 @@ export function ThreeViewer({
     if (!poly) return // 곡면 도형·아직 데이터가 없는 도형
     const container = containerRef.current!
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.shadowMap.enabled = true // 기본 PCF. 가장자리는 light.shadow.radius 로 흐리게
+    const renderer = bookRenderer()
     container.appendChild(renderer.domElement)
 
     const world = new THREE.Scene()
@@ -684,6 +682,7 @@ export function ThreeViewer({
     renderer.setAnimationLoop(() => {
       controls.update()
       renderer.render(world, camera)
+      liftLastFrame()
     })
 
     return () => {
@@ -717,6 +716,7 @@ export function ThreeViewer({
       photoMesh?.material.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
+      renderer.forceContextLoss()
       container.removeChild(renderer.domElement)
     }
   }, [shapeKey]) // scene 은 sceneRef 로 읽는다. lines 만 바뀌면 다시 만들지 않는다

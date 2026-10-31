@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { aimLight, bookLights, buildBook, DESK_COLOR, VIEW_DIR, bookView, fitOf, readingRange, type BookContent, type BookMenuItem } from './bookScene.ts'
+import { aimLight, bookLights, bookRenderer, buildBook, keepLastFrame, DESK_COLOR, VIEW_DIR, bookView, fitOf, readingRange, type BookContent, type BookMenuItem } from './bookScene.ts'
 import { buildOpening, buildPageTurn, LOW_ANGLE, OPENING_SECONDS } from './opening.ts'
 
 // 빈 책 (docs/specs/viewer.md "빈 책"): 도형이 없을 때 같은 책 장면을 도형 없이 그린다.
@@ -18,6 +18,7 @@ interface Props {
 
 export type BookSpread = { text: string[]; pageNumbers?: [number, number]; menu?: BookMenuItem[] }
 
+const MAX_SHEETS = 4 // 차례에서 넘어갈 때 넘기는 종이 수 상한
 const VIEW = VIEW_DIR.clone().normalize() // 도형 화면이 보는 방향. 차례 쪽이 넘어가는 동안 이쪽으로 돈다
 
 // 전개도 대신 페이지 크기를 정할 기본 범위 (가로 6 × 세로 6, y = 0)
@@ -40,9 +41,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
   useEffect(() => {
     const container = containerRef.current!
     const { pageText, contents, pageNumbers } = JSON.parse(key) as Props
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.shadowMap.enabled = true // 기본 PCF. 가장자리는 light.shadow.radius 로 흐리게 (도형 화면과 같게)
+    const renderer = bookRenderer()
     container.appendChild(renderer.domElement)
 
     // 책·빛·카메라는 도형이 있을 때(ThreeViewer)와 같게. 크기는 책 두 쪽이 다 들어오게
@@ -67,6 +66,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     let distance = 0
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
+      if (!w || !h) return // 화면에서 떨어질 때(도형 화면으로 바뀔 때) 0 으로 줄이면 마지막 장면을 뜰 수 없다
       renderer.setSize(w, h)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
@@ -98,7 +98,9 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
       const k = rowAt(e)
       if (k === null) return
-      turn = { k, t: 0, show: buildPageTurn(book, size, Array.from({ length: k + 1 }, (_, j) => pageOfRef.current?.(j) ?? { text: [] })), from: camera.position.clone().sub(controls.target).normalize() }
+      // 고른 도형 바로 앞 MAX_SHEETS 장만 넘긴다: 장마다 쪽을 그려 올려서 뒤쪽 도형은 휴대폰에서 끊긴다 (#152). 지나가는 쪽은 어차피 읽히지 않는다
+      const first = Math.max(0, k + 1 - MAX_SHEETS)
+      turn = { k, t: 0, show: buildPageTurn(book, size, Array.from({ length: k + 1 - first }, (_, j) => pageOfRef.current?.(first + j) ?? { text: [] })), from: camera.position.clone().sub(controls.target).normalize() }
       controls.enabled = false
       renderer.domElement.style.cursor = ''
     }
@@ -113,6 +115,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     // 시간은 프레임마다 더한다(한 번에 최대 1/30초). 첫 프레임이 늦거나 멈칫해도 단계를 건너뛰지 않는다
     let t = 0
     let last = -1
+    let picked: number | null = null
     controls.enabled = !intro
     renderer.setAnimationLoop((now) => {
       const dt = last < 0 ? 0 : Math.min(now - last, 1000 / 30) / 1000
@@ -123,7 +126,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
         const p = Math.min(1, turn.t / turn.show.seconds)
         const dir = turn.from.clone().lerp(VIEW, p * p * (3 - 2 * p)).normalize()
         camera.position.copy(controls.target).addScaledVector(dir, distance)
-        if (turn.t >= turn.show.seconds) pickRef.current(turn.k)
+        if (turn.t >= turn.show.seconds) picked = turn.k
       }
       if (intro) {
         t += dt
@@ -134,6 +137,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
         if (!openingRef.current || t >= OPENING_SECONDS) {
           dir.set(0, Math.sin(final), Math.cos(final))
           intro.finish()
+          intro.dispose() // 오프닝 종이·도형은 다시 안 쓴다. 차례에 머무는 동안 메모리를 잡지 않게
           intro = null
           controls.enabled = true
           camera.position.copy(controls.target).addScaledVector(dir, distance)
@@ -145,6 +149,12 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       }
       controls.update()
       renderer.render(world, camera)
+      // 다 넘어갔다: 이 프레임을 떠서 도형 화면이 첫 프레임을 그릴 때까지 덮어 둔 뒤 onPick
+      if (picked !== null) {
+        keepLastFrame(renderer.domElement)
+        pickRef.current(picked)
+        picked = null
+      }
     })
 
     return () => {
@@ -154,12 +164,13 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       renderer.domElement.removeEventListener('pointerup', onUp)
       renderer.domElement.removeEventListener('pointermove', onMove)
       controls.dispose()
-      show?.finish()
+      intro?.finish()
       turn?.show.dispose()
       book.dispose()
-      show?.dispose()
+      intro?.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
+      renderer.forceContextLoss()
       container.removeChild(renderer.domElement)
     }
   }, [key])

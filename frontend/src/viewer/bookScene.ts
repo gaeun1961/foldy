@@ -13,7 +13,11 @@ const COVER_COLOR = '#b08d57' // 차분한 황토
 const PAPER_COLOR = '#faf6ee' // 따뜻한 미색
 const PAPER_EDGE = '#efe8da'
 export const INK = '#2f2a25'
-const PAGE_SCALE = 2
+// 터치 기기(휴대폰·태블릿)는 메모리가 작아 쪽 글자·그림자·화면 해상도를 낮춘다 (#152). 테스트(node)에는 matchMedia 가 없다
+const MOBILE = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false
+const PAGE_SCALE = MOBILE ? 1 : 2
+// 넘어가며 휙 지나가는 종이(buildPageTurn)는 글자가 읽히지 않아도 된다
+export const FLIP_SCALE = PAGE_SCALE / 4
 const ANSWER = '#e0442e' // 최종 답만 빨강
 const RESULT_FILL = '#fbecb8' // 결과 칸: 노랑 색연필로 칠한 형광펜
 const PENCILS = ['#e0442e', '#2f6fd0', '#2e9e4f', '#f5c518'] // 화면의 강조색 전부 (ui.md 컨셉)
@@ -35,14 +39,14 @@ export type BookContent = { title: string; page: number | null } // page: 그 �
 
 // 종이 한 장의 윗면: 종이색 + 책등 쪽 그늘 + (왼쪽 페이지) 글자 / (오른쪽, 빈 책) 차례. 캔버스 위쪽이 책의 먼 쪽(−z).
 // 차례를 그리면 줄마다 캔버스 위 세로 범위(0 = 위, 1 = 아래)를 rows 에 담는다 (누른 줄 찾기)
-export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number, result?: BookResult, menu: BookMenuItem[] = [], menuRows: { id: string; top: number; bottom: number; enabled: boolean }[] = []) {
+export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right', text: string[], contents: BookContent[] = [], rows: { top: number; bottom: number }[] = [], pageNumber?: number, result?: BookResult, menu: BookMenuItem[] = [], menuRows: { id: string; top: number; bottom: number; enabled: boolean }[] = [], scale = PAGE_SCALE) {
   const canvas = document.createElement('canvas')
-  // 글자가 뭉개지지 않게 실제 그림은 PAGE_SCALE 배로 그린다. 아래 좌표와 글자 크기는 가로 1024 기준 그대로
+  // 글자가 뭉개지지 않게 실제 그림은 scale 배로 그린다. 아래 좌표와 글자 크기는 가로 1024 기준 그대로
   const [w, h] = [1024, Math.round((1024 * pageD) / pageW)]
-  canvas.width = w * PAGE_SCALE
-  canvas.height = h * PAGE_SCALE
+  canvas.width = w * scale
+  canvas.height = h * scale
   const ctx = canvas.getContext('2d')!
-  ctx.scale(PAGE_SCALE, PAGE_SCALE)
+  ctx.scale(scale, scale)
   ctx.fillStyle = PAPER_COLOR
   ctx.fillRect(0, 0, w, h)
   // 책등 쪽으로 갈수록 어둡게 (페이지가 안으로 말려 들어가는 그늘)
@@ -318,6 +322,8 @@ function finish(canvas: HTMLCanvasElement) {
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.anisotropy = 16 // 비스듬히 봐도 글자가 뭉개지지 않게 (그래픽 카드 한도까지)
+  // 캔버스는 GC 될 때까지 메모리를 잡고 있어서(iOS 는 캔버스 메모리 한도가 있다) 텍스처를 지울 때 바로 비운다. clone 은 이 리스너를 복사하지 않는다
+  texture.addEventListener('dispose', () => (canvas.width = canvas.height = 0))
   return texture
 }
 
@@ -524,11 +530,42 @@ export function readingRange(book: { center: THREE.Vector3; textCorner: THREE.Ve
 // 범위 → bookView 에 넘길 구
 export const fitOf = (range: THREE.Box3) => ({ center: range.getCenter(new THREE.Vector3()), radius: range.getBoundingSphere(new THREE.Sphere()).radius })
 
+// 책 장면 렌더러: 차례·도형 화면이 같게. 화면 해상도는 2배까지(휴대폰 3배는 9배를 그린다), 터치 기기는 계단 지우기(MSAA)를 끈다.
+// 그림자는 기본 PCF, 가장자리는 light.shadow.radius 로 흐리게. 지울 때 forceContextLoss 로 WebGL 컨텍스트를 바로 돌려준다
+export function bookRenderer() {
+  const renderer = new THREE.WebGLRenderer({ antialias: !MOBILE })
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.shadowMap.enabled = true
+  return renderer
+}
+
+// 차례 → 도형 화면 (#152): React 가 차례 캔버스를 떼고 새 뷰어가 첫 프레임을 그릴 때까지(휴대폰은 셰이더·텍스처 준비가 길다) 책상 색만 보여 깜빡인다.
+// 다 넘어간 프레임을 그린 직후 2D 캔버스로 떠서 차례 캔버스 옆(stage)에 덮어 두고(keepLastFrame), 다음 뷰어가 첫 프레임을 그리면 걷는다(liftLastFrame)
+let lastFrame: HTMLCanvasElement | null = null
+export function keepLastFrame(gl: HTMLCanvasElement) {
+  const container = gl.parentElement // WebGL 캔버스는 그린 직후(같은 작업 안)에만 읽힌다
+  if (!container || !gl.width || !gl.height) return
+  const frame = document.createElement('canvas')
+  frame.width = gl.width
+  frame.height = gl.height
+  frame.getContext('2d')!.drawImage(gl, 0, 0)
+  const { offsetLeft: left, offsetTop: top, clientWidth: width, clientHeight: height } = container
+  Object.assign(frame.style, { position: 'absolute', left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px`, pointerEvents: 'none' })
+  liftLastFrame()
+  container.after(frame) // 차례 컨테이너가 떼어져도 남는다
+  lastFrame = frame
+  setTimeout(() => lastFrame === frame && liftLastFrame(), 3000) // 그릴 뷰어가 없을 때 남지 않게
+}
+export function liftLastFrame() {
+  lastFrame?.remove()
+  lastFrame = null
+}
+
 // 책 장면 빛: 위아래 은은한 환경광 + 비스듬한 위쪽 빛 하나 (그림자). 차례·도형 화면이 모두 같은 빛을 쓴다
 export function bookLights() {
   const light = new THREE.DirectionalLight('#fff4e2', 1.5)
   light.castShadow = true
-  light.shadow.mapSize.set(2048, 2048)
+  light.shadow.mapSize.setScalar(MOBILE ? 1024 : 2048)
   light.shadow.radius = 4
   light.shadow.bias = -0.0005
   return { ambient: new THREE.HemisphereLight('#fffaf0', '#d9cbb3', 1.7), light }
