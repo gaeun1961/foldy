@@ -22,6 +22,7 @@ export interface Theme3D {
   pairs: string[] // 접으면 맞닿는 모서리 쌍 색 (돌려 쓴다)
   curved: { seam: string; rim: string; plain: string } // 원기둥·원뿔: 자른 선, 밑면 둘레, 맞닿는 색을 끈 선
   sphereRing: string // 구 적도 선
+  screen?: { background: string; guide: string } // 홀로그램 화면 전체: 바탕(아크릴에 안 비치는 검정), 피라미드 놓을 자리 선
 }
 
 const look = (outside: string, inside: string, edge: string, opacity = 1): Look => ({ outside, inside, edge, opacity })
@@ -62,4 +63,5 @@ export const HOLOGRAM: Theme3D = {
   pairs: ['#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#38d9a9', '#74c0fc', '#da77f2'],
   curved: { seam: '#ff6b6b', rim: '#74c0fc', plain: '#ffffff' },
   sphereRing: '#ffffff',
+  screen: { background: '#000000', guide: '#ffffff' },
 }

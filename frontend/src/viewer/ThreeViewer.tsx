@@ -4,14 +4,13 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { buildBook, DESK_COLOR } from './bookScene.ts'
+import { buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
 import { PAPER, type Look } from './theme.ts'
 
 // 처음 카메라가 보는 점에서 카메라 쪽 방향 (비스듬히 위, 오른쪽 앞). 정다면체는 이 방향에서 먼 면부터 접는다
-const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1) // 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
 // 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다

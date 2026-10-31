@@ -2,6 +2,9 @@
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/stage.test.ts)
 import * as THREE from 'three'
 import type { ShapeKind, ShapeScene } from '../shared/types.ts'
+import { VIEW_DIR } from './bookScene.ts'
+import { buildFaceTree, facingYaw, farFirstOrder, layOnFloor } from './faceTree.ts'
+import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
 import { boundsOf, buildStage, stageSupported } from './stage.ts'
 import { HOLOGRAM, PAPER, type LookName } from './theme.ts'
 import { WORKSHEET_SCENES } from './worksheetScenes.ts'
@@ -72,6 +75,19 @@ for (const theme of [PAPER, HOLOGRAM]) {
   }
 }
 
+// 책 장면과 같은 순서로 접힌다: ThreeViewer 와 같은 방법(눕히는 방향 facingYaw·먼 면부터 farFirstOrder, 같은 VIEW_DIR)으로 계산한 순서와 같다
+for (const [name, s] of SCENES) {
+  const poly = polyhedronOf(s)
+  if (!poly) continue
+  const m = new THREE.MeshBasicMaterial()
+  const tree = buildFaceTree(poly, [m, m], new THREE.LineBasicMaterial())
+  layOnFloor(tree, poly, poly.foldOrder ? 0 : facingYaw(tree, poly, VIEW_DIR))
+  const book = poly.foldOrder ? foldOrderOf(poly) : farFirstOrder(tree, VIEW_DIR)
+  const stage = buildStage(s, HOLOGRAM)!
+  check(JSON.stringify(stage.order) === JSON.stringify(book), `${name}: 책 장면과 접는 순서가 같아야 (${stage.order} != ${book})`)
+  stage.dispose()
+}
+
 // 실제 학습지에서 온 도형 (worksheetScenes.ts): 면이 2개 이상이면 열리고 접힌다. 잘못 그린 전개도도 그대로 접힌다 (닫히지 않아도 된다).
 // 면이 하나뿐(전개도 고르기 문제)이면 홀로그램을 열 수 없다 (버튼이 꺼진다)
 for (const { photo, scene: s, note } of WORKSHEET_SCENES) {
@@ -96,4 +112,4 @@ check(brightness(HOLOGRAM.looks.normal.edge) > 0.8, '홀로그램 모서리는 �
 check(brightness(HOLOGRAM.curved.plain) > 0.8 && brightness(HOLOGRAM.sphereRing) > 0.8, '홀로그램 곡면 선은 밝아야')
 check(HOLOGRAM.edgeWidth > 0 && PAPER.edgeWidth === 0, '홀로그램만 굵은 선')
 
-console.log(`ok: 무대 (모든 도형 종류 × 종이·홀로그램 테마, 학습지 도형 ${WORKSHEET_SCENES.length}개: 단계 수, 바닥·가운데, 전체 범위, 펼치기, 면 1개는 불가), 3D 디자인 토큰`)
+console.log(`ok: 무대 (모든 도형 종류 × 종이·홀로그램 테마, 학습지 도형 ${WORKSHEET_SCENES.length}개: 단계 수, 책 장면과 같은 접는 순서, 바닥·가운데, 전체 범위, 펼치기, 면 1개는 불가), 3D 디자인 토큰`)

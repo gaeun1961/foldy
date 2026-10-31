@@ -5,6 +5,9 @@ import * as THREE from 'three'
 
 // 색은 docs/specs/ui.md 색 기준 "3D 뷰 배경"
 export const DESK_COLOR = '#c8ad8c' // 연한 오크색: 밝은 책과 패널이 뜨도록 (index.css --desk 와 같게)
+// 책 장면 카메라 방향: 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게.
+// 순서가 없는 도형(정다면체·각뿔)을 눕히는 방향(facingYaw)과 접는 순서(farFirstOrder)도 이 방향으로 정한다. 홀로그램 무대(stage.ts)도 같은 값을 써서 같은 순서로 접힌다
+export const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1)
 const MAT_COLOR = '#5c6b66'
 const COVER_COLOR = '#8a7d7b'
 const PAPER_COLOR = '#fbf8f1'
