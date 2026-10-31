@@ -9,6 +9,12 @@
 
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
+**11/1 순서**: TODO-46 배포 → TODO-47 사진 → TODO-48 홀로그램 → TODO-49 데모 영상 → TODO-15 발표 자료·리허설. TODO-50 시연 전 마무리는 틈틈이.
+
+- **TODO-46** [서비스 배포](46-deploy.md) · [#144](https://github.com/gaeun1961/foldy/issues/144) — 행사장에서 주소로 열 수 있게 프론트와 백엔드를 배포한다
+- **TODO-47** [실제 학습지 사진 인식 확인](47-photo-real-test.md) · [#145](https://github.com/gaeun1961/foldy/issues/145) — 시연할 학습지 사진을 직접 넣어 돌려 보고 인식 결과와 대비책을 확인한다
+- **TODO-48** [홀로그램 실제 기기 테스트](48-hologram-real-test.md) · [#146](https://github.com/gaeun1961/foldy/issues/146) — 휴대폰과 아크릴 피라미드로 홀로그램 모드를 실제로 확인한다
+- **TODO-50** [시연 전 마무리](50-pre-demo-polish.md) · [#148](https://github.com/gaeun1961/foldy/issues/148) — 시연 전에 눈에 띄는 남은 것들을 정리한다
 
 ## 진행 중
 
@@ -24,7 +30,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | TODO | 이슈 | 선행 |
 |---|---|---|
-| (없음) | | |
+| **TODO-49** [데모 영상 찍기](49-demo-video.md) | [#147](https://github.com/gaeun1961/foldy/issues/147) | TODO-46, TODO-47, TODO-48 |
 
 ## 나중에 (3차)
 
