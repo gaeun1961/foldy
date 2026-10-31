@@ -1,6 +1,6 @@
 // 홀로그램 화면 배치 검사 (docs/proposals/hologram/spec.md, 팀 합의 전).
 // 실행: frontend 폴더에서 `npm test` (= node src/viewer/holoLayout.test.ts)
-import { fitDistance, regions, rightOf, uvOf } from './holoLayout.ts'
+import { fitDistance, regions, rightOf, SIDE_LABEL, uvOf } from './holoLayout.ts'
 
 function check(ok: boolean, message: string) {
   if (!ok) throw new Error(message)
@@ -63,4 +63,14 @@ close(fitDistance(2 * L, 2 * c, 1, 35), d1, '칸 두 배')
 const h = (L - c) / 2
 check(2 * Math.atan(1 / d1) <= ((35 * Math.PI) / 180) * (Math.min((c + L) / 2, h) / h) + 1e-9, '구가 칸 안에')
 
-console.log('ok: 홀로그램 배치 (사다리꼴 4칸, 반사 방향, 카메라 방향, 크기 맞추기)')
+// 맞춤 화면: 칸 이름은 그 칸 카메라가 보는 방향과 같다 (아래 = 앞 = 방위각 0, 오른쪽 = 오른쪽 = π/2).
+// 아래 칸 쪽 사람이 자기 오른쪽(+x)으로 돌아가면 오른쪽 칸 앞에 선다
+same(
+  rs.map((r) => SIDE_LABEL[r.side].name),
+  ['앞', '오른쪽', '뒤', '왼쪽'],
+  '맞춤 화면 칸 이름',
+)
+check(new Set(Object.values(SIDE_LABEL).map((l) => l.color)).size === 4, '맞춤 화면 칸 색은 모두 달라야')
+same(rs[1].outward, bottom.right, '아래 칸 사람의 오른쪽 = 오른쪽 칸 바깥 방향')
+
+console.log('ok: 홀로그램 배치 (사다리꼴 4칸, 반사 방향, 카메라 방향, 크기 맞추기, 맞춤 화면 칸 이름)')
