@@ -32,6 +32,8 @@ P3 끝 — 읽기 성공 시 자동 저장, 새로고침 뒤 "내 학습지"에�
 
 P4 준비 — #122가 아직 머지 전(로컬에서 계속 고치는 중)이라 `stage.ts`는 건드리지 않았다. 충돌 없는 새 파일 `viewer/photoUv.ts`(전개도 점 → 사진 UV, `ThreeViewer`가 사진을 까는 변환의 역, 검사 `photoUv.test.ts`)만 만들었다. #122 머지 뒤: `buildStage`의 grid 면 메시마다 `faceUvs(face, netPhoto, aspect)`를 `uv`로 넣고 텍스처를 붙이면 된다 (면 메시와 `net.faces` 순서 대응은 `gridNet.ts`에서 확인). W2 — `vision_eval --engine agy` 추가(측정은 계정 사용량이라 아직 안 돌림)
 
+**홀로그램 세션 공유 (2026-10-31)**: 시험 통합 브랜치(`test/holo-photo`, 로컬)에서 사진 → 도형 → 홀로그램이 PC·휴대폰 모두 동작. 휴대폰에서 "도형에 프레임을 씌우면 잘 잡힘". #130에 필요한 확정 사항: `HologramProps = { scene, center, showGuide, onTap }`, `stageSupported`는 다면체 면 2개 이상일 때만, 잘못 그린 전개도도 그대로 접힘. 학습지 정답 13개가 `viewer/worksheetScenes.ts`에 복사돼 `stage.test`가 쓴다 → **`evals/answers.json`을 바꾸면 그 파일도 맞춘다**. 합칠 때 충돌은 `package.json` test 줄뿐이었다
+
 **순서**: P0 → P1 → (P2 합의를 기다리는 동안 W2) → P2 → P3 → P4. P1은 계약 변경 없이 바로 할 수 있다.
 
 **브랜치**: 지금 `feature/worksheets`(W1·문서)를 P1까지 이어 가고 PR. P2는 계약 이슈 번호로 새 브랜치, P3·P4도 각각 새 브랜치 (TODO 하나에 PR 하나).
