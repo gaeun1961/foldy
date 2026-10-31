@@ -369,11 +369,16 @@ export default function App() {
               >
                 차례
               </button>
-              {hologramSupported(scene) && (
-                <button type="button" className="contents-button" onClick={() => setHologram(true)}>
-                  홀로그램
-                </button>
-              )}
+              {/* 홀로그램으로 접을 입체가 없으면(면이 하나뿐인 학습지 등) 버튼은 보이되 꺼진다 */}
+              <button
+                type="button"
+                className="contents-button"
+                disabled={!hologramSupported(scene)}
+                title={hologramSupported(scene) ? undefined : '접을 입체가 없어서 홀로그램으로 볼 수 없어요'}
+                onClick={() => setHologram(true)}
+              >
+                홀로그램
+              </button>
               {!lesson && marking && canMark && <FaceMarks mark={mark} onMark={setMark} />}
             </div>
           </>
