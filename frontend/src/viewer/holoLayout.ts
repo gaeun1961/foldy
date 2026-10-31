@@ -1,5 +1,5 @@
 // 아크릴 피라미드 홀로그램(Pepper's ghost) 화면 배치 계산. three.js 없음 (holoLayout.test.ts 로 확인).
-// 제안 문서: docs/proposals/hologram/spec.md (팀 합의 전)
+// 명세: docs/specs/viewer.md "홀로그램" 화면 배치
 //
 // 화면 가운데 정사각형(한 변 L) 안에 작은 정사각형(한 변 c, 피라미드 꼭지가 놓이는 곳)을 두고,
 // 둘레를 대각선으로 나눈 사다리꼴 4칸(아래·오른쪽·위·왼쪽)에 도형을 네 방향에서 본 모습을 그린다.

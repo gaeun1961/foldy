@@ -560,7 +560,7 @@ h2 {
   .chat-panel + .chat-fab { display: none; } /* 시트에는 닫기 버튼이 있다 */
 }
 
-/* 홀로그램 보기 (제안, 팀 합의 전: docs/proposals/hologram/spec.md "화면").
+/* 홀로그램 보기 (ui.md "홀로그램 보기").
    홀로그램은 아크릴에 비치도록 검은 배경 그대로, 설정 판만 책 화면과 같은 판·버튼 토큰을 쓴다 */
 .hologram { position: fixed; inset: 0; z-index: 100; background: #000; }
 .hologram-viewer { position: absolute; inset: 0; }

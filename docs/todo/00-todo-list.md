@@ -17,7 +17,6 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 | TODO | 이슈 | 담당자 |
 |---|---|---|
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | gaeun1961 |
-| **TODO-43** [홀로그램 모드: 휴대폰 + 아크릴 피라미드로 도형 띄우기](43-hologram-mode.md) | [#122](https://github.com/gaeun1961/foldy/issues/122) | kimdaeone |
 
 ## 1차 남은 일
 

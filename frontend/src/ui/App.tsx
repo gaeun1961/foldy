@@ -87,7 +87,7 @@ export default function App() {
     sessionStorage.setItem(OPENING_SEEN, '1')
     setOpening(false)
   }
-  const [hologram, setHologram] = useState(false) // 홀로그램 보기 (제안, docs/proposals/hologram/spec.md). 켜져 있는 동안 책 장면은 그리지 않는다
+  const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
   const [fit, setFit] = useState(NO_FIT) // 칸에 맞춘 사진 위치. 3D 책 페이지에도 같은 자리에 깐다 (TODO-36)
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다

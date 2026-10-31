@@ -1,9 +1,9 @@
-// 무대 (제안, 팀 합의 전: docs/proposals/hologram/spec.md "무대"): 장면 + 3D 디자인 토큰 → 바닥에 놓인 도형 물체 하나.
+// 무대 (docs/specs/viewer.md "홀로그램" 무대): 장면 + 3D 디자인 토큰 → 바닥에 놓인 도형 물체 하나.
 // 도형 종류(다면체 면 트리, 원기둥·원뿔 말기, 구)는 여기서만 갈린다. 보는 쪽(홀로그램의 카메라 4대, 나중에는 책 장면)은
 // 무대를 받아 비추기만 하고 도형을 모른다. 그래서 도형이 늘거나 디자인(theme.ts)이 바뀌면 보는 쪽은 그대로 따라온다.
 //
 // 지금은 홀로그램만 쓴다. 책 장면(ThreeViewer·CurvedViewer)은 선 긋기·면 고르기·라벨·설명 모드가 얽혀 있어서
-// 뷰어 담당과 합의한 뒤 옮긴다 (spec.md "다음 단계"). 같은 조립 함수와 토큰을 쓰므로 모양과 접는 순서는 이미 같다
+// 뷰어 담당과 합의한 뒤 옮긴다 (viewer.md "홀로그램" 다음 단계). 같은 조립 함수와 토큰을 쓰므로 모양과 접는 순서는 이미 같다
 import * as THREE from 'three'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
@@ -169,7 +169,7 @@ function roundStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   const roughSize = Math.max(2 * Math.PI * size.radius, size.height + 4 * size.radius)
   // 홀로그램처럼 굵은 선 테마는 관도 굵게 (책 장면은 0.004)
   const lineRadius = roughSize * (theme.edgeWidth > 0 ? 0.008 : 0.004)
-  const net = sphere ? buildSphereBody(size.radius, faces[0], theme.sphereRing) : buildCurvedNet(scene.shape as CurvedShape, size, faces, lineRadius, [], (scene.net as { seam?: number }).seam ?? 0, theme.curved) // 그은 선은 그리지 않는다 (spec.md)
+  const net = sphere ? buildSphereBody(size.radius, faces[0], theme.sphereRing) : buildCurvedNet(scene.shape as CurvedShape, size, faces, lineRadius, [], (scene.net as { seam?: number }).seam ?? 0, theme.curved) // 그은 선은 그리지 않는다 (viewer.md "홀로그램")
   net.setPaired(true)
   const object = new THREE.Group()
   object.add(net.group)

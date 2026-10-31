@@ -11,12 +11,12 @@
 
 ## 언제
 
-- 홀로그램 브랜치(`feature/122-hologram-mode`)가 main에 들어간 뒤. 지금은 로컬에만 있고 push 전이다 (같은 PC라 `git show feature/122-hologram-mode:<경로>`로 읽을 수 있다)
+- 홀로그램(#122)이 main에 들어간 뒤. 사진 세션이 받았고 이슈 #130으로 진행한다
 - 사진 쪽 원근 보정(M3)이 들어간 뒤면 더 좋다. 펴진 학습지 이미지가 가장 좋은 입력이다
 
 ## 홀로그램 쪽 구조 (알아야 할 것만)
 
-명세: `docs/proposals/hologram/spec.md` "구조: 무대와 카메라"
+명세: `docs/specs/viewer.md` "홀로그램" ("구조: 무대와 카메라", "무대")
 
 - `viewer/theme.ts`: 3D 디자인 토큰. 책 장면 `PAPER`, 홀로그램 `HOLOGRAM`
 - `viewer/stage.ts`: `buildStage(scene, theme) → Stage`. 다면체는 `polyhedronStage`가 `buildFaceTree`로 면 메시를 만든다. 면 메시 좌표는 **다 접은 입체 좌표**이고, 펼치면 pivot 회전으로 전개도가 된다
@@ -37,6 +37,6 @@
 
 ## 지킬 것
 
-- ShapeScene·`ViewerProps`는 바꾸지 않는다. 바뀌는 계약은 `HologramProps`·`buildStage` 옵션뿐이고 `spec.md`에 먼저 적는다
-- 겹치는 파일 조심: 홀로그램 세션은 당분간 `HologramMode.tsx`·`HologramViewer.tsx`·`holoLayout.ts`(맞춤 화면, QR)를 고친다. 사진 작업은 `stage.ts`의 사진 경로와 위 prop 한 줄 정도로 좁히면 충돌이 적다. 겹치면 홀로그램 세션(이슈 #122)과 먼저 맞춘다
+- ShapeScene·`ViewerProps`는 바꾸지 않는다. 바뀌는 계약은 `HologramProps`·`buildStage` 옵션뿐이고 `docs/specs/viewer.md` "홀로그램"에 먼저 적는다
+- 겹치는 파일 조심: 홀로그램 쪽은 QR·수업 방(협의 중)에서 `HologramMode.tsx`·`HologramViewer.tsx`를 고칠 수 있다. 사진 작업은 `stage.ts`의 사진 경로와 위 prop 한 줄 정도로 좁히면 충돌이 적다. 겹치면 홀로그램 세션(이슈 #122)과 먼저 맞춘다
 - 십자형(cross) 전개도는 사진이 없다. grid 전개도만
