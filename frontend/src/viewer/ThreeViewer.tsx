@@ -464,6 +464,8 @@ export function ThreeViewer({
     let lessonFit: { center: THREE.Vector3; radius: number } | null = null // 설명이 bounds 를 주면 그 범위
     // 입체로 보는 설명은 책을 그 범위에 맞춰 다시 만든다 (전개도 크기의 책에서는 도형이 작아 보이고, 닮음의 큰 도형은 책 밖으로 나간다). null 이면 전개도 범위
     let bookRange: THREE.Box3 | null = null
+    let lowered = false
+    let aim: ((dir: THREE.Vector3) => void) | null = null // 카메라를 만든 뒤에 채워진다
     let rebuildBook: (() => void) | null = null // 책을 만든 뒤에 채워진다
     const applyLesson = () => {
       const { lesson } = viewRef.current
@@ -483,6 +485,9 @@ export function ThreeViewer({
           bookRange = box
         } else bookRange = lesson && LESSON_POSE[lesson.kind] === 'solid' ? solidBounds : null
         rebuildBook?.()
+        // 높이가 중요한 설명은 카메라를 낮추고, 끝나면 돌아온다 (lessons/index.ts view)
+        if (lessonObject?.view || lowered) aim?.(lessonObject?.view ?? VIEW_DIR)
+        lowered = !!lessonObject?.view
       }
       lessonObject?.apply(lesson?.progress ?? 0)
       return { on: lessonObject !== null, ghost: lessonObject !== null && LESSON_POSE[lesson!.kind] === 'solid' }
@@ -616,6 +621,10 @@ export function ThreeViewer({
       camera.position.copy(controls.target).addScaledVector(dir, (fit.radius / Math.sin(fov / 2)) * 1.15)
     }
     refit = resize
+    aim = (dir) => {
+      camera.position.copy(controls.target).add(dir)
+      resize()
+    }
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()

@@ -33,24 +33,24 @@ export function solidGeometry(poly: Polyhedron) {
 }
 
 // 길이 글자: 바탕이 흰 작은 표. 깊이 검사를 꺼서 다른 면에 가려져도 보인다. width 는 글자 표의 3D 가로 길이
-export function textSprite(text: string, width: number) {
+export function textSprite(text: string, width: number, long = false) {
   const canvas = document.createElement('canvas')
-  canvas.width = 256
+  canvas.width = long ? 512 : 256 // long: 식처럼 긴 글. 글자가 줄어들지 않게 표를 넓게
   canvas.height = 96
   const ctx = canvas.getContext('2d')!
   ctx.fillStyle = 'rgb(255 255 255 / 88%)'
-  ctx.roundRect(4, 8, 248, 80, 24)
+  ctx.roundRect(4, 8, canvas.width - 8, 80, 24)
   ctx.fill()
   ctx.font = "bold 56px 'Pretendard Variable', Pretendard, system-ui, sans-serif"
   ctx.fillStyle = '#1f2430'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(text, 128, 50, 232)
+  ctx.fillText(text, canvas.width / 2, 50, canvas.width - 24)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, transparent: true })
   const sprite = new THREE.Sprite(material)
-  sprite.scale.set(width, (width * 96) / 256, 1)
+  sprite.scale.set(width, (width * 96) / canvas.width, 1)
   sprite.renderOrder = 5
   sprite.raycast = () => {} // 누르기에 걸리지 않게
   return {
@@ -59,6 +59,63 @@ export function textSprite(text: string, width: number) {
       sprite.removeFromParent()
       texture.dispose()
       material.dispose()
+    },
+  }
+}
+
+// 번호 (쌓기의 층, 개수 세기): 지금 것에만 작게 보인다. pos(k) 는 k 번째 자리
+export function layerTags(parent: THREE.Object3D, count: number, width: number, pos: (k: number) => THREE.Vector3, unit = '층') {
+  const tags = [...Array(count).keys()].map((k) => {
+    const s = textSprite(`${k + 1}${unit}`, width)
+    s.sprite.position.copy(pos(k))
+    s.sprite.visible = false
+    parent.add(s.sprite)
+    return s
+  })
+  return {
+    show: (current: number) => tags.forEach((t, k) => (t.sprite.visible = k === current)),
+    dispose: () => tags.forEach((t) => t.dispose()),
+  }
+}
+
+// 피타고라스 직각삼각형: 밑변·높이·빗변이 자라고 값이 나온다. foot 이 직각, show(q) 는 0~1. 같은 길이는 같은 색
+export function rightTriangleOverlay(parent: THREE.Object3D, { foot, end, top, out, reach, text }: { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; text: { edge: string; leg: string; rise: string } }) {
+  const r = reach * 0.018
+  const materials = ['#2f9e44', '#1c7ed6', '#c2255c'].map((color) => new THREE.MeshBasicMaterial({ color }))
+  const shadeMaterial = new THREE.MeshBasicMaterial({ color: '#ff9f6b', transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })
+  const tubes = [growingTube(foot, end, r, materials[0]), growingTube(foot, top, r, materials[1]), growingTube(end, top, r, materials[2])]
+  const shadeGeometry = new THREE.BufferGeometry().setFromPoints([foot, end, top])
+  const shade = new THREE.Mesh(shadeGeometry, shadeMaterial)
+  const corner = rightAngleMark(foot, end.clone().sub(foot), top.clone().sub(foot), reach * 0.1, r * 0.5, materials[1])
+  const labels = [
+    [text.leg, foot.clone().lerp(end, 0.5)],
+    [text.rise, foot.clone().lerp(top, 0.5)],
+    [text.edge, end.clone().lerp(top, 0.5)],
+  ].map(([words, at]) => {
+    const s = textSprite(words as string, reach * 0.55)
+    s.sprite.position.copy(at as THREE.Vector3).add(out)
+    parent.add(s.sprite)
+    return s
+  })
+  const root = new THREE.Group()
+  root.add(shade, corner, ...tubes.map((t) => t.mesh))
+  parent.add(root)
+  const show = (q: number) => {
+    tubes.forEach((t, i) => t.grow(clamp01((q / 0.6) * tubes.length - i)))
+    shade.visible = q > 0
+    corner.visible = q >= 0.6
+    labels.forEach((l) => (l.sprite.visible = q >= 0.6))
+  }
+  show(0)
+  return {
+    show,
+    dispose: () => {
+      labels.forEach((l) => l.dispose())
+      root.removeFromParent()
+      root.traverse((o) => {
+        if (o instanceof THREE.Mesh) o.geometry.dispose()
+      })
+      for (const m of [...materials, shadeMaterial]) m.dispose()
     },
   }
 }
