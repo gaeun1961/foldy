@@ -1,6 +1,66 @@
 # 홀로그램 명세 (제안, 팀 합의 전)
 
-> 합의되면 "뷰어" 절은 `docs/specs/viewer.md`로, "화면" 절은 `docs/specs/ui.md`로 옮긴다. 개요는 [README.md](README.md).
+> 합의되면 "3D 디자인 토큰"·"무대"·"뷰어" 절은 `docs/specs/viewer.md`로, "화면" 절은 `docs/specs/ui.md`로 옮긴다. 개요는 [README.md](README.md).
+
+## 구조: 무대와 카메라
+
+도형별 홀로그램을 따로 만들지 않는다. 세 층으로 나눈다.
+
+| 층 | 파일 | 하는 일 | 도형을 아나 |
+|---|---|---|---|
+| 3D 디자인 토큰 | `viewer/theme.ts` | 도형 색·선 굵기. 책 장면 `PAPER`, 홀로그램 `HOLOGRAM` | 아니오 |
+| 무대 | `viewer/stage.ts` | 장면 + 토큰 → 바닥에 놓인 도형 물체, 접기, 범위 | 예 (여기서만 갈린다) |
+| 카메라 | `HologramViewer.tsx` (나중에 책 장면도) | 무대를 받아 비추기만 | 아니오 |
+
+도형이 늘면 무대만, 디자인이 바뀌면 토큰만 고친다. 홀로그램은 그대로 따라온다.
+
+## 3D 디자인 토큰 (`viewer/theme.ts`)
+
+CSS 토큰(`index.css` `:root`)처럼 3D 도형 색을 한 곳에 둔다.
+
+| 토큰 | 뜻 | `PAPER` (책 장면, 지금 값 그대로) | `HOLOGRAM` |
+|---|---|---|---|
+| `looks.{normal,active,faded,ghost,filled,overlap,opposite}` | 상황별 면 모양: 바깥 면·안쪽 면·모서리 색·불투명도 | 흰 면, 연하늘 안쪽, 진회색 모서리 (ui.md 색 기준) | 반투명 밝은 면, 흰 모서리 |
+| `facePalette` | 면마다 다른 색 (없으면 `looks.normal` 한 색) | 없음 | 6색 돌려 쓰기 |
+| `edgeWidth` | 0 = 1px 선, 0보다 크면 굵은 선 = 화면 짧은 변 × 값 | 0 | 1/220 |
+| `pairs` | 접으면 맞닿는 모서리 쌍 색 | 지금 7색 | 밝은 7색 |
+| `curved.{seam,rim,plain}` | 원기둥·원뿔: 자른 선, 밑면 둘레, 맞닿는 색을 끈 선 | 빨강, 파랑, 진회색 | 밝은 빨강, 밝은 파랑, 흰색 |
+| `sphereRing` | 구 적도 선 | 진회색 | 흰색 |
+
+- 홀로그램은 아크릴에 비친다. 검은색은 투명이 되므로 같은 값을 쓰면 모서리가 사라진다. 그래서 테마가 둘이다
+- 책 장면 코드(`ThreeViewer.tsx`, `CurvedViewer.tsx`, `curved.ts`, `lessons/sphereLessons.ts`)의 도형 색은 숫자 대신 `PAPER`를 읽는다. 값이 같아서 화면은 바뀌지 않는다
+- 아직 토큰으로 옮기지 않은 것: 설명 모드(`lessons/`)의 색, 선 긋기·라벨·책 색. "다음 단계"
+
+## 무대 (`viewer/stage.ts`)
+
+```ts
+buildStage(scene: ShapeScene, theme: Theme3D): Stage | null
+stageSupported(scene: ShapeScene): boolean // 다면체(면 트리), 원기둥·원뿔, 구
+
+interface Stage {
+  object: THREE.Group // 바닥(y = 0)에 놓인 도형. 원점 = 다 접은 입체의 수평 가운데
+  steps: number // 단계별 접기 단계 수. 0 이면 한 번에만 접힌다 (원기둥·원뿔) 또는 접지 않는다 (구)
+  foldable: boolean // 구는 false
+  apply(s: number, mode?: 'all' | 'step'): void // s: 0 = 입체, 1 = 전개도
+  solid: THREE.Box3 // 다 접은 입체의 범위
+  all: THREE.Box3 // 접고 펴는 동안 차지하는 전체 범위
+  resize(width: number, height: number): void // 굵은 선을 그리는 화면 크기 (기기 픽셀)
+  dispose(): void
+}
+```
+
+- 다면체: 책 장면과 같은 면 트리(`buildFaceTree`·`applyUnfold`·`stepUnfold`), 같은 자세(`layOnFloor`, 순서가 없는 도형은 `facingYaw`), 같은 접는 순서(`foldOrderOf`, 없으면 `farFirstOrder`). 굵은 선 테마면 모서리를 `Line2`로 덧그린다
+- 원기둥·원뿔: 책 장면과 같은 `buildCurvedNet`에 토큰 색을 넘긴다. 맞닿는 선 색은 켠다. 선 관 굵기는 굵은 선 테마에서 두 배
+- 구: 책 장면과 같은 `buildSphereBody`. 접지 않는다
+- 자리 잡기: 다 접은 입체의 가장 낮은 곳을 y = 0, 수평 가운데를 원점에 둔다. 그래서 세로축으로 돌리면 제자리에서 돈다
+- 범위는 꼭짓점으로 잰다 (`boundsOf`). `Box3.expandByObject`는 기울어진 면의 상자를 다시 돌려 담아서 실제보다 크다: 펼친 전개도에 두께가 생기고 정팔면체가 바닥 아래로 내려가 보인다. 인스턴스로 그린 관(곡면 선)은 조각마다 잰다
+- 검사: `stage.test.ts`. 치수로 만들기의 모든 도형 11가지 × 두 테마에서 단계 수, 바닥·가운데, 전체 범위가 입체와 전개도를 담는지, 다면체 전개도가 바닥에 납작한지, 토큰 이름이 같은지와 홀로그램 선이 밝은지
+
+## 다음 단계 (뷰어 담당과 합의 후)
+
+1. 책 장면이 무대를 쓴다: `ThreeViewer`·`CurvedViewer`의 도형 만들기·자리 잡기·범위 계산을 `buildStage(scene, PAPER)`로 바꾼다. 선 긋기·면 고르기·라벨·책은 카메라 쪽(책 장면)에 남긴다
+2. 설명 모드 색을 토큰으로 옮기고, 무대가 설명 모드(`buildLesson`, `LessonObject.apply(progress)`)도 담는다. 그러면 부피 쌓기 같은 설명이 홀로그램에도 나온다
+3. 기기 간 연동([api.md](api.md))은 무대가 받는 상태(펼침 값·접는 방식·설명 모드)를 그대로 보낸다
 
 ## 뷰어
 
@@ -10,7 +70,7 @@
 
 | prop | 기본 | 뜻 | 바뀌면 |
 |---|---|---|---|
-| `scene: ShapeScene` | | 그릴 도형. 다면체만 (`hologramSupported`) | 다시 만든다 |
+| `scene: ShapeScene` | | 그릴 도형. 무대가 그리는 도형 (`hologramSupported` = `stageSupported`) | 다시 만든다 |
 | `center?: number` | `0.2` | 가운데 정사각형 한 변 ÷ 화면 짧은 변. 피라미드 꼭지 크기에 맞춘다 | 칸만 다시 배치 |
 | `elevation?: number` | `20` | 카메라 높이각(도). 펼칠수록 45°까지 올라간다 | 다음 프레임 |
 | `mirror?: boolean` | `false` | 좌우 반전. 실물에서 거꾸로 보이면 켠다 | 칸만 다시 배치 |
@@ -19,7 +79,9 @@
 | `showGuide?: boolean` | `true` | 가운데 정사각형 테두리(피라미드 놓을 자리) | 칸만 다시 배치 |
 | `onTap?: () => void` | | 화면을 누르면 | |
 
-`hologramSupported(scene)`: 면 트리로 접는 도형(직육면체·정육면체·정다면체 4종·각기둥·각뿔, 학습지 grid 전개도 포함)이면 `true`. 원기둥·원뿔·구는 아직 `false` (말기·회전체는 면 트리가 아니다).
+`hologramSupported(scene)`: 무대가 그리는 모든 도형. 직육면체·정육면체·정다면체 4종·각기둥·각뿔(학습지 grid 전개도 포함), 원기둥·원뿔, 구.
+
+홀로그램은 도형을 모른다. `buildStage(scene, HOLOGRAM)`이 준 물체를 세로축으로 돌리고, 범위(`solid`·`all`)로 카메라 거리를 정하고, `apply`로 접는다.
 
 ### 화면 배치 (`holoLayout.ts`, three.js 없음)
 
@@ -39,13 +101,12 @@
 - 렌더링: 칸마다 `WebGLRenderTarget`(가로 L × 세로 (L − c)/2, 기기 픽셀)에 그리고, 사다리꼴 메시에 텍스처로 붙인다. 사다리꼴 밖은 잘린다. 해상도 배율은 2까지 (휴대폰에서 한 프레임에 4번 그린다)
 - 크기 맞추기 `fitDistance`: 도형이 돌고 접히는 동안 차지하는 구(반지름 R)가 칸 가운데 높이의 사다리꼴 폭 (c + L)/2와 그림 세로 중 작은 쪽의 95%에 들어가게 카메라 거리를 정한다. 세로 시야각 35°
 
-### 도형과 움직임
+### 움직임
 
-- 접기는 책 장면과 같은 면 트리(`buildFaceTree`·`applyUnfold`·`stepUnfold`)다. 전개도를 바닥에 눕히는 자세(`layOnFloor`, 순서가 없는 도형은 `facingYaw`)와 접는 순서(`foldOrderOf`, 없으면 `farFirstOrder`)도 같다. 그래서 같은 전개도가 같은 순서로 접힌다
-- 돌리는 축은 다 접은 입체의 가운데다
-- 반복: 펼친 채 1.5초 → 한 면씩 접기(면당 0.9초) → 접힌 채 4초 → 한 번에 펼치기 1.5초
-- 다 접히면 카메라가 입체 크기(R = 접힌 입체)로 다가가고, 펼칠수록 접는 전체 범위로 물러나며 높이각이 45°까지 올라간다. 바닥에 누운 전개도가 납작하게 보이지 않게
-- 보이는 모습: 검은 배경, 면은 반투명 색(면마다 6색 돌려 쓰기, 바깥 0.35, 안쪽 0.25), 모서리는 굵은 흰 선(`Line2`, 화면 짧은 변 ÷ 220 px, 최소 2px). 꼭짓점 라벨·선·면 표시는 그리지 않는다 (작은 피라미드에서 읽히지 않는다)
+- 반복: 펼친 채 1.5초 → 접기 (단계가 있으면 한 면씩 면당 0.9초, 원기둥·원뿔은 한 번에 3초) → 접힌 채 4초 → 한 번에 펼치기 1.5초. 구는 접지 않고 돌기만 한다
+- 돌리는 축은 무대의 원점(다 접은 입체의 수평 가운데)이다
+- 다 접히면 카메라가 입체 범위(`solid`)로 다가가 입체 가운데 높이를 본다. 펼칠수록 전체 범위(`all`)로 물러나고, 높이각이 45°까지 올라가고, 보는 높이가 바닥으로 내려간다. 바닥에 누운 전개도가 납작하지 않고, 넓은 전개도가 칸의 넓은 가운데에 와서 좁은 안쪽 변에서 잘리지 않게
+- 보이는 모습은 `HOLOGRAM` 토큰. 꼭짓점 라벨·선·면 표시는 그리지 않는다 (작은 피라미드에서 읽히지 않는다)
 
 ## 화면
 

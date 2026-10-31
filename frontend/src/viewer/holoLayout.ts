@@ -10,12 +10,6 @@
 // - 그 칸 쪽에 선 사람의 오른쪽이 그림의 u(오른쪽)다. 거울 면이 그 방향을 그대로 두므로 좌우는 화면 그대로
 // - 아래 칸 쪽 사람은 도형의 앞(+z), 오른쪽 칸 쪽 사람은 도형의 오른쪽(+x)을 본다
 
-import type { ShapeScene } from '../shared/types.ts'
-import { polyhedronOf } from './polyhedra.ts'
-
-// 원기둥·원뿔·구(말기·회전체)는 아직 홀로그램이 없다. 다면체만 (면 트리로 접는 도형)
-export const hologramSupported = (scene: ShapeScene) => polyhedronOf(scene) !== null
-
 export type Side = 'bottom' | 'right' | 'top' | 'left'
 export const SIDES: Side[] = ['bottom', 'right', 'top', 'left']
 

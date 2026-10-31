@@ -10,6 +10,7 @@ import { buildCurvedLesson } from './lessons/curvedLessons.ts'
 import type { LessonObject } from './lessons/index.ts'
 import { STAIR_LAYERS } from './lessons/volumeLayout.ts'
 import { buildSphereBody, buildSphereLesson } from './lessons/sphereLessons.ts'
+import { PAPER } from './theme.ts'
 
 const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1) // 위에서 내려다본다 (수평에서 62°, ThreeViewer 와 같음)
 
@@ -56,8 +57,8 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     // 면 색은 다면체와 같다: 바깥 흰색, 안쪽 아주 연한 하늘색 (ui.md 색 기준)
     const faceStyle = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }
     const faces: [THREE.Material, THREE.Material] = [
-      new THREE.MeshStandardMaterial({ ...faceStyle, color: '#ffffff', side: THREE.FrontSide }),
-      new THREE.MeshStandardMaterial({ ...faceStyle, color: '#e3f1fb', side: THREE.BackSide }),
+      new THREE.MeshStandardMaterial({ ...faceStyle, color: PAPER.looks.normal.outside, side: THREE.FrontSide }), // 3D 디자인 토큰 (theme.ts)
+      new THREE.MeshStandardMaterial({ ...faceStyle, color: PAPER.looks.normal.inside, side: THREE.BackSide }),
     ]
     const roughSize = Math.max(2 * Math.PI * size.radius, size.height + 4 * size.radius)
     const net = sphere ? buildSphereBody(size.radius, faces[0]) : buildCurvedNet(shape, size, faces, roughSize * 0.004, scene.lines as Line<CylinderPoint | ConePoint>[], (scene.net as { seam?: number }).seam)

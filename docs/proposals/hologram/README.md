@@ -26,18 +26,23 @@ foldy는 어린 학생이 도형을 입체로 떠올리기 어려울 때 돕는 
 
 | 파일 | 변경 |
 |---|---|
-| `frontend/src/viewer/HologramViewer.tsx` | 새 파일. 홀로그램 화면 (카메라 4대 → 텍스처 4장 → 사다리꼴 4칸) |
-| `frontend/src/viewer/holoLayout.ts` | 새 파일. 배치·반사 방향·크기 계산, `hologramSupported` (three.js 없음) |
+| `frontend/src/viewer/theme.ts` | 새 파일. 3D 디자인 토큰 `PAPER`(책 장면 지금 값) · `HOLOGRAM` |
+| `frontend/src/viewer/stage.ts` | 새 파일. 무대: 장면 + 토큰 → 바닥에 놓인 도형 물체·접기·범위. 다면체·원기둥·원뿔·구 |
+| `frontend/src/viewer/stage.test.ts` | 새 파일. 모든 도형 11가지 × 두 테마 검사 |
+| `frontend/src/viewer/HologramViewer.tsx` | 새 파일. 홀로그램 화면: 무대를 카메라 4대로 비춰 사다리꼴 4칸에 붙인다 (도형을 모른다) |
+| `frontend/src/viewer/holoLayout.ts` | 새 파일. 배치·반사 방향·크기 계산 (three.js 없음) |
 | `frontend/src/viewer/holoLayout.test.ts` | 새 파일. 배치 계산 검사 |
 | `frontend/src/ui/HologramMode.tsx` | 새 파일. 홀로그램 보기 (전체 화면, 설정 판, 돌아가기) |
+| `frontend/src/viewer/ThreeViewer.tsx` · `CurvedViewer.tsx` · `curved.ts` · `lessons/sphereLessons.ts` | 23줄: 도형 색 숫자를 `PAPER` 토큰으로 (값이 같아 화면은 그대로). `buildCurvedNet`·`buildSphereBody`에 색 인자 추가 (기본값 `PAPER`) |
 | `frontend/src/viewer/index.ts` | 2줄 추가: `HologramViewer`, `HologramProps`, `hologramSupported` export |
 | `frontend/src/ui/App.tsx` | 12줄: `hologram` 상태, 홀로그램 버튼, `HologramMode`, 홀로그램 동안 책 장면 끄기 |
 | `frontend/src/index.css` | 끝에 홀로그램 블록 추가 (기존 규칙은 그대로) |
-| `frontend/package.json` | `npm test`에 `holoLayout.test.ts` 추가 |
+| `frontend/package.json` | `npm test`에 `holoLayout.test.ts`, `stage.test.ts` 추가 |
 
-- 바꾸지 않은 것: ShapeScene, `ViewerProps`, `ThreeViewer.tsx`, 기존 CSS 규칙, backend, 기획안
+- 바꾸지 않은 것: ShapeScene, `ViewerProps`, 책 장면의 동작·모양, 기존 CSS 규칙, backend, 기획안
+- 구조는 [spec.md](spec.md) "구조: 무대와 카메라": 도형은 무대 하나, 디자인은 3D 토큰, 홀로그램은 카메라만
 - 디자인: 버튼은 차례와 같은 `contents-button`, 설정 판은 `--panel`·`--panel-shadow`, 버튼은 `primary-button`·`secondary-button`·`menu-button`, 슬라이더는 `slider-row`. 새 색·그림자 토큰은 없다. 홀로그램 화면 자체는 아크릴에 비치도록 검은 배경이다
-- 검증: `npm run build`, `npm run lint`, `npm test` 통과. PC 브라우저(1280×495)에서 직육면체로 버튼 → 홀로그램 → 설정 → 돌아가기 확인, 콘솔 오류 없음
+- 검증: `npm run build`, `npm run lint`, `npm test` 통과. PC 브라우저(1280×551)에서 버튼 → 홀로그램 → 설정 → 돌아가기, 직육면체·원기둥·원뿔·구 홀로그램, 책 화면(직육면체·원기둥·구) 그대로인지 확인. 콘솔 오류 없음
 
 ## 보는 법
 
@@ -48,6 +53,7 @@ npm run dev -- --host
 
 - PC: `http://localhost:5173/`
 - 휴대폰·태블릿: PC와 같은 와이파이에서 `http://{PC IP}:5173/` (`--host`로 띄우면 터미널에 Network 주소가 나온다)
+- 휴대폰에서 안 열리면: Windows 방화벽이 "공용 네트워크"에서 Node.js 접속을 막는 경우가 많다. 믿을 수 있는 와이파이면 네트워크를 "개인"으로 바꾸거나, 방화벽에서 Node.js를 공용 네트워크에도 허용한다 (관리자 권한)
 - 도형을 만들고 아래 바의 "홀로그램" → 기기를 눕히고 가운데 사각형 위에 아크릴 피라미드를 뒤집어 올린다
 
 ## 실물 확인할 것

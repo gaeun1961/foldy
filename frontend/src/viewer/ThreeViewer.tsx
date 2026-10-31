@@ -8,13 +8,14 @@ import { buildBook, DESK_COLOR } from './bookScene.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
+import { PAPER, type Look } from './theme.ts'
 
 // 처음 카메라가 보는 점에서 카메라 쪽 방향 (비스듬히 위, 오른쪽 앞). 정다면체는 이 방향에서 먼 면부터 접는다
 const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1) // 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
 // 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다
-const PAIR_COLORS = ['#e5484d', '#f76b15', '#e2a400', '#30a46c', '#12a594', '#3e63dd', '#8e4ec6']
+const PAIR_COLORS = PAPER.pairs // 3D 디자인 토큰 (theme.ts)
 
 // 선·라벨을 화면 위치는 그대로 두고 깊이만 카메라 쪽으로 pull.value 만큼 당긴다 (시선 방향으로 당기면 화면 위치가 안 바뀐다).
 // 보이는 모서리가 면과 깊이를 다투면 그래픽 카드마다 점선·실선이 깜빡여서, polygonOffset 대신 거리로 여유를 준다.
@@ -135,7 +136,7 @@ export function ThreeViewer({
     const pull = { value: 0 } // 모서리 선을 카메라 쪽으로 당기는 거리. 도형 크기를 안 뒤에 정한다 (pullTowardCamera)
     // 단계별 접기에서는 지금 접히는 면을 연한 노랑, 나머지를 배경에 가까운 색으로 (ui.md 색 기준)
     // opacity 가 1 보다 작으면 반투명 (설명 모드에서 안에 쌓이는 조각이 보이게)
-    const look = (outside: string, inside: string, edge: string, opacity = 1) => ({
+    const look = ({ outside, inside, edge, opacity }: Look) => ({
       faces: [
         new THREE.MeshStandardMaterial({ ...faceStyle, color: outside, side: THREE.FrontSide, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }),
         new THREE.MeshStandardMaterial({ ...faceStyle, color: inside, side: THREE.BackSide, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }),
@@ -144,13 +145,14 @@ export function ThreeViewer({
       edge: pullTowardCamera(new THREE.LineBasicMaterial({ color: edge, depthWrite: false }), pull),
     })
     const looks = {
-      normal: look('#ffffff', '#e3f1fb', '#3c4048'),
-      active: look('#ffe8a8', '#ffd982', '#3c4048'),
-      faded: look('#f1eee8', '#ebe8e2', '#b9bdc4'),
-      ghost: look('#ffffff', '#e3f1fb', '#3c4048', 0.12), // 설명 모드: 면을 거의 투명하게
-      filled: look('#cfe3c4', '#cfe3c4', '#3c4048'), // 학습지에서 색칠한 면 (grid fill)
-      overlap: look('#ffc9c9', '#ffc9c9', '#3c4048'), // 잘못된 전개도에서 겹친 면 (다 접힌 쪽에서만)
-      opposite: look('#e5dbff', '#d9ccff', '#3c4048'), // 누른 면과 마주 보는 면 (마주 보는 면 보기)
+      // 색은 3D 디자인 토큰 (theme.ts PAPER.looks)
+      normal: look(PAPER.looks.normal),
+      active: look(PAPER.looks.active),
+      faded: look(PAPER.looks.faded),
+      ghost: look(PAPER.looks.ghost), // 설명 모드: 면을 거의 투명하게
+      filled: look(PAPER.looks.filled), // 학습지에서 색칠한 면 (grid fill)
+      overlap: look(PAPER.looks.overlap), // 잘못된 전개도에서 겹친 면 (다 접힌 쪽에서만)
+      opposite: look(PAPER.looks.opposite), // 누른 면과 마주 보는 면 (마주 보는 면 보기)
     }
     // 학습지 전개도(grid)면 라벨·면 표시·전개도 위 선이 같이 온다 (viewer.md "전개도 grid")
     const grid = 'cornerLabels' in poly ? (poly as GridPolyhedron) : null
@@ -520,7 +522,7 @@ export function ThreeViewer({
       const highlight = highlightVertices.length ? highlightVertices : pickedVertex === null ? [] : [pickedVertex]
       for (let i = 0; i < vertexCount; i++) {
         const j = highlight.indexOf(i)
-        const color = j < 0 ? '#3c4048' : PAIR_COLORS[j % PAIR_COLORS.length]
+        const color = j < 0 ? PAPER.looks.normal.edge : PAIR_COLORS[j % PAIR_COLORS.length]
         const opacity = highlight.length && j < 0 ? 0.25 : 1
         for (const m of [markerMaterials[i], labelMaterials[i]]) m?.color.set(color)
         for (const m of [markerMaterials[i], labelMaterials[i]]) if (m) m.opacity = opacity
