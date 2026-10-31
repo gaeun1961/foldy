@@ -16,7 +16,7 @@ import { PAPER, type Look } from './theme.ts'
 // 펜으로 그려 내기: 마지막으로 다 그린 drawIn 값. 뷰어가 내려갔다 올라와도(홀로그램, 읽는 중 빈 책, 곡면 도형) 같은 값이면 다시 그리지 않게 모듈에 둔다
 let lastDrawn: number | undefined
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
-// 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
+// 맞닿는 모서리 쌍 색: 색연필 빨강, 파랑, 초록, 노랑 + 잉크 (ui.md 컨셉). 쌍이 더 많으면 돌려 쓴다.
 // 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다
 const PAIR_COLORS = PAPER.pairs // 3D 디자인 토큰 (theme.ts)
 
@@ -959,20 +959,20 @@ export function ThreeViewer({
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
 }
 
-// 여러 도형의 번호판 ①②… (바닥에 눕힌 둥근 판). 지금 접는 도형은 강조색 (viewer.md "여러 도형")
+// 여러 도형의 번호판 ①②… (바닥에 눕힌 둥근 판). 종이색 + 잉크 테두리, 지금 접는 도형은 지금 접히는 면과 같은 연한 노랑 (ui.md 컨셉, viewer.md "여러 도형")
 function numberPlate(text: string, size: number, active: boolean) {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 128
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = active ? '#3a7d87' : '#fbf8f1'
+  ctx.fillStyle = active ? '#f8df8e' : '#faf6ee'
   ctx.beginPath()
   ctx.arc(64, 64, 58, 0, Math.PI * 2)
   ctx.fill()
-  ctx.lineWidth = 6
-  ctx.strokeStyle = active ? '#2c6169' : '#8a8070'
+  ctx.lineWidth = active ? 8 : 5
+  ctx.strokeStyle = '#2f2a25'
   ctx.stroke()
   ctx.font = 'bold 84px sans-serif'
-  ctx.fillStyle = active ? '#ffffff' : '#3c4048'
+  ctx.fillStyle = '#2f2a25'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(text, 64, 70)

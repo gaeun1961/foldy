@@ -218,8 +218,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             />
           )}
           {shapes.map((s, i) => (
-            <div key={i} aria-hidden style={{ position: 'absolute', pointerEvents: 'none', border: '2px solid #3a7d87', borderRadius: 4, left: `${s.x * 100}%`, top: `${s.y * 100}%`, width: `${s.w * 100}%`, height: `${s.h * 100}%` }}>
-              <span style={{ position: 'absolute', left: 2, top: 0, font: 'bold 13px sans-serif', color: '#fff', background: '#3a7d87', borderRadius: 3, padding: '0 3px' }}>{ITEM_LABELS[i]}</span>
+            <div key={i} aria-hidden style={{ position: 'absolute', pointerEvents: 'none', border: '2px solid var(--accent)', borderRadius: 4, left: `${s.x * 100}%`, top: `${s.y * 100}%`, width: `${s.w * 100}%`, height: `${s.h * 100}%` }}>
+              <span style={{ position: 'absolute', left: 2, top: 0, font: 'bold 13px sans-serif', color: '#fff', background: 'var(--accent)', borderRadius: 3, padding: '0 3px' }}>{ITEM_LABELS[i]}</span>
             </div>
           ))}
           {box && <div className="pick-box" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }} />}
