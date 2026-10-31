@@ -47,6 +47,26 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(ms < 500, `빠르다: ${ms.toFixed(0)}ms`)
 }
 
+// 문제 칸을 넉넉히 그린 경우: 오른쪽 가장자리 책 그림자 띠(위에서 아래까지), 오른쪽 아래 흐린 그림자 얼룩, 전개도 바로 위 문제 글 줄
+{
+  const [W, H] = [480, 360]
+  const s = sheet(W, H, () => 200)
+  for (let x = 440; x < 480; x++) s.fill(x, 0, 1, H, [150 - (x - 440), 145 - (x - 440), 140 - (x - 440)]) // 그림자 띠
+  for (let y = 280; y < 350; y++)
+    for (let x = 300; x < 420; x++) {
+      const d = Math.hypot(x - 360, y - 315) / 60 // 가운데가 어둡고 서서히 밝아지는 얼룩
+      const v = Math.round(200 - 50 * Math.max(0, 1 - d))
+      s.fill(x, y, 1, 1, [v, v, v - 4])
+    }
+  for (let x = 40; x < 420; x += 12) s.fill(x, 120, 9, 12, [35, 35, 35]) // 문제 글 줄 (y 120~132)
+  s.fill(120, 150, 180, 90, [120, 114, 104]) // 전개도 (글 줄 바로 아래)
+  s.fill(200, 0, 90, 60, [125, 120, 110]) // 위 문제의 남은 그림 (칸 위 가장자리에 닿음)
+  const boxes = findShapeBoxes(s)
+  check(boxes.length === 1, `그림자·얼룩·위 문제 그림은 도형이 아니다: ${JSON.stringify(boxes)}`)
+  check(inside({ x: boxes[0].x * W, y: boxes[0].y * H, w: boxes[0].w * W, h: boxes[0].h * H }, 120, 150, 180, 90), '전개도는 감싼다')
+  check(boxes[0].y * H > 131, `넓혀도 위 글 줄까지 올라가지 않는다: 위 ${(boxes[0].y * H).toFixed(0)}`)
+}
+
 // 색칠 없는 학습지(선만) → 추천 없음 (학생이 직접 감싼다)
 {
   const s = sheet(300, 200, () => 210)
@@ -64,4 +84,4 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(boxes[0].y < boxes[4].y && boxes[0].x < boxes[1].x, '위 줄 왼쪽부터')
 }
 
-console.log('ok: 추천 네모 (겨냥도·전개도 둘, 옅은 날개, 옆 도형 안 넘김, 선만이면 없음, 여섯까지)')
+console.log('ok: 추천 네모 (겨냥도·전개도 둘, 옅은 날개, 옆 도형 안 넘김, 책 그림자 띠·흐린 얼룩·위 가장자리 그림 빼기, 글 줄 앞에서 멈춤, 선만이면 없음, 여섯까지)')
