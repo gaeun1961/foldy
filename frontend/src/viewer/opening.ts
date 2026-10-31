@@ -14,10 +14,12 @@ const FLUTTER_GAP = 0.2
 const FLUTTER_TIME = 1.0 // 레퍼런스(KOKUYO Turn the page) 한 장 넘김 약 1초
 const FIRST_TIME = 1.8 // 첫 장은 천천히: 왼쪽에 처음 펴지는 종이가 갑자기 생기는 것처럼 보이지 않게. 다음 장들은 그만큼 늦게 출발
 const PAGES = 5 // 넘어오는 종이 장 수
-const POP = 2.8 // 도형이 하나씩 떠오르기 시작. 그 뒤로 곡선을 그리며 날아다닌다
-const TURN = [5.6, 7.4] // 속표지가 넘어간다. 넘어가기 시작하면 도형이 종이가 지나가는 순서대로 하나씩 흡수된다
-export const OPENING_SECONDS = 7.6
-const SIZES = [2.2, 1.4, 1.9, 1.6, 1.3, 2.0, 1.5, 2.4, 1.7, 1.25, 1.85] // 도형마다 다른 크기 (배)
+const POP = 3.5 // 도형이 하나씩 떠오르기 시작. 그 뒤로 곡선을 그리며 날아다닌다
+const TURN = [5.9, 7.7] // 속표지가 넘어간다. 넘어가기 시작하면 도형이 종이가 지나가는 순서대로 하나씩 흡수된다
+export const OPENING_SECONDS = 7.9
+const SIZES = [3.2, 1.1, 2.3, 1.6, 0.9, 2.8, 1.4, 3.4, 1.9, 1.0, 2.5] // 도형마다 다른 크기 (배)
+// 도형마다 책에서 튀어나오는 때 (POP 부터 초): 2~3개씩 묶여 들쭉날쭉한 순서로
+const POP_AT = [0.25, 0.6, 0, 0.85, 0.45, 0, 1.05, 0.25, 0.6, 0, 0.6]
 // 도형마다 다른 자리: 책등에서 떨어진 정도(쪽 너비 배), 방향 흔들기(라디안), 떠 있는 높이
 const SPREAD = [0.55, 0.78, 0.38, 0.7, 0.48, 0.82, 0.62, 0.42, 0.74, 0.58, 0.66]
 const TWIST = [0.2, -0.25, 0.1, 0.3, -0.15, 0.05, -0.3, 0.25, -0.1, 0.15, -0.2]
@@ -236,8 +238,8 @@ export function buildOpening(book: Book, size: number) {
   // 날아다니는 자리: 떠오른 곳을 중심으로, 빠르기가 다른 두 곡선을 겹쳐 도형마다 다르게 부드럽게 휘돈다
   const flying = (k: number, t: number, out: THREE.Vector3) => {
     const { ground, air } = shapes[k]
-    const p = easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))
-    const W = WANDER * span(t, POP + 0.6, POP + 2)
+    const p = easeOutBack(span(t, POP + POP_AT[k], POP + POP_AT[k] + 0.9))
+    const W = WANDER * span(t, POP + POP_AT[k] + 0.6, POP + POP_AT[k] + 2)
     const f = 0.55 + 0.07 * (k % 4)
     return out.lerpVectors(ground, air, p).add(
       new THREE.Vector3(
@@ -277,7 +279,7 @@ export function buildOpening(book: Book, size: number) {
       const u = span(t, start, end)
       if (u === 0) {
         flying(k, t, holder.position)
-        mesh.scale.setScalar(Math.max(0, easeOutBack(span(t, POP + k * 0.1, POP + k * 0.1 + 0.9))) * size)
+        mesh.scale.setScalar(Math.max(0, easeOutBack(span(t, POP + POP_AT[k], POP + POP_AT[k] + 0.9))) * size)
         const breathe = 0.06 * Math.sin(t * 2.6 + k)
         holder.scale.set(1 - breathe / 2, 1 + breathe, 1 - breathe / 2)
         return
@@ -296,18 +298,20 @@ export function buildOpening(book: Book, size: number) {
         holder.scale.set(1 + 0.4 * press, 1 - 0.7 * press, 1 + 0.4 * press)
         return
       }
-      // 오른쪽: 블랙홀에 빨려 들어가듯, 넘어가는 종이 위 자기 자리로 점점 빨라지며 들어간다.
-      // 들어가는 쪽으로 길게 늘어나고 옆은 가늘어지다가 끝에서 한 점으로 사라진다. 끝점은 종이를 따라 움직인다
+      // 오른쪽: 블랙홀에 빨려 들어가듯, 왼쪽 위 대각선으로 솟구쳤다가 넘어가는 종이 위 자기 자리로 점점 빨라지며 들어간다
+      // (종이가 넘어가는 쪽으로 끌려간다). 움직이는 방향으로 길게 늘어나고 옆은 가늘어지다가 끝에서 한 점으로 사라진다.
+      // 끝점은 종이를 따라 움직인다
       const a = u * u // 점점 빨라진다
       title.pointAt(reach, from.z - spine.z, to)
-      via.lerpVectors(from, to, 0.5).y += 0.8
+      via.copy(from).add(new THREE.Vector3(-2.2, 2.6, 0)) // 왼쪽 위 대각선
       const b = 1 - a
       holder.position.set(0, 0, 0).addScaledVector(from, b * b).addScaledVector(via, 2 * a * b).addScaledVector(to, a * a)
-      dir.subVectors(to, holder.position)
+      // 늘어나는 방향 = 곡선의 진행 방향 (처음엔 왼쪽 위, 끝으로 갈수록 종이 쪽)
+      dir.subVectors(via, from).multiplyScalar(b).addScaledVector(to.clone().sub(via), a)
       if (dir.lengthSq() > 1e-6) holder.quaternion.setFromUnitVectors(UP, dir.normalize())
-      const long = 1 + 3.5 * u * u
+      const long = 1 + 2.5 * u * u
       holder.scale.set(1 / Math.sqrt(long), long, 1 / Math.sqrt(long))
-      mesh.scale.setScalar(size * (1 - smooth(0.55, 1, u)))
+      mesh.scale.setScalar(size * (1 - smooth(0.45, 1, u)))
     })
   }
 
