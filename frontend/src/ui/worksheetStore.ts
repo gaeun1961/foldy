@@ -12,6 +12,7 @@ export interface SavedWorksheet {
   thumb: Blob // 목록용 작은 사진
   scene: ShapeScene // /analyze 결과 그대로
   place: { box: PhotoBox; aspect: number } | null // 사진 속 전개도 네모 (칸 밑 사진 맞춤)
+  more?: { scene: ShapeScene; place: { box: PhotoBox; aspect: number } | null }[] // 여러 도형 문제의 ②번부터 (worksheets.md 여러 도형)
 }
 export type WorksheetItem = Omit<SavedWorksheet, 'photo'>
 

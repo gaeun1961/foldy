@@ -138,13 +138,13 @@ def recognize_cli(image: bytes, content_type: str) -> ShapeScene:
 AGY_MODEL = "gemini-4-argon-low"
 AGY_TEXT_MODEL = "gemini-3.8-flash-low"  # 문제 글 읽기: 13~15초, 두 학습지 모두 완벽 (OCR 은 빠르지만 틀림)
 AGY_TIMEOUT_S = 300
-# 한 번에 하나만 (팀원 여럿이 동시에 올리면 차례로). 도형과 문제 글은 서로 다른 줄이라 동시에 돈다
-_agy_lock = threading.Lock()
-_agy_text_lock = threading.Lock()
+# 도형은 셋까지 동시에 (여러 도형 문제는 네모마다 따로 읽는다, worksheets.md 여러 도형). 문제 글은 따로 하나
+_agy_lock = threading.Semaphore(3)
+_agy_text_lock = threading.Semaphore(1)
 
 
 def _run_agy(
-    image: bytes, content_type: str, ask: str, model: str, lock: threading.Lock
+    image: bytes, content_type: str, ask: str, model: str, lock: threading.Semaphore
 ) -> str:
     """사진은 임시 폴더에 두고 프롬프트 앞 @파일 로 붙인다. 명령 실행은 허락하지 않는다(--sandbox, 권한 건너뛰기 없음).
     ask 의 "{name}" 글자 자리에 사진 파일 이름이 들어간다. 출력(stdout) 그대로 돌려준다."""
