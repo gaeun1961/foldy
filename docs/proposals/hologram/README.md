@@ -6,7 +6,7 @@
 - 일시: 2026-10-31 (KST)
 - 작성자: Phodo
 - 에이전트: Claude Code
-- 브랜치: `proposal/hologram` (로컬, 이슈 없음, main `69f60ff` 위)
+- 브랜치: `feature/122-hologram-mode` (이슈 [#122](https://github.com/gaeun1961/foldy/issues/122) TODO-43, main `52e771d` 위)
 
 | 문서 | 내용 |
 |---|---|
