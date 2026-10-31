@@ -26,9 +26,12 @@ export interface Stage {
   dispose(): void
 }
 
-// 무대가 그릴 수 있는 도형인지. 다면체(면 트리), 원기둥·원뿔, 구
+// 무대가 그릴 수 있는 도형인지. 다면체(면 트리, 면이 2개 이상), 원기둥·원뿔, 구.
+// 면이 하나뿐인 학습지 전개도(전개도 고르기 문제 등)는 접을 입체가 없어서 false. 학습지에서 모르는 도형이 와도 false 라서 홀로그램 버튼이 꺼진다
 export function stageSupported(scene: ShapeScene) {
-  return polyhedronOf(scene) !== null || scene.shape === 'cylinder' || scene.shape === 'cone' || scene.shape === 'sphere'
+  const poly = polyhedronOf(scene)
+  if (poly) return poly.faces.length >= 2
+  return scene.shape === 'cylinder' || scene.shape === 'cone' || scene.shape === 'sphere'
 }
 
 const FRONT = new THREE.Vector3(0, 0.6, 1) // 순서가 없는 도형을 눕히고 접는 기준 방향 (앞, 조금 위)
