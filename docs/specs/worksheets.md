@@ -17,6 +17,8 @@
 | W2 | eval 에서 엔진·모델 고르기 (`--engine agy --model …`) | backend `evals/` | W1 | 반나절 |
 | W3 | 내 학습지 보관함 (기기 안 저장, 다시 열기, 지우기) | frontend `ui/` | mobile 브랜치 머지 | 하루 |
 | W4 | 인식 대기 화면 (사진 위 "읽는 중", 걸린 시간) | frontend `ui/` | W3 | 반나절 |
+| W5 | 사진 돌리기 ↻ 90° (버그 [B2](../todo/B2-photo-overlay-rotated.md) 해결) | frontend `ui/` | 없음 | 반나절 |
+| W6 | (인계, 2026-10-31) 학습지 사진을 홀로그램 면에 입혀 접기. 홀로그램 브랜치 `feature/122-hologram-mode`(#122) 머지 뒤. 메모: `git show feature/122-hologram-mode:docs/proposals/hologram/photo-handoff.md`. `stage.ts` 사진 경로 + prop 한 줄로 좁히고 `HologramMode`·`HologramViewer`·`holoLayout`, ShapeScene·ViewerProps는 고치지 않는다 | frontend `viewer/` | #122 머지 | 하루 |
 
 - **W0 결과 (2026-10-31)**: 사진은 프롬프트 앞 `@photo.jpg`로 붙인다(붙이지 않으면 에이전트가 명령으로 열려다 거부된다). 출력은 `{"status","response":"```json …```","usage"}`라 기존 `cli_scene`으로 읽힌다
 
