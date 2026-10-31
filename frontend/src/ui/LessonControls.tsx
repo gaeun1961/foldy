@@ -40,7 +40,7 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed
     const { stepMs, pauseMs } = SPEEDS[speed]
     // 겉넓이(재기·칠하기·식)와 뿔 물 붓기는 한 단계에 할 일이 많아서 두 배 천천히
     // 개수는 하나씩 세어야 해서 더 천천히 (모서리 30개까지)
-    const slow = lesson.kind === 'counts' ? 6 : lesson.kind === 'surface-area' || (lesson.kind === 'volume' && (scene.shape === 'cone' || scene.shape === 'pyramid' || scene.shape === 'sphere')) ? 2 : 1
+    const slow = lesson.kind === 'counts' ? 6 : lesson.kind === 'surface-area' || lesson.kind === 'thread' || (lesson.kind === 'volume' && (scene.shape === 'cone' || scene.shape === 'pyramid' || scene.shape === 'sphere')) ? 2 : 1
     cancel.current = animate(progress, list, stepMs * steps * slow, pauseMs * 3, set, () => {
       onPlayingChange(false)
     })
@@ -62,8 +62,8 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed
             <input type="range" min={0} max={12} step={1} value={Math.round((lesson.cut ?? 0.5) * 12)} onChange={(e) => onChange({ ...lesson, cut: +e.target.value / 12 })} />
           </label>
         )}
-        {/* 원뿔: 다 본 뒤 원판 수를 바꿔 ⅓에 가까워지는 것을 본다 (ui.md 공식 시각화 규칙) */}
-        {lesson.kind === 'volume' && scene.shape === 'cone' && progress >= 1 && (
+        {/* 원뿔: 원판 계단부터 원판 수를 바꿔 ⅓에 가까워지는 것을 본다 (ui.md 공식 시각화 규칙) */}
+        {lesson.kind === 'volume' && scene.shape === 'cone' && progress >= 0.8 - 1e-6 && (
           <label className="stair-layers">
             원판 {lesson.layers ?? STAIR_LAYERS[0]}층
             <input type="range" min={0} max={STAIR_LAYERS.length - 1} step={1} value={STAIR_LAYERS.indexOf((lesson.layers ?? STAIR_LAYERS[0]) as (typeof STAIR_LAYERS)[number])} onChange={(e) => onChange({ ...lesson, layers: STAIR_LAYERS[+e.target.value] })} />

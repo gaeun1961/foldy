@@ -9,8 +9,6 @@
 
 선행 TODO가 모두 끝났고 assignee가 없는 TODO.
 
-- **TODO-39** [각기둥 겉넓이·부피 "왜 그 값인지"](39-prism-why.md) · [#115](https://github.com/gaeun1961/foldy/issues/115) — 3D: 각기둥: 옆면을 이어 큰 직사각형, 밑면은 삼각형으로 나누기, 밑면 판 쌓기
-- **TODO-40** [각뿔 겉넓이·부피 "왜 그 값인지"](40-pyramid-why.md) · [#116](https://github.com/gaeun1961/foldy/issues/116) — 3D: 각뿔: 삼각형 + 같은 삼각형으로 직사각형
 
 ## 진행 중
 
@@ -46,8 +44,5 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | 단계 | TODO | 이슈 | 선행 |
 |---|---|---|---|
-| 3차 | **TODO-19** [곡면 도형 위 선 그리기 (전개도 직선이 곡면을 따라 감기게)](19-curved-lines.md) | [#27](https://github.com/gaeun1961/foldy/issues/27) | 없음 |
-| 3차 | **TODO-20** [곡면 도형 선 입력 (전개도 상태에서 클릭)](20-curved-line-input.md) | [#28](https://github.com/gaeun1961/foldy/issues/28) | TODO-19, TODO-6 |
-| 3차 | **TODO-27** [원의 넓이 유도 시각화](27-circle-area.md) | [#42](https://github.com/gaeun1961/foldy/issues/42) | 없음 |
 | 3차 | **TODO-32** [회전체 만들기](32-solid-of-revolution.md) | [#48](https://github.com/gaeun1961/foldy/issues/48) | 없음 |
 | 3차 | **TODO-33** [단면 보기](33-cross-section.md) | [#49](https://github.com/gaeun1961/foldy/issues/49) | TODO-32 |

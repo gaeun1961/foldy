@@ -6,7 +6,7 @@ import { netCheck, polyhedronOf, type Polyhedron } from '../polyhedra.ts'
 import { defaultEdge, edgeRelations, edgesOf } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { generalFormula } from './formulas.ts'
-import { regularPlan, slantPlan, surd } from './regularLayout.ts'
+import { prismHints, regularPlan, slantPlan, surd, threadPlan } from './regularLayout.ts'
 import { similarSteps } from './similarLayout.ts'
 import { curvedSurfaceSteps, faceArea, polygonWord, surfaceGroups, surfaceStepHint, surfaceSteps, type CountStep } from './surfaceLayout.ts'
 import { isExact, piValue, slantText, type PiMode } from './lengthLabels.ts'
@@ -14,7 +14,7 @@ import { pieces, STAIR_LAYERS, stairRatio, volumeLayout } from './volumeLayout.t
 
 export type { PiMode }
 
-export type LessonKind = 'volume' | 'surface-area' | 'diagonal' | 'shortest-path' | 'edge-relations' | 'similar' | 'counts' | 'sphere-section'
+export type LessonKind = 'volume' | 'surface-area' | 'diagonal' | 'shortest-path' | 'edge-relations' | 'similar' | 'counts' | 'sphere-section' | 'thread'
 
 export interface Lesson {
   kind: LessonKind
@@ -27,25 +27,26 @@ export interface Lesson {
 
 const scaleOf = (lesson: { scale?: number }) => lesson.scale ?? 2
 
-export const LESSON_LABEL: Record<LessonKind, string> = { volume: '부피', 'surface-area': '겉넓이', diagonal: '대각선', 'shortest-path': '최단 거리', 'edge-relations': '위치 관계', similar: '닮음', counts: '개수', 'sphere-section': '단면 비교' }
+export const LESSON_LABEL: Record<LessonKind, string> = { volume: '부피', 'surface-area': '겉넓이', diagonal: '대각선', 'shortest-path': '최단 거리', 'edge-relations': '위치 관계', similar: '닮음', counts: '개수', 'sphere-section': '단면 비교', thread: '실 감기' }
 
 // 화면 위에 작게 쓰는 학년 표시. 각뿔·원뿔·삼각기둥 겉넓이는 피타고라스 단계를 볼 때만
 export function lessonGrade(lesson: Lesson, scene: ShapeScene) {
   const pythagoras = '중3 · 피타고라스 활용'
   if (lesson.kind === 'sphere-section') return '중2 이상 · 심화'
-  if (lesson.kind === 'diagonal') return pythagoras
+  if (lesson.kind === 'diagonal' || lesson.kind === 'shortest-path' || lesson.kind === 'thread') return pythagoras
   if (isRegular(scene)) return lesson.kind === 'counts' ? '중1' : pythagoras
   return lesson.kind === 'surface-area' && slantPlan(scene) && lesson.progress <= 1 / lessonStepCount(scene, lesson.kind) + 1e-6 ? pythagoras : null
 }
 
 // 어느 자세에서 보여주는지: 'solid' 는 바로 세운 입체(unfold 0), 'net' 은 바닥에 펼친 전개도(unfold 1)
-export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'solid', diagonal: 'solid', 'shortest-path': 'net', 'edge-relations': 'solid', similar: 'solid', counts: 'solid', 'sphere-section': 'solid' }
+export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'solid', diagonal: 'solid', 'shortest-path': 'net', 'edge-relations': 'solid', similar: 'solid', counts: 'solid', 'sphere-section': 'solid', thread: 'solid' }
 
 const isRegular = (scene: ShapeScene) => scene.shape.startsWith('regular-')
 
-// 도형별 탭: 교과서에서 실제로 배우는 것만 (ui.md 공식 시각화 규칙). 닮음·최단 거리 설명은 코드만 남아 있고 탭에는 없다
+// 도형별 탭: 교과서에서 실제로 배우는 것만 (ui.md 공식 시각화 규칙). 닮음·최단 거리는 직육면체·정육면체에만
 export function lessonTabs(scene: ShapeScene): LessonKind[] {
-  if (boxSizeOf(scene)) return ['surface-area', 'volume', 'edge-relations', 'diagonal']
+  if (boxSizeOf(scene)) return ['surface-area', 'volume', 'edge-relations', 'diagonal', 'similar', 'shortest-path']
+  if (scene.shape === 'cylinder') return ['surface-area', 'volume', 'thread']
   return isRegular(scene) ? ['counts', 'surface-area', 'volume'] : ['surface-area', 'volume']
 }
 
@@ -64,6 +65,7 @@ export const LESSON_HINT: Record<LessonKind, string> = {
   'edge-relations': '빨간 모서리와 다른 모서리는 어떤 사이일까요? 다른 모서리를 눌러 바꿀 수 있어요',
   similar: '모서리를 늘리면 겉넓이와 부피는 몇 배가 될까요?',
   counts: '면, 모서리, 꼭짓점을 하나씩 켜며 세어 볼까요',
+  thread: '실을 감은 가장 짧은 길은 어떤 모양일까요?',
   'sphere-section': '바닥과 높이가 같은 두 도형이에요. 어느 높이에서 잘라도 단면 넓이가 같을까요?',
 }
 
@@ -72,9 +74,14 @@ function volumeHint(scene: ShapeScene, progress: number, mode: PiMode, stair = S
   if (scene.shape === 'cone' || scene.shape === 'pyramid') {
     const [cone, cup] = scene.shape === 'cone' ? ['원뿔', '원기둥'] : ['각뿔', '각기둥']
     if (progress <= 0) return `${cone}에 물을 가득 담아, 밑면과 높이가 같은 ${cup} 통에 부어 봐요. 몇 번 부으면 가득 찰까요?`
-    if (progress >= 1) return scene.shape === 'cone' ? `원판 ${stair}층 ÷ 원기둥 = ${stairRatio(stair, scene.size.radius, scene.size.height).toFixed(3)}. 층이 많아질수록 ⅓(0.333…)에 가까워져요` : '정육면체를 한 꼭짓점에서 자르면 똑같은 사각뿔 3개예요. 사각뿔 1개 = 정육면체의 ⅓'
-    const at = progress * 4
+    const pourSteps = scene.shape === 'pyramid' && scene.size.sides !== 4 ? 3 : 5
+    const ratio = scene.shape === 'cone' ? `원판 ${stair}층 ÷ 원기둥 = ${stairRatio(stair, scene.size.radius, scene.size.height).toFixed(3)}. 층이 많아질수록 ⅓(0.333…)에 가까워져요` : ''
+    if (progress >= 1 && pourSteps === 3) return `세 번 부으니 딱 찼어요. 그래서 ${cone}의 부피는 ${cup}의 ⅓이에요`
+    if (progress >= 1) return scene.shape === 'cone' ? `판을 옆으로 밀어 꼭대기를 옮겨도 판의 크기와 개수가 그대로라 부피는 같아요. ${ratio}` : '이런 사각뿔 3개가 정육면체를 빈틈없이 채워요. 사각뿔 1개 = 정육면체의 ⅓'
+    const at = progress * pourSteps
     if (Math.abs(at - Math.round(at)) > 1e-6) return null
+    if (Math.round(at) === 4 && scene.shape === 'cone') return ratio
+    if (Math.round(at) === 4) return '밑면과 높이가 그대로면 꼭대기를 옮겨도 부피는 같아요. 꼭대기를 밑면 꼭짓점 바로 위로 옮겼어요'
     if (Math.round(at) === 3) return `세 번 부으니 딱 찼어요. 그래서 ${cone}의 부피는 ${cup}의 ⅓이에요. 왜 그럴까요?`
     return `${Math.round(at)}번 부었어요. 통의 ${Math.round(at) === 1 ? '⅓' : '⅔'}까지 찼어요. 물을 다시 담았어요`
   }
@@ -84,6 +91,14 @@ function volumeHint(scene: ShapeScene, progress: number, mode: PiMode, stair = S
   if (!box && !cylinder && !prism) return undefined // 정다면체
   const height = box?.height ?? cylinder?.height ?? prism!.height
   const layers = pieces(height).length
+  // 각기둥: 판을 다 쌓은 뒤 맨 위 면에서 밑넓이를 구한다
+  if (prism) {
+    if (progress <= 0) return '두께 1 cm 인 판을 한 층씩 쌓아 볼까요'
+    const at = progress * (layers + 1)
+    if (Math.abs(at - Math.round(at)) > 1e-6) return null
+    if (Math.round(at) <= layers) return `한 층 = 밑넓이 × 1 · ${Math.round(at)}층까지 밑넓이 × ${Math.round(at)}`
+    return slantPlan(scene)?.hint ?? prismHints(prism.sides, prism.edge, prism.height)[0]
+  }
   if (progress <= 0) return box ? LESSON_HINT.volume : '먼저 밑면을 칠하고, 두께 1 cm 인 판을 한 층씩 쌓아 볼까요'
   if (progress >= 1) return '한 층의 양 × 층 수 = 부피예요'
   const at = progress * (layers + 1)
@@ -92,7 +107,6 @@ function volumeHint(scene: ShapeScene, progress: number, mode: PiMode, stair = S
   // 넓이 표기: 원기둥은 π, 각기둥은 딱 떨어질 때만 숫자
   const area = box ? box.width * box.depth : cylinder ? cylinder.radius ** 2 : polygonArea(prism!)
   const show = (n: number) => (cylinder ? piValue(n, mode) : num(n))
-  if (prism && !isExact(area)) return done === 0 ? '칠한 면의 넓이가 밑넓이예요' : `한 층 = 밑넓이 × 1 · ${done}층까지 밑넓이 × ${done}`
   if (done === 0) return box ? `밑넓이 = ${num(box.width)} × ${num(box.depth)} = ${num(area)} cm²` : cylinder ? `밑넓이 = ${mode === 'pi' ? 'π' : '3.14'} × ${num(cylinder.radius)} × ${num(cylinder.radius)} = ${show(area)} cm²` : `밑넓이 = ${num(area)} cm²`
   if (box && Number.isInteger(area)) return `한 층에 작은 정육면체 ${area}개 · ${done}층까지 ${area * done}개`
   return `한 층 = 밑넓이 ${show(area)} × 두께 1 · ${done}층까지 ${show(area * done)} cm³`
@@ -124,6 +138,10 @@ function sphereVolume(r: number, mode: PiMode) {
 // "넓이·부피가 k²·k³ 배니까 다 그렇겠지"라는 과잉 일반화를 점검한다 (리포트 T29 참고 자료)
 export function lessonHint(lesson: Lesson, scene?: ShapeScene): string | null {
   if (scene?.shape === 'sphere') return sphereHint(lesson, scene.size.radius)
+  if (lesson.kind === 'thread' && scene?.shape === 'cylinder' && lesson.progress > 0) {
+    const at = lesson.progress * 3
+    return Math.abs(at - Math.round(at)) < 1e-6 ? threadPlan(scene.size.radius, scene.size.height, lesson.pi ?? 'pi').hints[Math.round(at) - 1] : null
+  }
   const plan = scene && planOf(scene)
   if (plan && (lesson.kind === 'surface-area' || lesson.kind === 'volume')) {
     const hints = lesson.kind === 'surface-area' ? plan.areaHints : plan.volume?.hints
@@ -138,6 +156,16 @@ export function lessonHint(lesson: Lesson, scene?: ShapeScene): string | null {
     const steps: CountStep[] = scene.shape === 'cylinder' || scene.shape === 'cone' ? curvedSurfaceSteps(scene.shape, scene.size.radius, scene.size.height, lesson.pi) : poly ? surfaceSteps(poly, !!boxSizeOf(scene)) : []
     if (!steps.length) return null
     const slant = slantPlan(scene)
+    if (scene.shape === 'prism') {
+      steps.length = 0
+      for (const hint of prismHints(scene.size.sides, scene.size.edge, scene.size.height)) steps.push({ count: 1, each: 0, text: '', hint })
+    }
+    if (scene.shape === 'pyramid') {
+      // 옆면 묶음: 같은 삼각형을 붙이면 직사각형, 그 반. 마지막 묶음이어도 끝까지 보이게 hint 로
+      surfaceSteps(poly!).forEach((step, k) => {
+        if (poly!.faces[step.face].vertices.length === 3) steps[k].hint = step.exact ? `같은 삼각형을 붙이면 직사각형이에요. 그 반이라 ${step.text}` : '같은 삼각형을 붙이면 밑변 × 높이 직사각형이에요. 옆면은 그 반이에요'
+      })
+    }
     if (slant) steps.unshift({ count: 1, each: 0, text: '', hint: slant.hint })
     if (lesson.progress >= 1) return steps[steps.length - 1].hint ?? null
     const at = lesson.progress * steps.length
@@ -200,9 +228,10 @@ export function lessonStepCount(scene: ShapeScene, kind: LessonKind, scale = 2) 
   if (scene.shape === 'sphere') return kind === 'surface-area' ? 3 : kind === 'volume' ? 2 : kind === 'sphere-section' ? 1 : 0
   // 곡면 도형: 겉넓이(밑면 → 옆면), 부피, 닮음 (curvedLessons.ts)
   if (scene.shape === 'cylinder' || scene.shape === 'cone') {
+    if (kind === 'thread') return scene.shape === 'cylinder' ? 3 : 0 // 감기, 펴기, 길이
     if (kind === 'surface-area') return scene.shape === 'cone' ? 4 : 2 // 원기둥: 밑면, 옆면. 원뿔: 모선 구하기, 밑면, 옆면 펼치기, 큰 원의 비율
     if (kind === 'similar') return similarSteps(scale)
-    if (kind === 'volume') return scene.shape === 'cone' ? 4 : pieces(scene.size.height).length + 1 // 원뿔: 세 번 붓기 + 원판 계단. 원기둥: 밑면 칠하기 + 층
+    if (kind === 'volume') return scene.shape === 'cone' ? 5 : pieces(scene.size.height).length + 1 // 원뿔: 세 번 붓기 + 원판 계단 + 판 밀기. 원기둥: 밑면 칠하기 + 층
     return 0
   }
   const poly = polyhedronOf(scene)
@@ -212,13 +241,13 @@ export function lessonStepCount(scene: ShapeScene, kind: LessonKind, scale = 2) 
     return kind === 'counts' ? 3 : kind === 'surface-area' ? plan.areaHints.length : kind === 'volume' ? (plan.volume?.hints.length ?? 0) : 0
   }
   const box = boxSizeOf(scene)
-  if (kind === 'surface-area') return surfaceGroups(poly).length + (slantPlan(scene) ? 1 : 0)
+  if (kind === 'surface-area') return (scene.shape === 'prism' ? 2 : surfaceGroups(poly).length) + (slantPlan(scene) ? 1 : 0)
   if (kind === 'edge-relations') return 3 // 평행, 만남, 꼬인 위치
   if (kind === 'similar') return similarSteps(scale) // 길이, 한 면, 부피 k 층
   if (kind === 'volume') {
     if (box) return volumeLayout(box.width, box.depth, box.height).layers + 1 // 밑면 칠하기 + 층
     if (scene.shape === 'prism') return pieces(scene.size.height).length + 1
-    if (scene.shape === 'pyramid') return 4 // 세 번 붓기 + 정육면체 나누기
+    if (scene.shape === 'pyramid') return scene.size.sides === 4 ? 5 : 3 // 세 번 붓기. 사각뿔은 꼭대기 옮기기 + 합치기까지
   }
   if (!box) return 0
   if (kind === 'diagonal') return 3 // 밑면 삼각형, 세운 삼각형, 입체 대각선
@@ -239,6 +268,24 @@ const root = (x: number) => {
 const leg = (parts: number[]) => (parts.length > 1 ? `(${parts.map(num).join(' + ')})²` : `${num(parts[0])}²`)
 
 // 애니메이션이 멈춘 뒤 보여줄 식과 값 (ui.md 친절한 설명 원칙: 글은 멈춘 뒤에)
+// 닮음 결과: 닮음비 아래에 겉넓이비·부피비. 강조는 제곱·세제곱, 계산한 값은 옆에 작게
+const similarResult = (k: number): LessonResult => ({
+  formula: `닮음비 1 : ${k}`,
+  ratios: [
+    { label: '겉넓이비', value: `1 : ${k}²`, note: `= 1 : ${k * k}` },
+    { label: '부피비', value: `1 : ${k}³`, note: `= 1 : ${k ** 3}` },
+  ],
+})
+
+// 겉넓이에서 피타고라스로 구한 값: 그 단계를 지나도 왼쪽 쪽에 남긴다
+export function lessonNote(lesson: Lesson, scene: ShapeScene) {
+  if (lesson.kind !== 'surface-area') return null
+  const plan = planOf(scene)
+  if (plan) return plan.height && lesson.progress * plan.areaHints.length > 2 + 1e-6 ? plan.areaHints[1] : null
+  const slant = slantPlan(scene)
+  return slant && lesson.progress * lessonStepCount(scene, 'surface-area') > 1 + 1e-6 ? slant.hint : null
+}
+
 // 구 단면 비교의 왼쪽 쪽 글 (ui.md 공식 시각화 규칙). 두 넓이 줄에는 지금 높이의 값을 같이 쓴다. 심화는 중등 내용이라 늘 π 그대로
 export const CONE_THIRD_LINK = 'cone-third'
 export function sphereSectionLines(r: number, cut: number) {
@@ -269,6 +316,7 @@ function summaryOf(scene: ShapeScene, kind: LessonKind, scale: number, mode: PiM
   }
   if (scene.shape === 'cylinder' || scene.shape === 'cone') {
     const { radius: r, height: h } = scene.size
+    if (kind === 'thread' && scene.shape === 'cylinder') return threadPlan(r, h, mode).result
     const cone = scene.shape === 'cone'
     const show = (n: number) => piValue(n, mode)
     if (kind === 'volume') return { formula: `밑넓이 ${show(r * r)} × 높이 ${num(h)}${cone ? ' ÷ 3' : ''}`, value: `${show((r * r * h) / (cone ? 3 : 1))} cm³` }
@@ -279,7 +327,7 @@ function summaryOf(scene: ShapeScene, kind: LessonKind, scale: number, mode: PiM
       const side = `${num(r)}${slantText(r, h)}π`
       return { formula: `밑면 ${show(r * r)} + 옆면 ${side}`, value: `${show(r * r)} + ${side} cm²` }
     }
-    if (kind === 'similar') return { formula: `겉넓이 1 : ${scale}² = 1 : ${scale * scale},  부피 1 : ${scale}³`, value: `1 : ${scale ** 3}` }
+    if (kind === 'similar') return similarResult(scale)
     return null
   }
   const poly = polyhedronOf(scene)
@@ -291,11 +339,18 @@ function summaryOf(scene: ShapeScene, kind: LessonKind, scale: number, mode: PiM
     // 같은 모양 묶음마다 장수 × 넓이 (직육면체: 2 × 12 + 2 × 8 + 2 × 6, 정육면체: 6 × 9). √ 가 필요한 넓이는 계산하지 않고 식만 쓴다 (값 없음)
     const groups = surfaceGroups(poly)
     const area = (g: number[]) => faceArea(poly, g[0])
-    // 삼각기둥: 밑면 높이를 피타고라스로 구했으니 √ 로 답을 쓴다
-    if (scene.shape === 'prism' && scene.size.sides === 3) {
-      const a = scene.size.edge
-      const sides = groups.find((g) => poly.faces[g[0]].vertices.length === 4)!
-      if (isExact(area(sides))) return { formula: `${sides.length} × ${num(area(sides))} + 2 × ${surd(a * a, 4, 3)}`, value: `${num(sides.length * area(sides))} + ${surd(a * a, 2, 3)} cm²` }
+    // 각기둥: 밑넓이 × 2 + 옆넓이 (일반 공식과 같은 모양). 삼각기둥은 밑면 높이를 피타고라스로 구했으니 √ 로 답을 쓴다
+    if (scene.shape === 'prism') {
+      const { sides: n, edge: a, height: h } = scene.size
+      const [base, around] = [polygonArea(scene.size), n * a * h]
+      if (n === 3) return { formula: `${surd(a * a, 4, 3)} × 2 + 옆넓이 ${num(around)}`, value: `${num(around)} + ${surd(a * a, 2, 3)} cm²` }
+      if (!isExact(base)) return { formula: `밑넓이 × 2 + 옆넓이 ${num(around)}` }
+      return { formula: `밑넓이 ${num(base)} × 2 + 옆넓이 ${num(around)}`, value: `${approx(2 * base + around)} cm²` }
+    }
+    // 각뿔: 밑넓이 + 옆넓이
+    if (scene.shape === 'pyramid' && groups.length === 2 && groups.every((g) => isExact(area(g)))) {
+      const [base, side] = poly.faces[groups[0][0]].vertices.length === 3 ? [groups[1], groups[0]] : groups
+      return { formula: `밑넓이 ${num(area(base))} + 옆넓이 ${side.length} × ${num(area(side))}`, value: `${approx(area(base) + side.length * area(side))} cm²` }
     }
     if (!groups.every((g) => isExact(area(g)))) {
       return { formula: groups.map((g) => (isExact(area(g)) ? `${g.length} × ${num(area(g))}` : `${polygonWord(poly.faces[g[0]].vertices.length)} 넓이 × ${g.length}`)).join(' + ') }
@@ -304,10 +359,7 @@ function summaryOf(scene: ShapeScene, kind: LessonKind, scale: number, mode: PiM
     return { formula: groups.map((g) => `${g.length} × ${num(area(g))}`).join(' + '), value: `${approx(sum)} cm²` }
   }
   if (kind === 'counts') return isRegular(scene) ? { formula: '', table: countsOf(poly).map(([name, n]) => [name, String(n)]) } : null
-  if (kind === 'similar') {
-    const k = scale
-    return { formula: `겉넓이 1 : ${k}² = 1 : ${k * k},  부피 1 : ${k}³`, value: `1 : ${k ** 3}` }
-  }
+  if (kind === 'similar') return similarResult(scale)
   if (kind === 'edge-relations') {
     // 직육면체·정육면체는 어느 모서리를 기준으로 해도 개수가 같다 (평행 3, 수직으로 만남 4, 꼬인 위치 4)
     const { parallel, meet, skew, perpendicular } = edgeRelations(poly, defaultEdge(poly))
@@ -348,6 +400,8 @@ function solidVolumeSummary(scene: ShapeScene): LessonResult | null {
   const A = polygonArea(scene.size)
   const third = scene.shape === 'pyramid' ? ' ÷ 3' : ''
   const h = num(scene.size.height)
+  // 삼각기둥: 윗면에서 피타고라스로 구한 밑넓이로 답까지
+  if (scene.shape === 'prism' && scene.size.sides === 3) return { formula: `밑넓이 ${surd(scene.size.edge ** 2, 4, 3)} × 높이 ${h}`, value: `${surd(scene.size.edge ** 2 * scene.size.height, 4, 3)} cm³` }
   if (!isExact(A)) return { formula: `밑넓이 × 높이 ${h}${third}` }
   return { formula: `밑넓이 ${num(A)} × 높이 ${h}${third}`, value: `${num((A * scene.size.height) / (third ? 3 : 1))} cm³` }
 }

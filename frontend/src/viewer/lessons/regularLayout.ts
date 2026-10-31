@@ -2,7 +2,7 @@
 // 정다면체: 겉넓이는 면의 높이, 부피는 입체 높이를 구해 √ 를 쓴 식과 답을 만든다. 부피는 정사면체·정팔면체만, 정십이면체 겉넓이는 식만
 // 각뿔·원뿔·삼각기둥: 겉넓이 앞에 옆면 높이(모선), 밑면 높이를 구하는 단계 하나 (slantPlan)
 import type { ShapeScene } from '../../shared/types.ts'
-import { isExact, slantText } from './lengthLabels.ts'
+import { isExact, piValue, slantText, type PiMode } from './lengthLabels.ts'
 
 const FACES: Record<string, number> = { 'regular-tetrahedron': 4, 'regular-octahedron': 8, 'regular-dodecahedron': 12, 'regular-icosahedron': 20 }
 
@@ -58,6 +58,30 @@ export function regularPlan(shape: string, a: number): RegularPlan | null {
   return { ...base, volume: null }
 }
 
+// 실 감기의 왼쪽 쪽 글과 결과 (thread.ts): 원기둥을 한 바퀴 감은 실은 직각삼각형의 빗변
+export function threadPlan(r: number, h: number, mode: PiMode) {
+  const around = piValue(2 * r, mode)
+  const value = mode === 'pi' ? `√(${num(4 * r * r)}π² + ${num(h * h)}) cm` : `약 ${num(Math.hypot(6.28 * r, h))} cm`
+  return {
+    hints: ['밑면 앞에서 실을 한 바퀴 감아 바로 위 윗면까지 갔어요', '옆면을 펴니 실이 곧은 선이에요. 곧은 선이 가장 짧은 길이에요', `가로 ${around}, 높이 ${num(h)} 인 직각삼각형의 빗변이에요`],
+    label: value,
+    result: { general: mode === 'pi' ? '√((2πr)² + h²)' : '√(가로² + 높이²)', formula: `√((${around})² + ${num(h)}²)`, value },
+  }
+}
+
+// 각기둥 겉넓이의 왼쪽 쪽 글: 밑면, 옆면 (surfaceWhy.ts)
+export function prismHints(n: number, a: number, h: number) {
+  const area = (n * a * a) / (4 * Math.tan(Math.PI / n))
+  const base = n === 3 ? `밑면이 정삼각형이에요. 밑넓이 = ${surd(a * a, 4, 3)} cm²` : n === 4 ? `밑넓이 = ${num(a)} × ${num(a)} = ${num(a * a)} cm²` : isExact(area) ? `가운데에서 나누면 같은 삼각형 ${n}개예요. 밑넓이 = ${num(area)} cm²` : `가운데에서 나누면 같은 삼각형 ${n}개예요. 밑넓이 = 삼각형 넓이 × ${n}`
+  return [base, `옆면을 펴니 가로는 밑면 둘레 ${n} × ${num(a)} = ${num(n * a)} cm, 세로는 높이 ${num(h)} cm 예요. 옆넓이 = ${num(n * a)} × ${num(h)} = ${num(n * a * h)} cm²`]
+}
+
+// 각기둥 전개도에 남기는 넓이 값. 딱 떨어지지 않으면(√ 없이) 밑넓이는 쓰지 않는다
+export function prismAreaTexts(n: number, a: number, h: number) {
+  const area = (n * a * a) / (4 * Math.tan(Math.PI / n))
+  return { base: n === 3 ? `${surd(a * a, 4, 3)} cm²` : isExact(area) ? `${num(area)} cm²` : null, side: `${num(n * a * h)} cm²` }
+}
+
 export interface SlantPlan {
   hint: string // 왼쪽 쪽 설명
   edge: string // 3D 라벨: 빗변, 밑변 쪽, 높이
@@ -85,7 +109,8 @@ export function slantPlan(scene: ShapeScene): SlantPlan | null {
     const [square, leg] = to[sides]
     const inner = leg.includes('√') ? `(${leg})` : leg
     const s = isExact(Math.sqrt(h * h + square)) ? num(Math.sqrt(h * h + square)) : `√${num(h * h + square)}`
-    return { hint: `옆면 높이 = √(${num(h)}² + ${inner}²) = ${s} cm`, edge: `${s} cm`, leg: `${leg} cm`, rise: `${num(h)} cm` }
+    const half = sides === 4 ? `밑변 ${num(a)} cm 의 절반 ${leg} cm. ` : ''
+    return { hint: `${half}옆면 높이 = √(${num(h)}² + ${inner}²) = ${s} cm`, edge: `${s} cm`, leg: `${leg} cm`, rise: `${num(h)} cm` }
   }
   return null
 }

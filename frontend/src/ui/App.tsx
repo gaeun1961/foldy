@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
+import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
@@ -44,6 +44,7 @@ function pageNumbersOf(scene: ShapeScene): [number, number] | undefined {
 
 // 책 장면 왼쪽 페이지 글 (ui.md 공식 시각화 규칙): 제목과 한 줄 설명. 설명은 멈췄을 때의 공식 설명, 없으면 치수. 결과가 나오면 치수는 뺀다
 function pageTextOf(scene: ShapeScene, lesson: Lesson | null, explain: string | null, hasResult: boolean) {
+  const note = lesson && lessonNote(lesson, scene) // 앞에서 피타고라스로 구한 값은 계속 남긴다
   const size = scene.size as Partial<Record<'width' | 'depth' | 'height' | 'edge' | 'sides' | 'radius', number>>
   const dims = size.radius
     ? `반지름 ${size.radius}${size.height ? ` · 높이 ${size.height}` : ''}`
@@ -55,6 +56,7 @@ function pageTextOf(scene: ShapeScene, lesson: Lesson | null, explain: string | 
         ? `한 모서리 ${size.edge}`
         : ''
   const title = lesson ? `${shapeName(scene)}의 ${LESSON_LABEL[lesson.kind]}` : scene.shape === 'sphere' ? shapeName(scene) : `${shapeName(scene)}의 전개도`
+  if (note) return [title, note, ...(explain && explain !== note ? [explain] : [])]
   if (explain) return [title, explain]
   return hasResult ? [title] : [title, dims].filter(Boolean)
 }
@@ -90,7 +92,7 @@ export default function App() {
   const [mark, setMark] = useState<Mark>('◎')
   const canMark = scene?.net.layout === 'grid'
   const sphere = scene?.shape === 'sphere' // 전개도가 없어서 접기 패널이 없다
-  const curved = scene?.shape === 'cylinder' || scene?.shape === 'cone' || sphere // 곡면 도형은 아직 선을 그을 수 없다 (TODO-19·20)
+  const curved = scene?.shape === 'cylinder' || scene?.shape === 'cone' || sphere // 곡면 도형에는 선을 긋지 않는다
   // 한 번 그은 선이 선분 몇 개로 저장됐는지 (면에 걸친 선은 2~3개). 선 지우기는 그은 선 하나를 통째로 지운다
   const [strokes, setStrokes] = useState<number[]>([])
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
@@ -111,7 +113,7 @@ export default function App() {
   const reveal = revealed.key === resultKey ? revealed.lines : stepped ? 0 : 1
   useEffect(() => {
     if (!resultKey) return
-    const lines = stepped ? [...Array(stepped).keys()].map((k) => k + 1) : [2, 3]
+    const lines = stepped ? [...Array(stepped).keys()].map((k) => k + 1) : [2, 3] // 일반 공식 또는 닮음비 다음 두 줄
     const timers = lines.map((n, k) => setTimeout(() => setRevealed({ key: resultKey, lines: n }), (k + 1) * 800))
     return () => timers.forEach(clearTimeout)
   }, [resultKey, stepped])
@@ -175,7 +177,8 @@ export default function App() {
       <main className="stage">
         {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
-              if (makeCard.current) makeCard.current.open = false // 왼쪽 쪽 메뉴를 가리지 않게 접는다
+              // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔은 밑면 모양을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
+              if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size
             }} />}
         {scene && (
           <Viewer

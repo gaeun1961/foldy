@@ -12,8 +12,8 @@ const PAIR_COLORS = ['#ffd982', '#b9dcff', '#c9f0c2'] // 노랑, 하늘, 연두.
 const LEG_COLORS = ['#c2255c', '#2f9e44', '#1c7ed6'] // 같은 길이는 같은 색
 
 // tiles: 1×1 칸을 깐다 (직육면체·정육면체, 면이 모두 직사각형)
-// lengthColors: 공식 글자와 맞출 길이의 색 (길이 toFixed(4) → 색). 나머지 길이는 LEG_COLORS 차례로
-export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0], tiles = false, lengthColors = new Map<string, string>()): LessonObject {
+// lengthColors: 공식 글자와 맞출 길이의 색 (길이 toFixed(4) → 색). 나머지 길이는 LEG_COLORS 차례로. noLabel: 다른 곳에 이미 적힌 길이는 글자를 쓰지 않는다
+export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0], tiles = false, lengthColors = new Map<string, string>(), noLabel = new Set<string>()): LessonObject {
   const steps = surfaceSteps(poly, tiles)
   const white = new THREE.Color('#ffffff')
   const byFace = new Map<number, { materials: [THREE.Material, THREE.Material]; color: THREE.Color; step: number; first: boolean }>()
@@ -55,7 +55,7 @@ export function buildSurfaceAreaLesson(poly: Polyhedron, offset: Vec3 = [0, 0, 0
       const tube = growingTube(a, b, size * 0.012, legMaterial(length))
       inner.add(tube.mesh)
       // 3D 라벨은 값만. 딱 떨어지지 않는 길이(√)는 숫자로 쓰지 않는다
-      return { tube, label: isExact(length) ? sprite(lengthText(length), size * 0.3, a.clone().lerp(b, 0.5).addScaledVector(normal, size * 0.06)) : null }
+      return { tube, label: isExact(length) && !noLabel.has(length.toFixed(4)) ? sprite(lengthText(length), size * 0.3, a.clone().lerp(b, 0.5).addScaledVector(normal, size * 0.06)) : null }
     })
     // 1×1 칸: 면의 한 귀퉁이에서 가로로 깔고, 다음 줄로 올라간다
     const cells = useTiles
