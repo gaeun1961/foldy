@@ -41,7 +41,7 @@ export function textSprite(text: string, width: number, long = false) {
   ctx.fillStyle = 'rgb(255 255 255 / 88%)'
   ctx.roundRect(4, 8, canvas.width - 8, 80, 24)
   ctx.fill()
-  ctx.font = 'bold 56px system-ui, sans-serif'
+  ctx.font = "bold 56px 'Pretendard Variable', Pretendard, system-ui, sans-serif"
   ctx.fillStyle = '#1f2430'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
