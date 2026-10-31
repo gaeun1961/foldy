@@ -22,6 +22,13 @@ interface Props {
 const MIN_BOX = 0.03 // 이보다 작은 네모는 누른 것으로 보고 무시
 // 터치 화면(휴대폰·태블릿)은 "사진 올리기 | 촬영하기" 두 칸. 촬영하기는 capture 로 뒷면 카메라를 바로 연다 (HTTPS 없이 된다). PC 는 지금 capture 를 무시해서 한 칸
 
+// 인식이 준 네모를 사진 안으로 (모델이 1 을 조금 넘게 줄 때가 있다)
+function clampBox(b: PhotoBox): PhotoBox {
+  const x = Math.min(Math.max(b.x, 0), 1)
+  const y = Math.min(Math.max(b.y, 0), 1)
+  return { x, y, w: Math.max(0.01, Math.min(b.w, 1 - x)), h: Math.max(0.01, Math.min(b.h, 1 - y)) }
+}
+
 // 사진의 box 부분만 원래 해상도로 잘라 JPEG 파일로
 function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
   const [W, H] = [img.naturalWidth, img.naturalHeight]
@@ -85,7 +92,9 @@ export function PhotoUpload({ onScene, onPhoto }: Props) {
     try {
       const file = part ? await crop(img.current, part) : photo.file
       const scene = await analyze(file)
-      onScene(scene, part && { box: part, aspect: img.current.naturalWidth / img.current.naturalHeight })
+      // 전체를 읽었으면 인식이 알려 준 사진 속 전개도 네모(photoBox)로 칸 밑 사진을 맞춘다 (worksheets.md W8)
+      const where = part ?? (scene.photoBox ? clampBox(scene.photoBox) : null)
+      onScene(scene, where && { box: where, aspect: img.current.naturalWidth / img.current.naturalHeight })
       setState({ kind: 'done', scene })
     } catch (e) {
       setState({ kind: e instanceof OfflineError ? 'soft' : 'error', message: (e as Error).message })

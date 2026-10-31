@@ -31,6 +31,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 재현·원인·고치는 방향을 적어 둔 버그. 가져갈 때 `[버그]` 이슈를 만들고 assignee를 건다.
 
 - **B1** [3D 위에서 휠을 굴리면 책이 사라지고 책상만 보임](B1-viewer-wheel-zoom.md) — 3D: 카메라 거리 제한 없음
+- **B3** [사진을 전개도에 맞춰 키우면 3D 장면 전체가 뿌옇게 보임](B3-viewer-fog-with-photo.md) — 3D: 안개 거리가 도형 크기 기준
 - **B2** [옆으로 찍은 사진은 전개도 칸 밑 사진과 인식한 전개도가 어긋남](B2-photo-overlay-rotated.md) — UI: 사진 돌리기(worksheets.md W5)
 
 ## 모바일 웹 (시기 미정)
