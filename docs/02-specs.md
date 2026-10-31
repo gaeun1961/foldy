@@ -9,3 +9,4 @@
 | [specs/viewer.md](specs/viewer.md) | three.js 뷰어 규칙 (좌표, 면 트리와 접기, 곡면 말기, 선, 꼭짓점 복사본, 맞닿는 모서리, 클릭) | `frontend/src/viewer/` 작업 (3D 뷰어 TODO) |
 | [specs/api.md](specs/api.md) | backend API (`/health`, `/analyze`, `/chat`) | API를 부르거나 고칠 때 (AI, UI·통합 TODO) |
 | [specs/ui.md](specs/ui.md) | 화면 구성, 조작 요소, 색·글씨 기준 (팀 시안 기준) | `frontend/src/ui/` 작업, 화면 디자인 |
+| [specs/mobile.md](specs/mobile.md) | 모바일 웹 계획 (휴대폰 접속, 사진 줄이기·원근 보정·촬영 안내, 변경 지도, 합칠 때 규칙). 시기 미정 | 휴대폰 접속, 사진 올리기(`PhotoUpload.tsx`) 흐름, 좁은 화면 작업 |

@@ -1,7 +1,8 @@
 // backend 호출 (docs/specs/api.md). LLM 은 backend 만 부른다 (docs/specs/stack.md)
 import type { ShapeScene } from '../shared/types'
 
-export const API_URL = 'http://localhost:8000'
+// 휴대폰에서 열 때는 frontend/.env 의 VITE_API_URL 에 PC 주소를 넣는다 (docs/specs/mobile.md). 없으면 이 PC
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 // backend 에 닿지 못함 (꺼져 있거나 인터넷 없음). 오류가 아니라 부드러운 안내로 보여준다 (ui.md 안내 문구)
 export class OfflineError extends Error {}
