@@ -8,7 +8,7 @@ export type RegularPolyhedronShape =
   | 'regular-dodecahedron'
   | 'regular-icosahedron'
 export type PolygonSolidShape = 'prism' | 'pyramid' // 각기둥·각뿔 (밑면 정다각형)
-export type ShapeKind = 'cuboid' | 'cube' | RegularPolyhedronShape | PolygonSolidShape | 'cylinder' | 'cone' | 'sphere'
+export type ShapeKind = 'cuboid' | 'cube' | RegularPolyhedronShape | PolygonSolidShape | 'cylinder' | 'cone' | 'sphere' | 'revolution'
 
 // 꼭짓점 수 = vertexLabels 길이. 각기둥·각뿔은 밑면 변 수에 따라 다르다 (vertexCountOf)
 export const VERTEX_COUNT: Record<Exclude<ShapeKind, PolygonSolidShape>, number> = {
@@ -21,6 +21,7 @@ export const VERTEX_COUNT: Record<Exclude<ShapeKind, PolygonSolidShape>, number>
   cylinder: 0,
   cone: 1,
   sphere: 0,
+  revolution: 0,
 }
 
 export interface BoxSize {
@@ -35,6 +36,15 @@ export interface PolygonSize {
   sides: number // 밑면 정다각형의 변 수 (정수 3~12)
   edge: number // 밑면 한 변
   height: number
+}
+// 회전체: 평면도형을 돌린다 (shape-scene.md)
+export type RevolutionFigure = 'rectangle' | 'right-triangle' | 'semicircle' | 'trapezoid'
+export interface RevolutionSize {
+  figure: RevolutionFigure
+  radius: number // 바닥 쪽 가로 (반원은 반지름)
+  height: number // 높이 (반원은 쓰지 않음)
+  top?: number // 사다리꼴 윗변
+  gap: number // 회전축에서 떨어진 거리
 }
 export interface SphereSize {
   radius: number
@@ -104,8 +114,9 @@ export type PolygonSolidScene = SceneOf<PolygonSolidShape, PolygonSize, Polyhedr
 export type CylinderScene = SceneOf<'cylinder', RoundSize, CylinderPoint, CurvedNet>
 export type ConeScene = SceneOf<'cone', RoundSize, ConePoint, CurvedNet>
 export type SphereScene = SceneOf<'sphere', SphereSize, never, DefaultNet> // 전개도가 없고 선도 없다
+export type RevolutionScene = SceneOf<'revolution', RevolutionSize, never, DefaultNet>
 
-export type ShapeScene = CuboidScene | CubeScene | RegularPolyhedronScene | PolygonSolidScene | CylinderScene | ConeScene | SphereScene
+export type ShapeScene = CuboidScene | CubeScene | RegularPolyhedronScene | PolygonSolidScene | CylinderScene | ConeScene | SphereScene | RevolutionScene
 
 // vertexLabels 길이 (shape-scene.md 꼭짓점 수)
 export const vertexCountOf = (scene: ShapeScene) =>

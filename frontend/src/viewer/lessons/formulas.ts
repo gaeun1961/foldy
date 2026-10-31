@@ -8,7 +8,7 @@ export const SECTION_RADIUS_COLOR = '#e8590c' // 구 단면 비교의 단면 반
 
 // 공식 속 글자·낱말의 색. 높이는 어느 도형에서나 파랑
 const TOKEN_COLOR: Record<string, string> = { ...LENGTH_COLOR, 가로: LENGTH_COLOR.a, '한 변': LENGTH_COLOR.a, 세로: LENGTH_COLOR.b, 반지름: LENGTH_COLOR.r, 높이: LENGTH_COLOR.h, 모선: LENGTH_COLOR.l, '단면 반지름': SECTION_RADIUS_COLOR }
-const TOKENS = /(단면 반지름|가로|세로|높이|반지름|모선|한 변|[abcrhl])/
+const TOKENS = /(cm[²³]?|단면 반지름|가로|세로|높이|반지름|모선|한 변|[abcrhl])/
 
 // 공식을 글자 색 조각으로 나눈다 (color 가 없으면 평소 글자색)
 export const colorTokens = (text: string) => text.split(TOKENS).filter(Boolean).map((part) => ({ text: part, color: TOKEN_COLOR[part] as string | undefined }))

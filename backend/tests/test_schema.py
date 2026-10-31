@@ -67,6 +67,22 @@ if __name__ == "__main__":
         "net": {"layout": "default"},
     }
     assert ok(SPHERE)["size"]["radius"] == 6
+    # 회전체: 평면도형과 축에서의 거리
+    REVOLUTION = {
+        "shape": "revolution",
+        "size": {"figure": "trapezoid", "radius": 5, "height": 4, "top": 2, "gap": 1},
+        "vertexLabels": [],
+        "lines": [],
+        "net": {"layout": "default"},
+    }
+    assert ok(REVOLUTION)["size"]["gap"] == 1
+    bad({**REVOLUTION, "size": {"figure": "circle", "radius": 1, "height": 1}})
+    bad(
+        {
+            **REVOLUTION,
+            "size": {"figure": "rectangle", "radius": 1, "height": 1, "gap": -1},
+        }
+    )
     bad({**SPHERE, "vertexLabels": [None]})
     bad({**SPHERE, "lines": [{"from": {"vertex": 0}, "to": {"vertex": 0}}]})
     ok(

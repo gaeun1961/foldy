@@ -32,5 +32,3 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 
 | 단계 | TODO | 이슈 | 선행 |
 |---|---|---|---|
-| 3차 | **TODO-32** [회전체 만들기](32-solid-of-revolution.md) | [#48](https://github.com/gaeun1961/foldy/issues/48) | 없음 |
-| 3차 | **TODO-33** [단면 보기](33-cross-section.md) | [#49](https://github.com/gaeun1961/foldy/issues/49) | TODO-32 |
