@@ -4,7 +4,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
+import { buildBook, DESK_COLOR, pageTexture, VIEW_DIR } from './bookScene.ts'
+import { startPenDraw, type PenDraw } from './penDraw.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
@@ -70,6 +71,7 @@ export function ThreeViewer({
   onPageMenu,
   pageNumbers,
   photo,
+  drawIn,
   edgeDivisions = 2,
   onSceneChange,
   onDrawState,
@@ -86,6 +88,11 @@ export function ThreeViewer({
   const callbacksRef = useRef({ onSceneChange, onDrawState, onRouteChoices, onFacePick, onFaceMark, onPageMenu })
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
   const drawMarksRef = useRef<((scene: ShapeScene) => void) | null>(null)
+  // 펜으로 그려 내기 (viewer.md "펜으로 그려 내기"): 지금 값과 마지막으로 그린 값. 다르면 도형을 만들 때 그린다
+  const drawRef = useRef<{ want?: number; drawn?: number }>({})
+  useEffect(() => {
+    drawRef.current.want = drawIn // 아래 도형 만들기 effect 보다 먼저 돈다
+  }, [drawIn])
 
   // unfold·foldMode·보기 옵션·강조·선 긋기 모드·설명만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
@@ -509,6 +516,7 @@ export function ThreeViewer({
     }
 
     let active: number | null = null
+    let penBusy = false // 펜이 그리는 중이면 꼭짓점 라벨(Sprite, 가림 셰이더가 없음)을 숨긴다
     const apply = () => {
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
       const { on: lessonOn, ghost } = applyLesson()
@@ -545,11 +553,11 @@ export function ThreeViewer({
         mesh.scale.setScalar(big ? 1.8 : 1)
         mesh.visible = !lessonOn
         if (label) {
-          label.visible = showVertexLabels && !lessonOn
+          label.visible = showVertexLabels && !lessonOn && !penBusy
           label.scale.setScalar(radius * (big ? 0.15 : 0.12))
         }
       }
-      for (const { sprite } of cornerMaterials) sprite.visible = showVertexLabels
+      for (const { sprite } of cornerMaterials) sprite.visible = showVertexLabels && !penBusy
       if (foldMode === 'step') {
         const values = stepUnfold(order, poly.faces.length, unfold)
         applyUnfold(tree, values)
@@ -593,6 +601,38 @@ export function ThreeViewer({
     photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
     world.add(book.group)
     world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22) // 멀리 있는 책상은 흐리게
+
+    // 펜으로 그려 내기: 새 drawIn 값이면 전개도를 가려 두고 펜이 칠해 낸 뒤 왼쪽 쪽 글을 써 낸다 (viewer.md "펜으로 그려 내기")
+    let penDraw: PenDraw | null = null
+    let blankPage: THREE.Texture | null = null
+    const draw = drawRef.current
+    if (draw.want !== undefined && draw.want !== draw.drawn && !viewRef.current.lesson && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const want = draw.want // 다 그린 뒤에 그렸다고 적는다. 그리는 중에 다시 만들어지면(사진이 뒤따라 오는 등) 처음부터 다시 그린다
+      const materials = new Set<THREE.Material>()
+      tree.root.traverse((o) => {
+        if (o === photoMesh || o instanceof THREE.Sprite) return
+        const m = (o as THREE.Mesh).material
+        if (m) for (const x of [m].flat()) materials.add(x)
+      })
+      for (const l of Object.values(looks)) for (const m of [...l.faces, l.edge]) materials.add(m)
+      for (const m of [...pairMaterials, ...markerMaterials, barMaterial, hiddenMaterial, lineMaterial, hiddenLineMaterial, divisionMaterial]) materials.add(m)
+      const left = book.leftPage()
+      const pageNumber = pageRef.current.pageNumbers?.[0]
+      blankPage = left ? pageTexture(book.page.w, book.page.d, 'left', [], [], [], pageNumber) : null
+      penDraw = startPenDraw({
+        floors: [{ box: flatNet, y: 0, materials: [...materials] }],
+        page: left && blankPage ? { material: (left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial, blank: blankPage, x0: book.center.x - book.page.w, z0: book.center.z - book.page.d / 2, w: book.page.w, d: book.page.d, y: book.top } : null,
+        size: radius * 0.75,
+        onDone: () => {
+          draw.drawn = want
+          penBusy = false
+          apply()
+        },
+      })
+      penBusy = true
+      world.add(penDraw.pen)
+      apply()
+    }
 
     // 밝고 따뜻한 조명: 위아래 은은한 환경광 + 비스듬한 위쪽 빛 하나. 그림자는 도형 둘레만 덮는다
     // (책 전체를 덮으면 같은 그림자 지도로 넓은 곳을 덮어 도형 그림자가 흐릿해진다)
@@ -753,6 +793,7 @@ export function ThreeViewer({
     renderer.domElement.addEventListener('pointermove', onMove)
 
     renderer.setAnimationLoop(() => {
+      penDraw?.update(performance.now())
       controls.update()
       renderer.render(world, camera)
     })
@@ -783,6 +824,8 @@ export function ThreeViewer({
         m?.dispose()
       }
       for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry, divisionGeometry, pickMarker.geometry]) g.dispose()
+      penDraw?.dispose()
+      blankPage?.dispose()
       book.dispose()
       photoMesh?.material.map?.dispose()
       photoMesh?.material.dispose()

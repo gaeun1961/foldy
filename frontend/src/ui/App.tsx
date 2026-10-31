@@ -89,6 +89,7 @@ export default function App() {
     setOpening(false)
   }
   const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
+  const [drawIn, setDrawIn] = useState(0) // 사진 인식 결과가 올 때마다 1 늘린다. 책에 펜이 그려 낸다 (viewer.md "펜으로 그려 내기")
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
   // 사진이 있으면 직접 만들기를 접어 둔다. 고치기를 누르거나 인식이 실패하면 그 사진에서만 펼친다 (worksheets.md, 수동 경로는 늘 한 번에 닿는다)
   const [manualFor, setManualFor] = useState<string | null>(null)
@@ -223,6 +224,7 @@ export default function App() {
             onPageMenu={pickMenu}
             pageNumbers={pageNumbersOf(scene)}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
+            drawIn={drawIn || undefined}
             onSceneChange={(next) => {
               setStrokes([...strokes, next.lines.length - scene.lines.length])
               setScene(next)
@@ -396,6 +398,7 @@ export default function App() {
           <PhotoUpload
             onScene={(next, place) => {
               loadScene(next)
+              setDrawIn((n) => n + 1)
               // 네모로 읽은 전개도면 사진 위치를 그 네모에 맞춘다 (ui.md 화면 배치 2번)
               if (place && next.net.layout === 'grid') setFit(fitToBox(place.box, place.aspect, next.net.faces))
             }}

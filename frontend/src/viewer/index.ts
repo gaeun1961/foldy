@@ -24,6 +24,7 @@ export interface ViewerProps {
   pageNumbers?: [number, number] // 책 아래 귀퉁이 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음, UI가 차례에 맞춰 정한다)
   onRouteChoices?: (routes: Line<PolyhedronPoint>[][]) => void // 방금 그은 선의 길 후보 (첫째가 그은 길). 같은 면 두 점이면 그 면 위 직선 + 다른 면들을 지나는 길
   photo?: NetPhoto // 따라 그린 학습지 사진. 전개도 grid 일 때만 책 페이지에 깐다 (viewer.md "책 장면")
+  drawIn?: number // 펜으로 그려 내기: 이전에 그린 값과 다를 때 도형을 만들면 펜이 전개도와 왼쪽 쪽 글을 그려 낸다 (viewer.md "펜으로 그려 내기")
   onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
   faceMarking?: boolean // 면 표시 모드: 면을 누르면 마주 보는 면 보기 대신 onFaceMark (기본 false)
   onFaceMark?: (netFace: number) => void // 면 표시 모드에서 누른 면의 scene.net.faces 인덱스 (학습지 전개도 grid 만)
