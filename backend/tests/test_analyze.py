@@ -340,9 +340,10 @@ for _ in range(100):
     if any(x.get("status") == 422 for x in results):
         break
     threading.Event().wait(0.02)
-assert any(x.get("status") == 422 and "ShapeScene" in x["error"] for x in results), (
-    results
-)
+assert any(
+    x.get("status") == 422 and "ShapeScene" in x["error"] and x["kind"] == "VisionError"
+    for x in results
+), results
 del os.environ["VISION_RECORD"]
 
 print(

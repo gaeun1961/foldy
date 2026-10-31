@@ -61,7 +61,8 @@ async def analyze(
             "사진 인식 실패: %s", e
         )  # 원인(429 한도, 시간 초과 등)은 서버 로그에만
         status = 503 if e.unavailable else 422
-        keep({"error": str(e)[:500], "status": status})
+        # kind: 에러 종류 이름 (NotSolidError 면 입체도형 문제가 아님 #163, 그 밖은 VisionError). 증류에서 갈라 보려고
+        keep({"error": str(e)[:500], "status": status, "kind": type(e).__name__})
         if e.unavailable:
             raise HTTPException(503, "지금은 사진 인식을 쓸 수 없어요") from e
         raise HTTPException(422, "사진에서 도형을 찾지 못했어요") from e
