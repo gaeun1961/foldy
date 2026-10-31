@@ -123,7 +123,6 @@ export function buildPourLesson(o: PourOptions): LessonObject {
   return {
     group,
     bounds: new THREE.Box3(new THREE.Vector3(-R, baseY, -R), new THREE.Vector3(cupX + R + size * 0.3, top, R)),
-    view: new THREE.Vector3(0.3, 0.88, 1), // 수평에서 40°: 통에 물이 얼마나 찼는지 보이게
     apply,
     dispose() {
       sprites.forEach((s) => s.dispose())

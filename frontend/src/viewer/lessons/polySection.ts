@@ -130,7 +130,6 @@ export function buildPolySectionLesson(poly: Polyhedron, kind: CutKind = 'vertic
   apply(0)
   return {
     group,
-    view: new THREE.Vector3(0.15, kind === 'vertical' ? 0.5 : 1.1, 1), // 세로는 앞에서, 가로·비스듬히는 위에서
     setCut(next) {
       if (next === cut) return
       cut = next

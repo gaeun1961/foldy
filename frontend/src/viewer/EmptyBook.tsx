@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { buildBook, DESK_COLOR, VIEW_DIR, wholeBookView, type BookContent, type BookMenuItem } from './bookScene.ts'
+import { aimLight, bookLights, buildBook, DESK_COLOR, VIEW_DIR, bookView, fitOf, readingRange, type BookContent, type BookMenuItem } from './bookScene.ts'
 import { buildOpening, buildPageTurn, LOW_ANGLE, OPENING_SECONDS } from './opening.ts'
 
 // 빈 책 (docs/specs/viewer.md "빈 책"): 도형이 없을 때 같은 책 장면을 도형 없이 그린다.
@@ -42,6 +42,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     const { pageText, contents, pageNumbers } = JSON.parse(key) as Props
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.shadowMap.enabled = true // 기본 PCF. 가장자리는 light.shadow.radius 로 흐리게 (도형 화면과 같게)
     container.appendChild(renderer.domElement)
 
     // 책·빛·카메라는 도형이 있을 때(ThreeViewer)와 같게. 크기는 책 두 쪽이 다 들어오게
@@ -50,11 +51,9 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     world.background = new THREE.Color(DESK_COLOR)
     const book = buildBook(NET, size, pageText, contents, pageNumbers)
     world.add(book.group)
-    world.fog = new THREE.Fog(DESK_COLOR, size * 8, size * 22)
-    world.add(new THREE.HemisphereLight('#fffaf0', '#d9cbb3', 1.7))
-    const light = new THREE.DirectionalLight('#fff4e2', 1.5)
-    light.position.set(-0.4, 1, 0.5).multiplyScalar(size * 3)
-    world.add(light)
+    const { ambient, light } = bookLights()
+    aimLight(light, book)
+    world.add(ambient, light, light.target)
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
     const target = book.center.clone()
@@ -64,7 +63,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     controls.enableDamping = true
     controls.maxPolarAngle = Math.PI / 2 - 0.05
 
-    // 펼친 두 쪽이 다 들어오게 (wholeBookView: 도형 화면이 차례에서 넘어왔을 때 이 구도에서 시작한다)
+    // 도형 화면과 같은 구도 (bookView + readingRange): 차례에서 넘어가도 확대 정도·위치가 그대로다
     let distance = 0
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = container
@@ -72,10 +71,11 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       const dir = camera.position.clone().sub(controls.target).normalize()
-      const view = wholeBookView(book, camera)
+      const view = bookView(fitOf(readingRange(book)), camera)
       controls.target.copy(view.target)
       distance = view.distance
       camera.position.copy(controls.target).addScaledVector(dir, distance)
+      world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6) // 책 너머 책상만 흐리게 (도형 화면과 같게)
     }
     const observer = new ResizeObserver(resize)
     observer.observe(container)
@@ -108,22 +108,8 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     renderer.domElement.addEventListener('pointermove', onMove)
 
     // 오프닝: 같은 장면 위에서 돌고, 끝나면 빈 책 그대로 이어진다. 카메라는 조금 멀리서 다가온다
-    // 오프닝 동안만 그림자: 떠 있는 도형과 넘기는 종이만 그림자를 드리운다(책은 드리우지 않아 끝난 뒤 모습이 같다)
-    if (openingRef.current) book.group.traverse((o) => (o.castShadow = false))
     const show = openingRef.current ? buildOpening(book, size) : null
     let intro = show
-    if (show) {
-      renderer.shadowMap.enabled = true
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap
-      light.castShadow = true
-      light.shadow.mapSize.set(2048, 2048)
-      light.shadow.bias = -0.0005
-      light.shadow.normalBias = 0.02
-      Object.assign(light.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: size * 8 })
-      light.target.position.copy(book.center)
-      light.position.add(book.center) // 빛 방향은 그대로, 책 가운데를 비춘다
-      world.add(light.target)
-    }
     // 시간은 프레임마다 더한다(한 번에 최대 1/30초). 첫 프레임이 늦거나 멈칫해도 단계를 건너뛰지 않는다
     let t = 0
     let last = -1
@@ -149,7 +135,6 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
           dir.set(0, Math.sin(final), Math.cos(final))
           intro.finish()
           intro = null
-          light.castShadow = false
           controls.enabled = true
           camera.position.copy(controls.target).addScaledVector(dir, distance)
           openedRef.current?.()
@@ -173,6 +158,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       turn?.show.dispose()
       book.dispose()
       show?.dispose()
+      light.shadow.map?.dispose()
       renderer.dispose()
       container.removeChild(renderer.domElement)
     }

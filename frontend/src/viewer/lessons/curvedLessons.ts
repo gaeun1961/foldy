@@ -143,7 +143,6 @@ function stackLesson({ radius: r, height: h }: RoundSize): LessonObject {
   return {
     group,
     bounds: new THREE.Box3(new THREE.Vector3(-r, 0, -r), new THREE.Vector3(r, h, r)),
-    view: new THREE.Vector3(0.3, 0.88, 1), // 수평에서 40°: 층이 쌓이는 높이가 보이게
     apply,
     dispose() {
       radiusLabel.dispose()
