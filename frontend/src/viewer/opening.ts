@@ -267,7 +267,7 @@ export function buildOpening(book: Book, size: number) {
     for (const { page, right, left, start, time } of flutter) {
       const p = span(t, start, start + time)
       page.set(p, lerp(right, left, p))
-      landed += span(p, 0.85, 1) // 내려앉는 마지막 순간에만 묶음이 그 장만큼 두꺼워진다
+      landed += p === 1 ? 1 : 0 // 다 내려앉은 뒤에만 묶음이 그 장만큼 두꺼워진다 (내려앉은 종이가 윗면을 덮고 있어 바뀌는 게 안 보인다. 미리 보이면 흰 면이 갑자기 생긴 것처럼 보인다)
     }
     leftPage.visible = landed > 0
     stack(landed / PAGES)
