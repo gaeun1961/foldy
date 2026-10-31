@@ -92,7 +92,7 @@ export default function App() {
   const [mark, setMark] = useState<Mark>('◎')
   const canMark = scene?.net.layout === 'grid'
   const sphere = scene?.shape === 'sphere' // 전개도가 없어서 접기 패널이 없다
-  const curved = scene?.shape === 'cylinder' || scene?.shape === 'cone' || sphere // 곡면 도형은 아직 선을 그을 수 없다 (TODO-19·20)
+  const curved = scene?.shape === 'cylinder' || scene?.shape === 'cone' || sphere // 곡면 도형에는 선을 긋지 않는다
   // 한 번 그은 선이 선분 몇 개로 저장됐는지 (면에 걸친 선은 2~3개). 선 지우기는 그은 선 하나를 통째로 지운다
   const [strokes, setStrokes] = useState<number[]>([])
   // 방금 다른 면을 이은 선의 길 후보와 지금 그은 후보 번호. "다른 길"을 누르면 마지막 선을 다음 후보로 바꾼다
@@ -177,7 +177,8 @@ export default function App() {
       <main className="stage">
         {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
-              if (makeCard.current) makeCard.current.open = false // 왼쪽 쪽 메뉴를 가리지 않게 접는다
+              // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔은 밑면 모양을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
+              if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size
             }} />}
         {scene && (
           <Viewer

@@ -546,6 +546,7 @@ export function ThreeViewer({
         active = null
       }
       for (const n of tree.nodes) {
+        n.mesh.visible = !(lessonOn && lessonObject?.hideSolid)
         // 잘못된 전개도는 다 접힌 쪽(접기 90% 이상)에서 겹친 면을 빨갛게. 색칠한 면은 평소 색 대신 색칠 색
         const base = faceSet.has(n.face) ? looks.opposite : overlapFaces.has(n.face) && unfold <= 0.1 ? looks.overlap : filledFaces.has(n.face) ? looks.filled : looks.normal
         const { faces, edge } = ghost ? looks.ghost : active === null ? base : n.face === active ? looks.active : looks.faded

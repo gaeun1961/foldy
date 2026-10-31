@@ -38,7 +38,7 @@ export function buildRegularSurfaceLesson(poly: Polyhedron, plan: RegularPlan): 
   // 면의 높이: 꼭짓점에서 밑변 중점으로. 면 위에 살짝 띄운다
   const lift = v3(faceNormal(poly, step.face)).multiplyScalar(reach * 0.015)
   const overlay = plan.height
-    ? rightTriangleOverlay(group, { foot: v3(step.legs[1].from).add(lift), end: v3(step.legs[0].to).add(lift), top: v3(step.legs[1].to).add(lift), out: lift.clone().multiplyScalar(5), reach, text: { edge: `${+step.legs[0].length.toFixed(2)} cm`, leg: `${plan.height.half} cm`, rise: `${plan.height.height} cm` } })
+    ? rightTriangleOverlay(group, { foot: v3(step.legs[1].from).add(lift), end: v3(step.legs[0].to).add(lift), top: v3(step.legs[1].to).add(lift), out: lift.clone().multiplyScalar(5), reach, edgeFirst: true, text: { edge: `${+step.legs[0].length.toFixed(2)} cm`, leg: `${plan.height.half} cm`, rise: `${plan.height.height} cm` } })
     : null
 
   const white = new THREE.Color('#ffffff')
@@ -85,7 +85,7 @@ export function buildRegularVolumeLesson(poly: Polyhedron, volume: NonNullable<R
   const plateGeometry = new THREE.BufferGeometry().setFromPoints(around.slice(1, -1).flatMap((p, i) => [around[0], p, around[i + 2]]))
   const plate = new THREE.Mesh(plateGeometry, plateMaterial)
   group.add(plate)
-  const overlay = rightTriangleOverlay(group, { foot: middle, end: ring[0], top: apex, out: new THREE.Vector3(reach * 0.08, 0, reach * 0.08), reach, text: { edge: `${+apex.distanceTo(ring[0]).toFixed(2)} cm`, leg: `${volume.leg} cm`, rise: `${volume.rise} cm` } })
+  const overlay = rightTriangleOverlay(group, { foot: middle, end: ring[0], top: apex, out: new THREE.Vector3(reach * 0.08, 0, reach * 0.08), reach, edgeFirst: true, text: { edge: `${+apex.distanceTo(ring[0]).toFixed(2)} cm`, leg: `${volume.leg} cm`, rise: `${volume.rise} cm` } })
 
   const painted = paintedFaces([...poly.faces.keys()])
   const tint = new THREE.Color(FACE)

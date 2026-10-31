@@ -69,6 +69,19 @@ export function threadPlan(r: number, h: number, mode: PiMode) {
   }
 }
 
+// 각기둥 겉넓이의 왼쪽 쪽 글: 밑면, 옆면 (surfaceWhy.ts)
+export function prismHints(n: number, a: number, h: number) {
+  const area = (n * a * a) / (4 * Math.tan(Math.PI / n))
+  const base = n === 3 ? `밑면이 정삼각형이에요. 밑넓이 = ${surd(a * a, 4, 3)} cm²` : n === 4 ? `밑넓이 = ${num(a)} × ${num(a)} = ${num(a * a)} cm²` : isExact(area) ? `가운데에서 나누면 같은 삼각형 ${n}개예요. 밑넓이 = ${num(area)} cm²` : `가운데에서 나누면 같은 삼각형 ${n}개예요. 밑넓이 = 삼각형 넓이 × ${n}`
+  return [base, `옆면을 펴니 가로는 밑면 둘레 ${n} × ${num(a)} = ${num(n * a)} cm, 세로는 높이 ${num(h)} cm 예요. 옆넓이 = ${num(n * a)} × ${num(h)} = ${num(n * a * h)} cm²`]
+}
+
+// 각기둥 전개도에 남기는 넓이 값. 딱 떨어지지 않으면(√ 없이) 밑넓이는 쓰지 않는다
+export function prismAreaTexts(n: number, a: number, h: number) {
+  const area = (n * a * a) / (4 * Math.tan(Math.PI / n))
+  return { base: n === 3 ? `${surd(a * a, 4, 3)} cm²` : isExact(area) ? `${num(area)} cm²` : null, side: `${num(n * a * h)} cm²` }
+}
+
 export interface SlantPlan {
   hint: string // 왼쪽 쪽 설명
   edge: string // 3D 라벨: 빗변, 밑변 쪽, 높이
@@ -96,7 +109,8 @@ export function slantPlan(scene: ShapeScene): SlantPlan | null {
     const [square, leg] = to[sides]
     const inner = leg.includes('√') ? `(${leg})` : leg
     const s = isExact(Math.sqrt(h * h + square)) ? num(Math.sqrt(h * h + square)) : `√${num(h * h + square)}`
-    return { hint: `옆면 높이 = √(${num(h)}² + ${inner}²) = ${s} cm`, edge: `${s} cm`, leg: `${leg} cm`, rise: `${num(h)} cm` }
+    const half = sides === 4 ? `밑변 ${num(a)} cm 의 절반 ${leg} cm. ` : ''
+    return { hint: `${half}옆면 높이 = √(${num(h)}² + ${inner}²) = ${s} cm`, edge: `${s} cm`, leg: `${leg} cm`, rise: `${num(h)} cm` }
   }
   return null
 }

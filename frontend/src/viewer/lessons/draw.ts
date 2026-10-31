@@ -79,7 +79,7 @@ export function layerTags(parent: THREE.Object3D, count: number, width: number, 
 }
 
 // 피타고라스 직각삼각형: 밑변·높이·빗변이 자라고 값이 나온다. foot 이 직각, show(q) 는 0~1. 같은 길이는 같은 색
-export function rightTriangleOverlay(parent: THREE.Object3D, { foot, end, top, out, reach, text, edgeColor = '#c2255c' }: { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; text: { edge: string; leg: string; rise: string }; edgeColor?: string }) {
+export function rightTriangleOverlay(parent: THREE.Object3D, { foot, end, top, out, reach, text, edgeColor = '#c2255c', shift, edgeFirst = false, whole }: { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; text: { edge: string; leg: string; rise: string }; edgeColor?: string; shift?: { leg: THREE.Vector3; rise: THREE.Vector3; edge: THREE.Vector3 }; edgeFirst?: boolean; whole?: { from: THREE.Vector3; to: THREE.Vector3; text: string } }) {
   const r = reach * 0.018
   const materials = ['#2f9e44', '#1c7ed6', edgeColor].map((color) => new THREE.MeshBasicMaterial({ color }))
   const shadeMaterial = new THREE.MeshBasicMaterial({ color: '#ff9f6b', transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })
@@ -88,29 +88,46 @@ export function rightTriangleOverlay(parent: THREE.Object3D, { foot, end, top, o
   const shade = new THREE.Mesh(shadeGeometry, shadeMaterial)
   const corner = rightAngleMark(foot, end.clone().sub(foot), top.clone().sub(foot), reach * 0.1, r * 0.5, materials[1])
   const labels = [
-    [text.leg, foot.clone().lerp(end, 0.5)],
-    [text.rise, foot.clone().lerp(top, 0.5)],
-    [text.edge, end.clone().lerp(top, 0.5)],
-  ].map(([words, at]) => {
+    [text.leg, foot.clone().lerp(end, 0.5), shift?.leg ?? out],
+    [text.rise, foot.clone().lerp(top, 0.5), shift?.rise ?? out],
+    [text.edge, end.clone().lerp(top, 0.5), shift?.edge ?? out],
+  ].map(([words, at, by]) => {
     const s = textSprite(words as string, reach * 0.55)
-    s.sprite.position.copy(at as THREE.Vector3).add(out)
+    s.sprite.position.copy(at as THREE.Vector3).add(by as THREE.Vector3)
     parent.add(s.sprite)
     return s
   })
   const root = new THREE.Group()
   root.add(shade, corner, ...tubes.map((t) => t.mesh))
   parent.add(root)
+  // 아는 길이부터 차례로. 글자는 그 변이 다 자란 뒤에 (ui.md 피타고라스 순서). whole: 절반을 잡기 전의 변 전체
+  const order = edgeFirst ? [2, 0, 1] : [0, 1, 2]
+  const wholeTube = whole ? growingTube(whole.from, whole.to, r, new THREE.MeshBasicMaterial({ color: '#c2255c' })) : null
+  if (wholeTube) root.add(wholeTube.mesh)
+  const wholeLabel = whole ? textSprite(whole.text, reach * 0.55) : null
+  if (wholeLabel) {
+    wholeLabel.sprite.position.copy(whole!.from).lerp(whole!.to, 0.5).add(new THREE.Vector3(0, -reach * 0.05, reach * 0.3))
+    parent.add(wholeLabel.sprite)
+  }
   const show = (q: number) => {
-    tubes.forEach((t, i) => t.grow(clamp01((q / 0.6) * tubes.length - i)))
-    shade.visible = q > 0
-    corner.visible = q >= 0.6
-    labels.forEach((l) => (l.sprite.visible = q >= 0.6))
+    const rest = whole ? clamp01((q - 0.25) / 0.75) : q
+    wholeTube?.grow(clamp01(q / 0.2))
+    if (wholeLabel) wholeLabel.sprite.visible = q >= 0.2
+    order.forEach((i, k) => {
+      const grown = (rest / 0.6) * order.length - k
+      tubes[i].grow(clamp01(grown))
+      labels[i].sprite.visible = grown >= 1
+    })
+    shade.visible = rest > 0
+    corner.visible = rest >= 0.6
   }
   show(0)
   return {
     show,
     dispose: () => {
       labels.forEach((l) => l.dispose())
+      wholeLabel?.dispose()
+      if (wholeTube) (wholeTube.mesh.material as THREE.Material).dispose()
       root.removeFromParent()
       root.traverse((o) => {
         if (o instanceof THREE.Mesh) o.geometry.dispose()

@@ -135,6 +135,37 @@ export function surfaceStepHint(steps: CountStep[], done: number) {
   return `${s.text}. ${s.count > 1 ? `${s.count}장이라 ${show(s.count * s.each)}, ` : ''}지금까지 ${show(total)} cm²`
 }
 
+// 각기둥 옆면 펴기 (surfaceWhy.ts): 위에서 본 밑면 ring (x, z) 을 앞 변(0-1)을 고정하고 양쪽으로 편다. s = 0 은 닫힌 다각형, s = 1 은 곧은 줄.
+// 변 길이는 그대로다. 돌려주는 점은 왼쪽 끝부터 오른쪽 끝까지 n + 1 개. 오른쪽에 ⌈(n−1)/2⌉ 면, 나머지는 왼쪽 (면 트리와 같다)
+export function unrollChain(ring: [number, number][], s: number): [number, number][] {
+  const n = ring.length
+  const [p0, p1] = [ring[0], ring[1]]
+  const a = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+  const d = [(p1[0] - p0[0]) / a, (p1[1] - p0[1]) / a]
+  const next = [ring[2][0] - p1[0], ring[2][1] - p1[1]]
+  const sign = d[0] * next[1] - d[1] * next[0] > 0 ? 1 : -1 // 밑면을 도는 방향
+  const turn = (k: number): [number, number] => {
+    const t = sign * k * ((2 * Math.PI) / n) * (1 - s)
+    return [d[0] * Math.cos(t) - d[1] * Math.sin(t), d[0] * Math.sin(t) + d[1] * Math.cos(t)]
+  }
+  const right = Math.ceil((n - 1) / 2)
+  const out: [number, number][] = [p0, p1]
+  for (let k = 1; k <= right; k++) {
+    const [x, z] = out[out.length - 1]
+    const [dx, dz] = turn(k)
+    out.push([x + a * dx, z + a * dz])
+  }
+  for (let k = 1; k <= n - 1 - right; k++) {
+    const [x, z] = out[0]
+    const [dx, dz] = turn(-k)
+    out.unshift([x - a * dx, z - a * dz])
+  }
+  return out
+}
+
+// 옆면 띠의 삼각형 번호: 점은 아래 변 n + 1 개, 그다음 위 변 n + 1 개
+export const stripIndex = (n: number) => [...Array(n).keys()].flatMap((k) => [k, k + 1, n + 1 + k, k + 1, n + 2 + k, n + 1 + k])
+
 // 마주 보는 면 쌍. 면 인덱스가 작은 쪽부터 (직육면체: [앞 0, 뒤 5], [왼 1, 오 2], [위 3, 아래 4])
 export function oppositeFacePairs(poly: Polyhedron): [number, number][] {
   const normals = poly.faces.map((_, f) => faceNormal(poly, f))

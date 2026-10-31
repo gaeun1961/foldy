@@ -14,7 +14,7 @@ import { buildSphereBody, buildSphereLesson } from './lessons/sphereLessons.ts'
 const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1) // 위에서 내려다본다 (수평에서 62°, ThreeViewer 와 같음)
 
 // 곡면 도형(원기둥·원뿔·구) 화면 (docs/specs/viewer.md "곡면 도형"): 같은 책 위에서 옆면을 말고 밑면 원을 접는다. 구는 전개도가 없어 입체만.
-// 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 scene.lines 그대로 그리고, 화면에서 긋는 입력은 없다 (TODO-20)
+// 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 scene.lines 그대로 그리고, 화면에서 긋는 입력은 없다
 export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef({ unfold, showMatchingEdges, showVertexLabels, lesson })

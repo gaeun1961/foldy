@@ -62,8 +62,8 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed
             <input type="range" min={0} max={12} step={1} value={Math.round((lesson.cut ?? 0.5) * 12)} onChange={(e) => onChange({ ...lesson, cut: +e.target.value / 12 })} />
           </label>
         )}
-        {/* 원뿔: 다 본 뒤 원판 수를 바꿔 ⅓에 가까워지는 것을 본다 (ui.md 공식 시각화 규칙) */}
-        {lesson.kind === 'volume' && scene.shape === 'cone' && progress >= 1 && (
+        {/* 원뿔: 원판 계단부터 원판 수를 바꿔 ⅓에 가까워지는 것을 본다 (ui.md 공식 시각화 규칙) */}
+        {lesson.kind === 'volume' && scene.shape === 'cone' && progress >= 0.8 - 1e-6 && (
           <label className="stair-layers">
             원판 {lesson.layers ?? STAIR_LAYERS[0]}층
             <input type="range" min={0} max={STAIR_LAYERS.length - 1} step={1} value={STAIR_LAYERS.indexOf((lesson.layers ?? STAIR_LAYERS[0]) as (typeof STAIR_LAYERS)[number])} onChange={(e) => onChange({ ...lesson, layers: STAIR_LAYERS[+e.target.value] })} />
