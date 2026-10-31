@@ -488,6 +488,7 @@ export function ThreeViewer({
     let lowered = false
     let aim: ((dir: THREE.Vector3) => void) | null = null // 카메라를 만든 뒤에 채워진다
     let rebuildBook: (() => void) | null = null // 책을 만든 뒤에 채워진다
+    let bookTop = 0 // 페이지 윗면 높이 (책을 만든 뒤에 채워진다)
     const applyLesson = () => {
       const { lesson } = viewRef.current
       const key = lesson ? `${lesson.kind}:${lesson.scale ?? 2}:${lesson.cutKind ?? ''}` : null
@@ -498,6 +499,7 @@ export function ThreeViewer({
         if (lessonObject) tree.root.add(lessonObject.group)
         if (lesson && LESSON_POSE[lesson.kind] === 'solid') standUp() // 끄거나 전개도 설명이면 바닥에 눕힌 자세
         else layOnFloor(tree, poly, yaw)
+        floorY = null // 자세가 바뀌면 띄우기 기준 높이를 다시 잰다
         lessonFit = null
         if (lessonObject?.bounds) {
           tree.root.updateMatrixWorld(true)
@@ -516,6 +518,10 @@ export function ThreeViewer({
     }
 
     let active: number | null = null
+    // 학습지 사진 위 전개도 띄우기 (viewer.md "책 장면" 학습지 사진): 펼친 만큼 루트를 들고 사진은 그만큼 내려 페이지에 둔다.
+    // 사진과 전개도가 붙어 깊이를 다투며 겹쳐 보이던 것. 다 접으면 0 이라 입체는 페이지에 앉는다
+    const LIFT = 0.025
+    let floorY: number | null = null
     let penBusy = false // 펜이 그리는 중이면 꼭짓점 라벨(Sprite, 가림 셰이더가 없음)을 숨긴다
     const apply = () => {
       const { unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions } = viewRef.current
@@ -527,6 +533,10 @@ export function ThreeViewer({
         refit?.()
       }
       if (photoMesh) photoMesh.visible = !ghost // 사진은 루트에 붙어 있어서 입체를 세우면 같이 선다
+      floorY ??= tree.root.position.y
+      const lift = photoMesh && !lessonOn ? radius * LIFT * unfold : 0
+      tree.root.position.y = floorY + lift
+      if (photoMesh) photoMesh.position.z = bookTop - lift // 루트 안 z 가 곧 높이 (아래 책 만들기 주석)
       for (const { n, mesh } of divisionMarkers) mesh.visible = drawLines && n === edgeDivisions
       if (!drawLines) setFirstPick(null)
       if (drawLines) pickedVertex = picked = null // 선 긋기 중에는 꼭짓점·모서리 쌍·면 고르기를 하지 않는다
@@ -598,7 +608,9 @@ export function ThreeViewer({
     const netRange = flatNet.clone().expandByPoint(book.textCorner)
     netRange.getCenter(netFit.center)
     netFit.radius = netRange.getBoundingSphere(new THREE.Sphere()).radius * 1.1
-    photoMesh?.position.setZ(book.top) // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다
+    bookTop = book.top
+    // 페이지 윗면 높이. layOnFloor 가 루트의 −z 를 아래(−y)로 돌려서 루트 안 z 가 곧 높이다. 이미 띄운 만큼은 뺀다 (apply 가 먼저 돌았다)
+    photoMesh?.position.setZ(book.top - (tree.root.position.y - (floorY ?? tree.root.position.y)))
     world.add(book.group)
     world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22) // 멀리 있는 책상은 흐리게
 
