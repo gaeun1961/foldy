@@ -251,16 +251,17 @@ function pad(b: PhotoBox, all: PhotoBox[]): PhotoBox {
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
 }
 
-// 페이지 그림자·제본 띠·위 문제의 남은 그림: 칸 위 가장자리에 닿거나, 가장자리 두 곳 이상에 닿거나,
-// 한 가장자리를 따라 60% 넘게 붙은 덩어리. 문제 칸은 위에 문제 글, 아래에 그림이라 그림이 위 가장자리에 닿지 않는다
+// 페이지 그림자·제본 띠·위 문제의 남은 그림: 칸 위(글 쪽) 가장자리에 닿거나,
+// 한 가장자리를 따라 60% 넘게 붙은 가는 띠. 문제 칸은 위에 문제 글, 아래에 그림이라 그림이 위 가장자리에 닿지 않는다
 // (29번을 넉넉히 감싸면 위쪽 종이가 휘어 어두운 곳이 브라우저에서만 덩어리로 잡혔다)
 // textAtBottom: 글이 아래쪽에 있으면(돌린 사진) 위 대신 아래 가장자리를 본다
 function onEdge(c: { x: number; y: number; w: number; h: number }, W: number, H: number, textAtBottom = false): boolean {
   const e = 2
   const [left, top, right, bottom] = [c.x <= e, c.y <= e, c.x + c.w >= W - e, c.y + c.h >= H - e]
-  const touches = [left, top, right, bottom].filter(Boolean).length
   const [textSide, figureSide] = textAtBottom ? [bottom, top] : [top, bottom]
-  return textSide || touches >= 2 || ((left || right) && c.h > 0.6 * H) || (figureSide && c.w > 0.6 * W)
+  // 두 가장자리에 닿는 것만으로는 버리지 않는다: 문제 칸을 꼭 맞게 그리면 전개도가 오른쪽·아래에 같이 닿는다 (29번 회귀, #155)
+  // 한 가장자리를 따라 길게 붙은 것은 가늘 때만 (그림자 띠는 폭 7% 쯤. 꼭 맞게 그린 전개도는 길게 닿아도 두껍다)
+  return textSide || ((left || right) && c.h > 0.6 * H && c.w < 0.15 * W) || (figureSide && c.w > 0.6 * W && c.h < 0.15 * H)
 }
 
 // 위·아래 30% 띠의 글자 양 (top: 위 띠)

@@ -79,6 +79,18 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(boxes[0].y * H > 131, `넓혀도 위 글 줄까지 올라가지 않는다: 위 ${(boxes[0].y * H).toFixed(0)}`)
 }
 
+// 문제 칸을 꼭 맞게 그려 전개도가 오른쪽·아래 가장자리에 같이 닿아도 도형이다 (29번 회귀, #155)
+{
+  const [W, H] = [400, 300]
+  const s = sheet(W, H, () => 200)
+  for (let x = 30; x < 370; x += 13) s.fill(x, 20, 8, 2, [40, 40, 40]) // 문제 글
+  s.fill(40, 170, 90, 70, [104, 96, 85]) // 겨냥도
+  s.fill(220, 160, 180, 50, [120, 112, 100]) // 전개도 가로 띠 (오른쪽 끝까지)
+  s.fill(290, 110, 50, 190, [120, 112, 100]) // 세로 띠 (아래 끝까지)
+  const boxes = findShapeBoxes(s)
+  check(boxes.length === 2, `오른쪽·아래에 닿은 전개도도 찾는다: ${JSON.stringify(boxes)}`)
+}
+
 // 색칠 없는 학습지(선만) → 추천 없음 (학생이 직접 감싼다)
 {
   const s = sheet(300, 200, () => 210)
@@ -96,4 +108,4 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(boxes[0].y < boxes[4].y && boxes[0].x < boxes[1].x, '위 줄 왼쪽부터')
 }
 
-console.log('ok: 추천 네모 (누운 사진 알아채기·어두운 사진, 겨냥도·전개도 둘, 옅은 날개, 옆 도형 안 넘김, 책 그림자 띠·흐린 얼룩·위 가장자리 그림 빼기, 글 줄 앞에서 멈춤, 선만이면 없음, 여섯까지)')
+console.log('ok: 추천 네모 (누운 사진 알아채기·어두운 사진·두 가장자리에 닿은 전개도, 겨냥도·전개도 둘, 옅은 날개, 옆 도형 안 넘김, 책 그림자 띠·흐린 얼룩·위 가장자리 그림 빼기, 글 줄 앞에서 멈춤, 선만이면 없음, 여섯까지)')
