@@ -99,6 +99,7 @@ export default function App() {
     sessionStorage.setItem(OPENING_SEEN, '1')
     setOpening(false)
   }
+  const [lastTurn, setLastTurn] = useState(false) // 오프닝의 속표지가 넘어가는 중. 좁은 화면은 이때 패널이 아래에서 올라온다
   const [hologram, setHologram] = useState(false) // 홀로그램 보기 (ui.md "홀로그램 보기"). 켜져 있는 동안 책 장면은 그리지 않는다
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
   const [fit, setFit] = useState(NO_FIT) // 칸에 맞춘 사진 위치. 3D 책 페이지에도 같은 자리에 깐다 (TODO-36)
@@ -192,14 +193,14 @@ export default function App() {
   const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing || lesson ? null : revolution ? '왼쪽 쪽에서 회전체를 골라 돌려 보세요' : sphere ? '왼쪽 쪽에서 겉넓이나 부피를 골라 보세요' : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : curved && view.showMatchingEdges ? '같은 색 선끼리 만나요' : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
-    <div className={`layout${opening ? ' opening' : ''}`}>
+    <div className={`layout${opening ? ' opening' : ''}${opening && lastTurn ? ' last-turn' : ''}`}>
       <main className="stage">
         {opening && (
           <button type="button" className="secondary-button skip-opening" onClick={endOpening}>
             건너뛰기
           </button>
         )}
-        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} pageOf={(k) => {
+        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onLastTurn={() => setLastTurn(true)} pageOf={(k) => {
               // 넘어가는 종이에 찍을 차례 k번째 도형의 쪽: 그 도형을 처음 연 화면과 같게
               const next = crossScene(SHAPES[k].shape, { ...SHAPES[k].size })
               const first = firstLesson(next)

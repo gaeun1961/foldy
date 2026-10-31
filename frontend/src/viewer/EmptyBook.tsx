@@ -14,6 +14,7 @@ interface Props {
   pageOf?: (index: number) => BookSpread // 차례 index번째 도형의 쪽: 고른 도형까지 넘어가는 종이마다 지나가는 도형의 쪽을 찍는다
   opening?: boolean // 처음 한 번 오프닝을 보여 준다 (viewer.md "오프닝"). 도중에 false 가 되면 바로 끝낸다
   onOpened?: () => void // 오프닝이 끝났거나 건너뛰었을 때
+  onLastTurn?: () => void // 오프닝의 속표지가 넘어가기 시작할 때 (카메라가 원래 각도로 올라가기 시작한다)
 }
 
 export type BookSpread = { text: string[]; pageNumbers?: [number, number]; menu?: BookMenuItem[] }
@@ -24,18 +25,20 @@ const VIEW = VIEW_DIR.clone().normalize() // 도형 화면이 보는 방향. 차
 // 전개도 대신 페이지 크기를 정할 기본 범위 (가로 6 × 세로 6, y = 0)
 const NET = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(6, 0, 6))
 
-export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened }: Props) {
+export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, onLastTurn }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const pickRef = useRef(onPick)
   const pageOfRef = useRef(pageOf)
   const openingRef = useRef(opening)
   const openedRef = useRef(onOpened)
+  const lastTurnRef = useRef(onLastTurn)
   useEffect(() => {
     pickRef.current = onPick
     pageOfRef.current = pageOf
     openingRef.current = opening
     openedRef.current = onOpened
-  }, [onPick, pageOf, opening, onOpened])
+    lastTurnRef.current = onLastTurn
+  }, [onPick, pageOf, opening, onOpened, onLastTurn])
   const key = JSON.stringify({ pageText, contents, pageNumbers })
 
   useEffect(() => {
@@ -116,6 +119,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     let t = 0
     let last = -1
     let picked: number | null = null
+    let lastTurn = false
     controls.enabled = !intro
     renderer.setAnimationLoop((now) => {
       const dt = last < 0 ? 0 : Math.min(now - last, 1000 / 30) / 1000
@@ -143,6 +147,10 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
           camera.position.copy(controls.target).addScaledVector(dir, distance)
           openedRef.current?.()
         } else {
+          if (!lastTurn && intro.low(t) < 1) {
+            lastTurn = true
+            lastTurnRef.current?.()
+          }
           intro.update(t)
           camera.position.copy(controls.target).addScaledVector(dir, distance * (1 + 0.3 * (1 - Math.min(1, t / 2.4)) ** 2))
         }
