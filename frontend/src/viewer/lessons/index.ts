@@ -2,15 +2,15 @@ import * as THREE from 'three'
 import type { ShapeScene } from '../../shared/types.ts'
 import type { FaceTree } from '../faceTree.ts'
 import type { Polyhedron } from '../polyhedra.ts'
-import { boxCenterOf, boxSizeOf, planOf, type LessonKind } from './data.ts'
+import { boxCenterOf, boxSizeOf, lessonStepCount, planOf, type LessonKind } from './data.ts'
 import { buildEdgeRelationsLesson } from './edgeRelations.ts'
 import { buildDiagonalLesson, buildShortestPathLesson } from './pythagoras.ts'
 import { buildSimilarLesson } from './similar.ts'
 import { buildSurfaceAreaLesson } from './surfaceArea.ts'
 import { buildVolumeLesson } from './volume.ts'
 import { withCubeSplit } from './whyThird.ts'
-import { textSprite, v3 } from './draw.ts'
-import { boxLengthLabels, faceLengthLabels, solidLengthLabels } from './lengthLabels.ts'
+import { DONE, textSprite, v3 } from './draw.ts'
+import { boxLengthLabels, lengthText, solidLengthLabels, type LengthLabel } from './lengthLabels.ts'
 import { buildSimilarSolidLesson } from './similarSolid.ts'
 import { buildCountsLesson } from './counts.ts'
 import { prismBasePoints, pyramidPoints, withPythagorasStep } from './pythagorasStep.ts'
@@ -49,7 +49,7 @@ export function buildLesson(scene: ShapeScene, poly: Polyhedron, tree: FaceTree,
     lesson.bounds?.translate(lesson.group.position)
     return lesson
   }
-  // 모서리 길이 글자 (viewer.md "모서리 길이 표시"). 입체는 설명 물체에, 전개도는 면 메시에 붙인다. 설명을 끄면 같이 지운다
+  // 모서리 길이 글자 (viewer.md "모서리 길이 표시"). 설명 물체에 붙인다. 설명을 끄면 같이 지운다
   const size = box ? Math.max(box.width, box.depth, box.height) : Math.max(...poly.positions.flatMap((p) => p.map(Math.abs))) * 1.6
   // 결과의 공식 글자와 같은 색의 길이 선 (lengthLines.ts). 상자는 앞 오른쪽 아래 모서리에서 a 가로, b 세로, c 높이. 각기둥은 h
   const lineRadius = size * 0.012
@@ -64,16 +64,20 @@ export function buildLesson(scene: ShapeScene, poly: Polyhedron, tree: FaceTree,
     if (scene.shape === 'prism') return [{ from: v3(poly.positions[0]), to: v3(poly.positions[scene.size.sides]), color: LENGTH_COLOR.h }]
     return []
   }
-  const labelled = (lesson: LessonObject, net = false) => {
-    const made = net
-      ? tree.nodes.flatMap((n) => faceLengthLabels(poly, n.face).map((l) => ({ l, parent: n.mesh as THREE.Object3D })))
-      : (box ? boxLengthLabels(box) : solidLengthLabels(poly)).map((l) => ({ l, parent: lesson.group as THREE.Object3D }))
-    const sprites = made.map(({ l, parent }) => {
-      const s = textSprite(l.text, size * (net ? 0.32 : 0.3))
+  // show: 그 글자가 지금 필요한가 (ui.md 공식 시각화 규칙 5)
+  const labelled = (lesson: LessonObject, labels: LengthLabel[], show: (label: LengthLabel, k: number, progress: number) => boolean) => {
+    const sprites = labels.map((l) => {
+      const s = textSprite(l.text, size * 0.3)
       s.sprite.position.copy(v3(l.at))
-      parent.add(s.sprite)
+      lesson.group.add(s.sprite)
       return s
     })
+    const apply = lesson.apply
+    lesson.apply = (progress) => {
+      apply(progress)
+      sprites.forEach((s, k) => (s.sprite.visible = show(labels[k], k, progress)))
+    }
+    lesson.apply(0)
     const dispose = lesson.dispose
     lesson.dispose = () => {
       sprites.forEach((s) => s.dispose())
@@ -103,15 +107,24 @@ export function buildLesson(scene: ShapeScene, poly: Polyhedron, tree: FaceTree,
   if (kind === 'volume') {
     const volume = planOf(scene)?.volume
     if (volume) return buildRegularVolumeLesson(poly, volume)
-    if (box) return withEndLines(labelled(centered(buildVolumeLesson(box, radius))), lengthLines(), lineRadius)
-    if (scene.shape === 'prism') return withEndLines(labelled(buildPrismVolumeLesson(poly, scene.size)), lengthLines(), lineRadius)
-    if (scene.shape === 'pyramid') return withCubeSplit(labelled(buildPyramidVolumeLesson(poly, scene.size)), scene.size.height)
+    // 밑면을 칠하면 밑면 길이, 다 쌓으면 높이
+    const baseDone = (progress: number) => progress * lessonStepCount(scene, 'volume') >= 1 - 1e-6
+    if (box) {
+      const labels = scene.shape === 'cube' ? boxLengthLabels(box).slice(0, 1) : boxLengthLabels(box)
+      return withEndLines(labelled(centered(buildVolumeLesson(box, radius)), labels, (_, k, p) => (scene.shape !== 'cube' && k === 2 ? p >= DONE : baseDone(p))), lengthLines(), lineRadius)
+    }
+    if (scene.shape === 'prism') {
+      const heightText = lengthText(scene.size.height)
+      return withEndLines(labelled(buildPrismVolumeLesson(poly, scene.size), solidLengthLabels(poly), (l, _, p) => (l.text === heightText ? p >= DONE : baseDone(p))), lengthLines(), lineRadius)
+    }
+    if (scene.shape === 'pyramid') return withCubeSplit(buildPyramidVolumeLesson(poly, scene.size), scene.size.height)
   }
   if (kind === 'counts') return buildCountsLesson(poly)
   if (!box) return null
-  if (kind === 'diagonal') return labelled(centered(buildDiagonalLesson(box, radius)))
-  if (kind === 'shortest-path') return labelled(buildShortestPathLesson(poly, tree, radius), true)
+  // 밑면 삼각형에 가로·세로, 세운 삼각형에 높이
+  if (kind === 'diagonal') return labelled(centered(buildDiagonalLesson(box, radius)), boxLengthLabels(box), (_, k, p) => (k === 2 ? p * 3 > 1 + 1e-6 : p > 0))
+  if (kind === 'shortest-path') return buildShortestPathLesson(poly, tree, radius)
   return null
 }
 
-export { CONE_THIRD_LINK, LESSON_HINT, LESSON_LABEL, lessonGrade, lessonHint, LESSON_POSE, lessonStepCount, lessonSummary, lessonTabs, type Lesson, type LessonKind, type PiMode } from './data.ts'
+export { CONE_THIRD_LINK, LESSON_HINT, LESSON_LABEL, lessonGrade, lessonHint, lessonNote, LESSON_POSE, lessonStepCount, lessonSummary, lessonTabs, type Lesson, type LessonKind, type PiMode } from './data.ts'

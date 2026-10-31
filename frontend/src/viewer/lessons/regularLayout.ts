@@ -2,7 +2,7 @@
 // 정다면체: 겉넓이는 면의 높이, 부피는 입체 높이를 구해 √ 를 쓴 식과 답을 만든다. 부피는 정사면체·정팔면체만, 정십이면체 겉넓이는 식만
 // 각뿔·원뿔·삼각기둥: 겉넓이 앞에 옆면 높이(모선), 밑면 높이를 구하는 단계 하나 (slantPlan)
 import type { ShapeScene } from '../../shared/types.ts'
-import { isExact, slantText } from './lengthLabels.ts'
+import { isExact, piValue, slantText, type PiMode } from './lengthLabels.ts'
 
 const FACES: Record<string, number> = { 'regular-tetrahedron': 4, 'regular-octahedron': 8, 'regular-dodecahedron': 12, 'regular-icosahedron': 20 }
 
@@ -56,6 +56,17 @@ export function regularPlan(shape: string, a: number): RegularPlan | null {
     return { ...base, volume: { kind: 'octa', leg, rise: leg, hints, result: { formula: `2 × ⅓ × ${num(a * a)} × ${leg}`, value: `${surd(a ** 3, 3, 2)} cm³` } } }
   }
   return { ...base, volume: null }
+}
+
+// 실 감기의 왼쪽 쪽 글과 결과 (thread.ts): 원기둥을 한 바퀴 감은 실은 직각삼각형의 빗변
+export function threadPlan(r: number, h: number, mode: PiMode) {
+  const around = piValue(2 * r, mode)
+  const value = mode === 'pi' ? `√(${num(4 * r * r)}π² + ${num(h * h)}) cm` : `약 ${num(Math.hypot(6.28 * r, h))} cm`
+  return {
+    hints: ['밑면 앞에서 실을 한 바퀴 감아 바로 위 윗면까지 갔어요', '옆면을 펴니 실이 곧은 선이에요. 곧은 선이 가장 짧은 길이에요', `가로 ${around}, 높이 ${num(h)} 인 직각삼각형의 빗변이에요`],
+    label: value,
+    result: { general: mode === 'pi' ? '√((2πr)² + h²)' : '√(가로² + 높이²)', formula: `√((${around})² + ${num(h)}²)`, value },
+  }
 }
 
 export interface SlantPlan {

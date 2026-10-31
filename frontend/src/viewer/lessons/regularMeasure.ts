@@ -46,7 +46,7 @@ export function buildRegularSurfaceLesson(poly: Polyhedron, plan: RegularPlan): 
   const apply = (progress: number) => {
     const qs = [...plan.areaHints.keys()].map((k) => clamp01(progress * plan.areaHints.length - k))
     const others = plan.height ? qs[2] : qs[1]
-    overlay?.show(others > 0 ? 0 : qs[1])
+    overlay?.show(qs[1]) // 구한 높이는 끝까지 남긴다
     const count = others * (faces.length - 1) // 첫 면 다음으로 몇 개 켰나
     faces.forEach(({ pair }, i) => {
       const q = i === 0 ? clamp01(qs[0] / 0.5) : clamp01(count - (i - 1))

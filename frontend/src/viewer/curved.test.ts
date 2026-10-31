@@ -1,11 +1,27 @@
 // 곡면 말기 검사: 펴면 평면 전개도, 말면 입체, 말아도 길이가 그대로, 둘레와 밑면 원이 맞닿는다. 실행: `npm test`
-import { conePoint, cylinderPoint, discAngle, discPoint, sidePoint, standPoint, topDiscPoint, type Point } from './curved.ts'
+import { conePoint, curvedLinePoints, cylinderPoint, discAngle, discPoint, sidePoint, standPoint, topDiscPoint, type Point } from './curved.ts'
 
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
 }
 const dist = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 const EPS = 1e-9
+
+// 곡면 위 선: 펴면 직선, 말면 곡면 위, 말아도 길이가 그대로
+{
+  const length = (points: Point[]) => points.slice(1).reduce((sum, p, i) => sum + dist(p, points[i]), 0)
+  const pipe = { radius: 3, height: 10 }
+  const helix = curvedLinePoints('cylinder', pipe, { from: { bottom: 0 }, to: { top: 360 } })
+  const diagonal = Math.hypot(6 * Math.PI, 10)
+  check(Math.abs(length(helix(1)) - diagonal) < 1e-6 && helix(1).every((p) => Math.abs(p[1]) < EPS), '펴면 직사각형 대각선')
+  check(Math.abs(length(helix(0)) - diagonal) < 0.01 && helix(0).every(([x, y]) => Math.abs(Math.hypot(x, y - 3) - 3) < EPS), '말면 원기둥 위 나선, 길이 그대로')
+  check(dist(helix(0)[0], [helix(0)[64][0], helix(0)[64][1], helix(0)[0][2]]) < 1e-9 && Math.abs(helix(0)[0][2] - helix(0)[64][2] - 10) < EPS, '한 바퀴 돌아 바로 위')
+  const cone = { radius: 1, height: Math.sqrt(15) } // 모선 4
+  const toApex = curvedLinePoints('cone', cone, { from: { base: 90 }, to: { apex: true } })
+  check(Math.abs(length(toApex(1)) - 4) < 1e-6 && Math.abs(length(toApex(0)) - 4) < 1e-6, '원뿔: 꼭짓점까지 모선 길이')
+  const chord = curvedLinePoints('cone', cone, { from: { surface: { angle: 0, r: 1 } }, to: { surface: { angle: 360, r: 1 } } })
+  check(Math.abs(length(chord(1)) - 8 * Math.SQRT1_2) < 1e-6 && Math.abs(length(chord(0.4)) - 8 * Math.SQRT1_2) < 0.01, '원뿔: 중심각 90° 의 현, 말아도 길이 그대로')
+}
 
 // 원기둥 r = 2, h = 5
 {
