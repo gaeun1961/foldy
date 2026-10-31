@@ -396,7 +396,7 @@ export function buildDeskProps(at: DeskLayout, own: Own) {
     place(buildDie(geometry, PALE[k], yaw, own), x, onMat ? at.matTop : at.deskY, z)
   })
 
-  // 책 앞 가운데 책상: 공부 타이머. 휴대폰(3D 뷰 가로·세로 비슷)과 PC(가로로 김, 아래 바가 3D 위에 뜸) 모두 화면 안에 보이는 자리 (오른쪽 앞은 PC 에서 아래 바에 가렸다)
-  place(buildTimer(u * 1.25, own), at.spineX + u * 0.25, at.deskY, near + u * 2.3, -0.12)
+  // 책 뒤 시계 왼쪽: 공부 타이머
+  place(buildTimer(u * 1.25, own), left - u * 1.4, at.deskY, far - u * 1.7, 0.2)
   return group
 }
