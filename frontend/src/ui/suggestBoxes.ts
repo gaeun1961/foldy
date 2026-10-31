@@ -1,13 +1,14 @@
 // 문제 칸 안 도형·전개도 추천 네모 (docs/specs/worksheets.md "추천 네모", #151). LLM 없이 픽셀로 찾는다.
 // 학습지 그림은 종이보다 어둡고 채도가 낮은 색으로 칠해져 있다 → 그런 픽셀 → 점선·글자로 끊긴 곳 잇기 → 덩어리마다 네모.
 // 칸 배치(grid 면)는 찾지 않고 바깥 네모만. 라벨(ㄱ·ㄴ)이 들어가게 둘레를 조금 넓힌다. 못 찾으면 빈 목록 (학생이 직접 감싼다)
+// 문제 칸을 넉넉히 그리면 책 페이지 그림자·제본 쪽 어두운 띠가 들어온다 → 칸 가장자리를 따라 붙은 덩어리는 버린다
 import type { PhotoBox } from './manualScene.ts'
 import type { Pixels } from './perspective.ts'
 
 export const SIDE = 480 // 문제 칸을 이 긴 변으로 줄여서 찾는다 (시제품 0.06~0.08초)
 const MAX = 6
 // 찾기 값 (두 학습지 사진으로 맞춤, 검사 suggestBoxes.test.ts)
-export const TUNE = { pct: 0.9, near: 1, drop: 25 }
+export const TUNE = { pct: 0.9, near: 1, drop: 25, sharp: 8, open: 4 }
 
 // 픽셀 → 찾은 도형 네모 (이 그림 비율 0~1, 위에서 아래·왼쪽에서 오른쪽 차례)
 export function findShapeBoxes(px: Pixels): PhotoBox[] {
@@ -25,13 +26,19 @@ export function findShapeBoxes(px: Pixels): PhotoBox[] {
     mask[i] = mx < paper[i] - TUNE.drop && mx > 90 && sat < 60 && !red ? 1 : 0 // 종이보다 어둡고 글자(검정)보다 밝은 색칠
   }
   const k = Math.max(1, Math.round(Math.max(W, H) / 480)) // 줄인 크기 기준 걸음
-  mask = dilate(erode(mask, W, H, 3 * k), W, H, 3 * k) // 작은 얼룩 지우기
+  mask = dilate(erode(mask, W, H, TUNE.open * k), W, H, TUNE.open * k) // 작은 얼룩·글자 지우기 (빽빽한 글 줄은 줄이면 회색 띠가 된다)
   mask = erode(dilate(mask, W, H, 3 * k), W, H, 3 * k) // 점선·글자로 끊긴 면 잇기
 
-  const found = label(mask, W, H).filter((c) => c.area >= 0.01 * n && c.w >= 0.06 * Math.min(W, H) && c.h >= 0.06 * Math.min(W, H))
+  const { blobs, ids } = label(mask, W, H)
+  const sharp = edgeSharpness(ids, blobs.length, bright, W, H)
+  // 인쇄된 그림은 테두리가 또렷하다. 그림자·조명 얼룩은 밝기가 서서히 바뀌어 테두리가 흐리다 (실측 인쇄 16~35, 페이지 아래 그림자 3.6)
+  const found = blobs.filter((c, i) => c.area >= 0.01 * n && c.w >= 0.06 * Math.min(W, H) && c.h >= 0.06 * Math.min(W, H) && !onEdge(c, W, H) && sharp[i] >= TUNE.sharp)
   // 둘레를 넓히고 (라벨 자리), 서로 닿은 것은 한 도형으로
   const raw = merge(found.map((c) => ({ x: c.x / W, y: c.y / H, w: c.w / W, h: c.h / H })))
-  const boxes = raw.map((b) => pad(b, raw))
+  const ink = new Uint8Array(n) // 글자 (검정)
+  // 줄이면 가는 글자가 회색이 되어(브라우저 실측) 곳마다 종이보다 70 넘게 어두우면 글자로 본다. 색칠 면은 그보다 밝다
+  for (let i = 0; i < n; i++) ink[i] = bright[i] < paper[i] - 70 && data[i * 4] - Math.max(data[i * 4 + 1], data[i * 4 + 2]) <= 40 ? 1 : 0
+  const boxes = raw.map((b) => stopAtText(pad(b, raw), b, ink, W, H))
   const mid = (b: PhotoBox) => b.y + b.h / 2 // 같은 줄(가운데 높이가 비슷)이면 왼쪽부터
   return boxes.sort((a, b) => (Math.abs(mid(a) - mid(b)) > 0.15 ? mid(a) - mid(b) : a.x - b.x)).slice(0, MAX)
 }
@@ -110,7 +117,8 @@ function pass(m: Uint8Array, W: number, H: number, r: number, horizontal: boolea
 }
 
 type Blob = { x: number; y: number; w: number; h: number; area: number }
-function label(m: Uint8Array, W: number, H: number): Blob[] {
+function label(m: Uint8Array, W: number, H: number): { blobs: Blob[]; ids: Int32Array } {
+  const ids = new Int32Array(m.length).fill(-1) // 픽셀 → 덩어리 번호
   const seen = new Uint8Array(m.length)
   const stack: number[] = []
   const blobs: Blob[] = []
@@ -121,6 +129,7 @@ function label(m: Uint8Array, W: number, H: number): Blob[] {
     stack.push(s)
     while (stack.length) {
       const p = stack.pop()!
+      ids[p] = blobs.length
       const [x, y] = [p % W, (p / W) | 0]
       area++
       x0 = Math.min(x0, x)
@@ -136,7 +145,23 @@ function label(m: Uint8Array, W: number, H: number): Blob[] {
     }
     blobs.push({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, area })
   }
-  return blobs
+  return { blobs, ids }
+}
+
+// 덩어리마다 테두리(밖과 닿은 픽셀)에서의 평균 밝기 변화 (가로·세로 이웃 차의 합)
+function edgeSharpness(ids: Int32Array, count: number, v: Uint8Array, W: number, H: number): number[] {
+  const sum = new Float64Array(count)
+  const num = new Uint32Array(count)
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      const p = y * W + x
+      const id = ids[p]
+      if (id < 0 || (ids[p - 1] === id && ids[p + 1] === id && ids[p - W] === id && ids[p + W] === id)) continue
+      const [l, r, u, d] = [y * W + Math.max(0, x - 2), y * W + Math.min(W - 1, x + 2), Math.max(0, y - 2) * W + x, Math.min(H - 1, y + 2) * W + x]
+      sum[id] += Math.abs(v[r] - v[l]) + Math.abs(v[d] - v[u])
+      num[id]++
+    }
+  return Array.from(sum, (s, i) => (num[i] ? s / num[i] : 0))
 }
 
 // 라벨(ㄱ·ㄴ)·바깥 선이 들어가게 네모를 넓힌다. 그림 밖으로, 옆 도형과의 가운데 너머로는 안 넓힌다
@@ -154,6 +179,40 @@ function pad(b: PhotoBox, all: PhotoBox[]): PhotoBox {
     if (stacked && o.y >= b.y + b.h) y1 = Math.min(y1, (b.y + b.h + o.y) / 2)
   }
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+}
+
+// 페이지 그림자·제본 띠·위 문제의 남은 그림: 칸 위 가장자리에 닿거나, 가장자리 두 곳 이상에 닿거나,
+// 한 가장자리를 따라 60% 넘게 붙은 덩어리. 문제 칸은 위에 문제 글, 아래에 그림이라 그림이 위 가장자리에 닿지 않는다
+// (29번을 넉넉히 감싸면 위쪽 종이가 휘어 어두운 곳이 브라우저에서만 덩어리로 잡혔다)
+function onEdge(c: { x: number; y: number; w: number; h: number }, W: number, H: number): boolean {
+  const e = 2
+  const [left, top, right, bottom] = [c.x <= e, c.y <= e, c.x + c.w >= W - e, c.y + c.h >= H - e]
+  const touches = [left, top, right, bottom].filter(Boolean).length
+  return top || touches >= 2 || ((left || right) && c.h > 0.6 * H) || (bottom && c.w > 0.6 * W)
+}
+
+// 위·아래로 넓힌 자리에 문제 글 줄이 있으면 그 줄 앞에서 멈춘다. 한 줄에서 글자(검정)가 네모 폭의 12% 넘으면 글 줄로 본다
+// (라벨 ㄱ·ㄴ 은 작아서 넘지 않는다)
+function stopAtText(b: PhotoBox, core: PhotoBox, ink: Uint8Array, W: number, H: number): PhotoBox {
+  const [x0, x1] = [Math.round(b.x * W), Math.min(W, Math.round((b.x + b.w) * W))]
+  const isText = (y: number) => {
+    let count = 0
+    for (let x = x0; x < x1; x++) count += ink[y * W + x]
+    return count > 0.12 * (x1 - x0)
+  }
+  let top = b.y
+  for (let y = Math.round(core.y * H) - 1; y >= Math.round(b.y * H); y--)
+    if (isText(y)) {
+      top = (y + 2) / H
+      break
+    }
+  let bottom = b.y + b.h
+  for (let y = Math.round((core.y + core.h) * H); y < Math.min(H, Math.round((b.y + b.h) * H)); y++)
+    if (isText(y)) {
+      bottom = (y - 1) / H
+      break
+    }
+  return { x: b.x, y: top, w: b.w, h: Math.max(core.y + core.h, bottom) - top }
 }
 
 // 많이 겹치는 네모는 하나로 (한 전개도가 두 덩어리로 갈린 경우)
