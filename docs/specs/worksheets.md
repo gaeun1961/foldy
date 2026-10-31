@@ -20,7 +20,7 @@
 | | W4 대기·비교 화면 | 읽는 중 표시와 지난 초, 결과가 오면 사진과 인식한 전개도를 나란히 (틀린 인식을 사람이 알아채게, W0 3-2 low 사례) | W5 | `PhotoUpload.tsx`, `index.css` | ① 같이 |
 | **P2 계약 묶음** ✅ (팀 합의 전) | W7 문제 글 + W8 사진 자동 맞춤 | ShapeScene 선택 항목 `problem?: string`(인쇄된 문제 문장), `photoBox?: {x,y,w,h}`(사진에서 전개도가 있는 곳, 0~1). **`[계약]` 이슈 하나로 팀 합의 → shape-scene.md → types.ts·schema.py·프롬프트 한 PR**. 문제 글은 책 왼쪽 쪽(`pageText`) 제목 아래, 챗봇 프롬프트에도. "사진 전체 읽기"도 `photoBox`로 칸 밑 사진을 자동으로 맞춘다(`fitToBox` 재사용) | 팀 합의 | backend `ai/`, `shared/types.ts`, `App.tsx` 몇 줄 | ② 29번·3-2: 왼쪽 쪽에 문제 글, 사진과 전개도가 저절로 겹침 |
 | **P3 보관함** ✅ | W3 | 기기 안 저장(문제 글·맞춤 포함), 다시 열기·이름·지우기 | P2 (저장할 모양이 정해진 뒤) | `worksheetStore.ts`·`WorksheetShelf.tsx` 새로, `PhotoUpload.tsx` | ③ 저장했다 다시 열기 |
-| **P4 홀로그램 사진** (준비만) | W6 (인계) | 면마다 사진 UV → `buildStage(scene, theme, { photo })`, 홀로그램은 반전·어두운 곳 투명 | #122 머지, P1·P2 (사진이 전개도와 겹쳐야 면에 맞게 입혀짐) | `viewer/stage.ts` 사진 경로, `HologramMode` prop 한 줄, `App.tsx` 한 줄 | ④ 홀로그램에서 자기 학습지가 접힘 |
+| **P4 홀로그램 사진** ✅ | W6 (인계) | 면마다 사진 UV → `buildStage(scene, theme, { photo })`, 홀로그램은 반전·어두운 곳 투명 | #122 머지, P1·P2 (사진이 전개도와 겹쳐야 면에 맞게 입혀짐) | `viewer/stage.ts` 사진 경로, `HologramMode` prop 한 줄, `App.tsx` 한 줄 | ④ 홀로그램에서 자기 학습지가 접힘 |
 | **언제든** | W2 모델 비교 | `vision_eval --engine agy --model …` (계정 사용량) | W1 (끝남) | backend `evals/` | 숫자 표 |
 | **넘김** | [B1](../todo/B1-viewer-wheel-zoom.md) | 3D 휠 거리 제한 | - | `viewer/` (프론트 담당) | - |
 
@@ -35,6 +35,8 @@ P4 준비 — #122가 아직 머지 전(로컬에서 계속 고치는 중)이라
 **홀로그램 세션 공유 (2026-10-31)**: 시험 통합 브랜치(`test/holo-photo`, 로컬)에서 사진 → 도형 → 홀로그램이 PC·휴대폰 모두 동작. 휴대폰에서 "도형에 프레임을 씌우면 잘 잡힘". #130에 필요한 확정 사항: `HologramProps = { scene, center, showGuide, onTap }`, `stageSupported`는 다면체 면 2개 이상일 때만, 잘못 그린 전개도도 그대로 접힘. 학습지 정답 13개가 `viewer/worksheetScenes.ts`에 복사돼 `stage.test`가 쓴다 → **`evals/answers.json`을 바꾸면 그 파일도 맞춘다**. 합칠 때 충돌은 `package.json` test 줄뿐이었다
 
 **정합성 확인 (2026-10-31, 이 세션)**: `feature/worksheets`(최신) + `feature/122-hologram-mode`(최신)를 임시 작업 폴더에서 합쳐 봄 → 충돌은 `package.json` test 줄뿐(양쪽 검사 합쳐 11개 줄), `App.tsx`·`index.css`·TODO 목록은 자동으로 합쳐짐. 합친 상태 build·lint·검사 13개 통과. #130 연결 메모: 무대 면 i의 사진 조각은 `gridPolyhedron(net).netFaces[i]`로 `net.faces` 칸을 찾아 `faceUvs`에 넣는다. `gridNet.ts` 213줄 근처가 면 좌표를 (0,0)부터로 옮기므로, 사진 좌표(`netPhoto`)와 원점이 같은지 연결할 때 화면으로 확인한다. `HologramProps`에 `photo?: NetPhoto`를 더하는 것은 홀로그램 세션과 맞춘다
+
+P4 끝 (#130, #122 머지 뒤) — `buildStage(scene, theme, { photo })`, `HologramProps.photo`, 토큰 `photo`(`PAPER` 그대로, `HOLOGRAM` 반전·종이 투명). 면 UV 는 펼친 상태의 루트 좌표로 재서 면 순서 대응이 필요 없다. 보관함의 3-2 → 홀로그램: 면마다 "7"·"㉡" 조각이 빛나며 접힌다. 인쇄된 면 바탕색은 옅은 막으로 남는다(`glowPixels`의 `paper` 값으로 조절)
 
 **순서**: P0 → P1 → (P2 합의를 기다리는 동안 W2) → P2 → P3 → P4. P1은 계약 변경 없이 바로 할 수 있다.
 

@@ -25,3 +25,16 @@ export function faceUvs(face: NetFace, photo: Pick<NetPhoto, 'x' | 'y' | 'size' 
     [face.x, face.y + face.h],
   ].map(([x, y]) => netPointUv(x, y, photo, aspect))
 }
+
+// 홀로그램용 사진 (theme.photo 'glow'): 반전해서 흰 종이는 투명, 인쇄·연필 선은 밝게. 아크릴에는 검정이 비치지 않으므로
+// 종이가 사라지고 선만 허공에 빛난다. RGBA 를 그 자리에서 바꾼다
+export function glowPixels(data: Uint8ClampedArray, paper = 225): void {
+  for (let i = 0; i < data.length; i += 4) {
+    const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+    const ink = Math.max(0, Math.min(1, (paper - lum) / (paper * 0.6))) // 종이 밝기에서 얼마나 어두운가
+    data[i] = 255 - data[i] * 0.5 // 반전하되 밝게 (선 색이 조금 남는다)
+    data[i + 1] = 255 - data[i + 1] * 0.5
+    data[i + 2] = 255 - data[i + 2] * 0.5
+    data[i + 3] = Math.round(255 * ink)
+  }
+}

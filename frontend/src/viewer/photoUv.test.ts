@@ -1,5 +1,5 @@
 // 사진 UV 검사 (worksheets.md W6). 실행: frontend 폴더에서 `npm test`
-import { faceUvs, netPointUv } from './photoUv.ts'
+import { faceUvs, glowPixels, netPointUv } from './photoUv.ts'
 
 const check = (ok: boolean, msg: string) => {
   if (!ok) throw new Error('실패: ' + msg)
@@ -22,4 +22,10 @@ near(netPointUv(2, 2, fit, 4 / 3), 0, 0.5, '가로 사진 왼쪽')
 // 사진을 칸에서 시계 방향 90° 돌려 깔았으면 사진의 왼쪽 위 귀퉁이가 화면 오른쪽 위로 간다 → 면의 오른쪽 위 꼭짓점 = 사진 (0, 1)
 near(faceUvs(face, { ...fit, angle: 90 }, 1)[1], 0, 1, '90° 돌린 사진')
 
-console.log('ok: 사진 UV (꼭 맞는 면, 가로 사진, 돌린 사진)')
+// 홀로그램 사진: 흰 종이는 투명, 검은 선은 불투명하고 밝게
+const px = new Uint8ClampedArray([250, 250, 250, 255, 20, 20, 20, 255])
+glowPixels(px)
+check(px[3] === 0, `종이는 투명: ${px[3]}`)
+check(px[7] === 255 && px[4] > 200, `선은 밝고 불투명: ${px[4]}, ${px[7]}`)
+
+console.log('ok: 사진 UV (꼭 맞는 면, 가로 사진, 돌린 사진), 홀로그램 사진 (종이 투명, 선 밝게)')

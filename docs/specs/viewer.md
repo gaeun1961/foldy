@@ -198,6 +198,7 @@ CSS 토큰(`index.css` `:root`)처럼 3D 도형 색을 한 곳에 둔다.
 | `pairs` | 접으면 맞닿는 모서리 쌍 색 | 지금 7색 | 밝은 7색 |
 | `curved.{seam,rim,plain}` | 원기둥·원뿔: 자른 선, 밑면 둘레, 맞닿는 색을 끈 선 | 빨강, 파랑, 진회색 | 밝은 빨강, 밝은 파랑, 흰색 |
 | `sphereRing` | 구 적도 선 | 진회색 | 흰색 |
+| `photo` | 면에 입힌 학습지 사진을 보이는 방식 | `'paper'`: 사진 그대로 | `'glow'`: 반전, 흰 종이는 투명, 인쇄·연필 선은 밝게 (아크릴에서 종이가 사라지고 선만 빛난다) |
 
 - 홀로그램은 아크릴에 비친다. 검은색은 투명이 되므로 같은 값을 쓰면 모서리가 사라진다. 그래서 테마가 둘이다
 - 책 장면 코드(`ThreeViewer.tsx`, `CurvedViewer.tsx`, `curved.ts`, `lessons/sphereLessons.ts`)의 도형 색은 숫자 대신 `PAPER`를 읽는다. 값이 같아서 화면은 바뀌지 않는다
@@ -206,7 +207,7 @@ CSS 토큰(`index.css` `:root`)처럼 3D 도형 색을 한 곳에 둔다.
 ### 무대 (`viewer/stage.ts`)
 
 ```ts
-buildStage(scene: ShapeScene, theme: Theme3D): Stage | null
+buildStage(scene: ShapeScene, theme: Theme3D, options?: { photo?: NetPhoto }): Stage | null
 stageSupported(scene: ShapeScene): boolean // 다면체(면 트리, 면 2개 이상), 원기둥·원뿔, 구, 회전체. 면이 하나뿐인 학습지(전개도 고르기)나 모르는 도형은 false
 
 interface Stage {
@@ -226,6 +227,7 @@ interface Stage {
 - 원기둥·원뿔: 책 장면과 같은 `buildCurvedNet`·`roundSizeOf`·`curvedLineRadius`·`seamOf`(`curved.ts`)에 토큰 색을 넘긴다. 맞닿는 선 색은 켠다. 선 관 굵기는 굵은 선 테마에서 두 배
 - 구: 책 장면과 같은 `buildSphereBody`. 접지 않는다
 - 회전체: 책 장면과 같은 `buildRevolutionBody`. 접지 않는다. 몸통에 모서리 선이 없어서 30° 넘게 꺾인 모서리(`EdgesGeometry`)를 모서리 색으로 덧그린다
+- **학습지 사진 입히기** (이슈 #130, [worksheets.md](worksheets.md) W6): `options.photo`(책 장면 `ViewerProps.photo`와 같은 `NetPhoto`, 전개도 칸에 맞춘 사진)가 있고 `net.layout === 'grid'`이면 면마다 그 자리의 사진 조각을 입힌다. 다 펼친 상태(s = 1)에서 면 꼭짓점의 **면 트리 루트 좌표**를 재고(책 장면이 사진을 까는 좌표와 같다) `photoUv.ts`의 `netPointUv`로 UV를 구한다. 접어도 조각이 그 면을 따라간다. 사진 비율은 이미지를 읽은 뒤 알 수 있어서 UV·텍스처는 그때 넣는다(그 전엔 지금 면 색). 사진 밖으로 나간 면 부분은 사진 끝 색이 늘어난다. 표시는 토큰 `photo`
 - 자리 잡기: 다 접은 입체의 가장 낮은 곳을 y = 0, 수평 가운데를 원점에 둔다. 그래서 세로축으로 돌리면 제자리에서 돈다
 - 범위는 꼭짓점으로 잰다 (`boundsOf`). `Box3.expandByObject`는 기울어진 면의 상자를 다시 돌려 담아서 실제보다 크다: 펼친 전개도에 두께가 생기고 정팔면체가 바닥 아래로 내려가 보인다. 인스턴스로 그린 관(곡면 선)은 조각마다 잰다
 - 검사: `stage.test.ts`. 모든 도형 종류(`ShapeKind`마다 기본 치수 표, 도형 종류가 늘면 표가 없어 타입 검사가 실패한다) × 두 테마, 회전체 평면도형 4가지 × 축에 붙임·띄움, 실제 학습지 13장의 정답 도형(`worksheetScenes.ts`, `backend/evals/answers.json`에서 복사). 단계 수, 바닥·가운데, 전체 범위가 입체와 전개도를 담는지, 다면체 전개도가 바닥에 납작한지, 면 1개 학습지는 홀로그램 불가, 토큰 이름이 같은지와 홀로그램 선이 밝은지
@@ -240,6 +242,7 @@ interface Stage {
 | `center?: number` | `0.2` | 가운데 정사각형 한 변 ÷ 화면 짧은 변 = 피라미드 꼭지 크기. **기기마다 다른 유일한 값** | 칸만 다시 배치 |
 | `showGuide?: boolean` | `false` | 가운데 정사각형 테두리(피라미드 놓을 자리). 가운데를 맞출 때만 켠다 | 칸만 다시 배치 |
 | `onTap?: () => void` | | 화면을 누르면 | |
+| `photo?: NetPhoto` | | 면에 입힐 학습지 사진 (grid 전개도일 때만, 무대 `options.photo`) | 다시 만든다 |
 
 나머지는 고정값이다 (간소화, 2026-10-31 사용자 결정): 카메라 높이각 20°(펼칠수록 45°), 늘 천천히 돌기(0.35 rad/s), 늘 접었다 펴기 반복, 좌우 반전 없음. 좌우 반전이 틀려도 도형이 대칭이고 글자를 그리지 않아 눈에 띄지 않는다
 

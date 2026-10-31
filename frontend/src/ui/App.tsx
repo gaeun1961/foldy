@@ -424,7 +424,7 @@ export default function App() {
           />
         </div>
       </details>
-      {hologram && scene && <HologramMode scene={scene} onClose={() => setHologram(false)} />}
+      {hologram && scene && <HologramMode scene={scene} photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined} onClose={() => setHologram(false)} />}
       <ChatPanel
         scene={scene}
         onView={({ highlightVertices, foldPercent }) => {
