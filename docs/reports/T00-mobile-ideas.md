@@ -1,9 +1,9 @@
-# 작업 기록 - 모바일 고도화 아이디어 (사진 촬영·OCR)
+# 작업 기록 - 모바일 웹 (아이디어 → 구현)
 
 - 일시: 2026-10-31 11:40 (KST)
 - 작성자: Phodo
 - 에이전트: Claude Code
-- 작업 유형: 기획 메모 (코드 변경 없음, 결정 전)
+- 작업 유형: 기획 + 기능 추가 (브랜치 `feature/mobile-web`, 이슈 없이 만든 제안)
 
 ## 요약
 - 학생이 휴대폰으로 학습지를 찍어 바로 쓰게 하려는 방향을 검토했다. **아직 결정 전**이고, 아래 "정할 것"이 정해지면 `03-product-plan.md`(범위 D 또는 로드맵 E)부터 고치고 TODO로 나눈다
@@ -60,3 +60,32 @@
 ## 참고
 - 관련 문서: `docs/03-product-plan.md`, `docs/specs/api.md`, `docs/specs/stack.md`, `docs/specs/ui.md`
 - 관련 코드: `frontend/src/ui/PhotoUpload.tsx`, `frontend/src/ui/api.ts`, `backend/app/main.py`, `backend/app/ai/vision.py`, `backend/evals/vision_eval.py`
+
+---
+
+## 구현 (2026-10-31, 브랜치 `feature/mobile-web`)
+
+사용자 요청으로 이슈·TODO 없이 브랜치에서 먼저 만들어 제안한다. 커밋 하나가 작업 하나(M1~M5)다.
+
+| 커밋 | 작업 | 내용 |
+|---|---|---|
+| M1 | 휴대폰에서 backend 접속 | `VITE_API_URL`, `CORS_ORIGINS`(localhost 에 더함), README 휴대폰으로 열기, 계획 문서 |
+| M2 | 사진 줄이기·방향 | `photoPrep.ts`: 긴 변 1600px JPEG, EXIF 방향 |
+| M3 | 종이 펴기 | `perspective.ts`(사영 변환), `CornerPick.tsx`. 버튼으로 고를 때만 |
+| M4 | 사진 올리기 \| 촬영하기 | 터치 화면이면 두 칸, 촬영하기는 `capture="environment"` (사용자 제안, HTTPS 불필요). 실시간 미리보기는 보류 |
+| M5 | 휴대폰 화면 다듬기 | 사진 고르는 동안 3D 뷰 28%, 챗봇 아이콘 여백, PC·휴대폰 구분 기준(`ui.md`, `device.ts`) |
+
+### 결정
+- 종이 펴기는 매번 거치는 단계가 아니라 버튼("비스듬히 찍혔으면 종이 펴기"). 반듯한 스캔에 한 단계를 더하지 않으려고
+- PC·휴대폰 구분은 기기 이름(User-Agent)이 아니라 폭·주 입력·기능 감지 (MDN 권고). 크롬이 PC 에서도 `capture` 를 지원하려는 중(2026-03 Intent to Prototype)이라 "PC 는 촬영 없음"을 가정하지 않고 기능 기준으로 둔다
+- 다 접은 도형이 작게 보이는 것은 viewer.md 카메라 규칙 때문이라 고치지 않고 제안만 (`ThreeViewer.tsx` 겹침 높음)
+
+### 확인한 것
+- backend 검사 4개, ruff, frontend build·lint·test 모두 통과 (새 검사 `photoPrep.test.ts`, `perspective.test.ts`)
+- CORS: 설정 주소·localhost 는 200, 그 밖은 400
+- 브라우저(390×844, 터치 흉내): 3000×4000 비스듬한 격자 → 1200×1600 → 펴면 반듯한 870×1050 (약 0.9초), 두 칸 버튼, 3D 뷰 28%, 챗봇 아이콘 겹침 없음
+
+### 못 한 것 (리스크)
+- **실제 휴대폰**(안드로이드·아이폰)에서 촬영하기·사진 인식까지 확인하지 않았다 (LAN 으로 README 방법대로 확인 필요)
+- 줄인 사진(1600px)으로 인식 정확도가 그대로인지 `evals/vision_eval.py` 로 재지 않았다 (Gemini 한도를 써서 사람이 정해서 돌릴 것)
+- backend `.venv` 에 `google-genai` 가 빠져 있어 `pip install -r requirements.txt` 로 다시 설치했다 (저장소 변경 없음)
