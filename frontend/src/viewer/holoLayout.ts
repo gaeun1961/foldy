@@ -1,5 +1,5 @@
 // 아크릴 피라미드 홀로그램(Pepper's ghost) 화면 배치 계산. three.js 없음 (holoLayout.test.ts 로 확인).
-// 제안 문서: docs/proposals/hologram/README.md
+// 제안 문서: docs/proposals/hologram/spec.md (팀 합의 전)
 //
 // 화면 가운데 정사각형(한 변 L) 안에 작은 정사각형(한 변 c, 피라미드 꼭지가 놓이는 곳)을 두고,
 // 둘레를 대각선으로 나눈 사다리꼴 4칸(아래·오른쪽·위·왼쪽)에 도형을 네 방향에서 본 모습을 그린다.
@@ -9,6 +9,12 @@
 // - 칸의 바깥쪽(가운데에서 먼 쪽)이 떠 보이는 도형의 위쪽이다 → 그림의 v(위)는 바깥 방향
 // - 그 칸 쪽에 선 사람의 오른쪽이 그림의 u(오른쪽)다. 거울 면이 그 방향을 그대로 두므로 좌우는 화면 그대로
 // - 아래 칸 쪽 사람은 도형의 앞(+z), 오른쪽 칸 쪽 사람은 도형의 오른쪽(+x)을 본다
+
+import type { ShapeScene } from '../shared/types.ts'
+import { polyhedronOf } from './polyhedra.ts'
+
+// 원기둥·원뿔·구(말기·회전체)는 아직 홀로그램이 없다. 다면체만 (면 트리로 접는 도형)
+export const hologramSupported = (scene: ShapeScene) => polyhedronOf(scene) !== null
 
 export type Side = 'bottom' | 'right' | 'top' | 'left'
 export const SIDES: Side[] = ['bottom', 'right', 'top', 'left']
