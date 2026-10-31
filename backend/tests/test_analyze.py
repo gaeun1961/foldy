@@ -203,6 +203,31 @@ assert agy_answer() == "하나 더"
 used = [p for p in spawned if p.used]
 assert len(used) == 2 and used[0].killed.is_set(), used
 spawned.clear()
+# 하나 더 보내려고 꺼내는 중에 첫 답이 오면, 늦게 꺼낸 것은 묻지 않고 끈다 (사용량을 아끼려고)
+slow_take = threading.Event()
+real_take = agy._take
+
+
+def take_slow(model):
+    if len(spawned) >= 1:  # 두 번째 꺼내기는 첫 답보다 늦게 끝난다
+        slow_take.wait(1.0)
+    return real_take(model)
+
+
+agy._take = take_slow
+plan[:] = [(0.4, "첫 답"), (0.0, "늦게 꺼냄")]
+agy._pool.clear()
+assert agy_answer() == "첫 답"
+slow_take.set()
+for _ in range(50):
+    if len(spawned) >= 2 and spawned[1].killed.is_set():
+        break
+    threading.Event().wait(0.02)
+assert len(spawned) >= 2 and not spawned[1].used and spawned[1].killed.is_set(), [
+    (p.used, p.killed.is_set()) for p in spawned
+]
+agy._take = real_take
+spawned.clear()
 plan[:] = [(0.0, None)]  # 빨리 실패하면 하나 더 보내지 않고 503 쪽 에러
 try:
     agy_answer()

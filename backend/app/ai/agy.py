@@ -138,11 +138,19 @@ def run(
     with lock:
         results: queue.Queue = queue.Queue()
         started: list[_Proc] = []
+        guard = threading.Lock()
+        over = (
+            threading.Event()
+        )  # 답이 정해졌다. 그 뒤에 꺼낸 프로세스는 묻지 않고 끈다
 
         def attempt() -> None:
             try:
                 p = _take(model)
-                started.append(p)
+                with guard:
+                    if over.is_set():
+                        p.kill()  # 늦게 꺼냈다 (하나 더 보내는 중에 첫 답이 왔다)
+                        return
+                    started.append(p)
                 results.put((True, p.ask(image, content_type, ask)))
             except AgyError as e:
                 results.put((False, e))
@@ -167,5 +175,8 @@ def run(
                 if len(failed) == sent:
                     raise failed[0]
         finally:
-            for p in started:  # 늦은 쪽을 끈다 (이긴 쪽은 이미 끝나 있다)
+            with guard:
+                over.set()
+                done = list(started)
+            for p in done:  # 늦은 쪽을 끈다 (이긴 쪽은 이미 끝나 있다)
                 p.kill()
