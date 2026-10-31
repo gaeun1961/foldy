@@ -13,14 +13,6 @@
 export type Side = 'bottom' | 'right' | 'top' | 'left'
 export const SIDES: Side[] = ['bottom', 'right', 'top', 'left']
 
-// 맞춤 화면 (spec.md "맞춤 화면"): 칸마다 그 칸 쪽에 선 사람이 보는 도형의 방향 이름과 색.
-// 아래 칸 쪽 사람은 도형의 앞을 본다. 거기서 자기 오른쪽으로 돌아가면 "오른쪽" 칸이 보여야 한다
-export const SIDE_LABEL: Record<Side, { name: string; color: string }> = {
-  bottom: { name: '앞', color: '#ff5a5a' },
-  right: { name: '오른쪽', color: '#4cd964' },
-  top: { name: '뒤', color: '#4a8cff' },
-  left: { name: '왼쪽', color: '#ffd23f' },
-}
 
 export type V2 = [number, number]
 
@@ -63,12 +55,11 @@ export function regions(L: number, c: number): Region[] {
 
 // 칸 하나를 덮는 그림(가로 L × 세로 (L − c)/2 직사각형)에서 화면 점 p 의 텍스처 좌표.
 // u: 보는 사람 기준 왼쪽 0 → 오른쪽 1, v: 안쪽(도형 아래) 0 → 바깥(도형 위) 1.
-// mirror 면 u 를 뒤집는다 (실물에서 좌우가 반대로 보이면 켠다)
-export function uvOf(region: Region, L: number, c: number, p: V2, mirror = false): V2 {
+export function uvOf(region: Region, L: number, c: number, p: V2): V2 {
   const h = (L - c) / 2
   const u = (dot(p, region.right) + L / 2) / L
   const v = (dot(p, region.outward) - c / 2) / h
-  return [mirror ? 1 - u : u, v]
+  return [u, v]
 }
 
 // 도형 크기 맞추기: 반지름 R 인 구(도형이 돌고 접히는 동안 차지하는 범위)가 칸 가운데 높이에 들어가게 한다.
