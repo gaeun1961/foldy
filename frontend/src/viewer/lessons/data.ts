@@ -6,7 +6,9 @@ import { netCheck, polyhedronOf, type Polyhedron } from '../polyhedra.ts'
 import { defaultEdge, edgeRelations, edgesOf } from './edgeRelationsLayout.ts'
 import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 import { generalFormula } from './formulas.ts'
-import { prismHints, regularPlan, slantPlan, surd, threadPlan } from './regularLayout.ts'
+import { prismHints, regularPlan, revolutionMeasure, slantPlan, surd, threadPlan } from './regularLayout.ts'
+import { polySectionName } from './polySection.ts'
+import { sectionName } from './revolveLayout.ts'
 import { similarSteps } from './similarLayout.ts'
 import { curvedSurfaceSteps, faceArea, polygonWord, surfaceGroups, surfaceStepHint, surfaceSteps, type CountStep } from './surfaceLayout.ts'
 import { isExact, piValue, slantText, type PiMode } from './lengthLabels.ts'
@@ -14,7 +16,7 @@ import { pieces, STAIR_LAYERS, stairRatio, volumeLayout } from './volumeLayout.t
 
 export type { PiMode }
 
-export type LessonKind = 'volume' | 'surface-area' | 'diagonal' | 'shortest-path' | 'edge-relations' | 'similar' | 'counts' | 'sphere-section' | 'thread'
+export type LessonKind = 'volume' | 'surface-area' | 'diagonal' | 'shortest-path' | 'edge-relations' | 'similar' | 'counts' | 'sphere-section' | 'thread' | 'revolve' | 'section' | 'revolve-net' | 'revolve-area' | 'revolve-volume'
 
 export interface Lesson {
   kind: LessonKind
@@ -22,32 +24,36 @@ export interface Lesson {
   scale?: number // 닮음비 k (닮음만, 기본 2). 바뀌면 설명 물체를 새로 만든다
   pi?: PiMode // 원이 들어간 값의 표기 (기본 π 그대로, 아래 바에서 초등 3.14)
   layers?: number // 원뿔 부피 마지막 단계의 원판 수 (STAIR_LAYERS, 기본 4)
-  cut?: number // 구 단면 비교의 자르는 높이 h ÷ r (0~1, 기본 ½)
+  cut?: number // 자르는 높이 h ÷ r (구 단면 비교, 회전체 단면. 0~1, 기본 ½)
+  cutKind?: 'vertical' | 'horizontal' | 'tilted' // 회전체 단면의 방향 (기본 세로)
 }
 
 const scaleOf = (lesson: { scale?: number }) => lesson.scale ?? 2
 
-export const LESSON_LABEL: Record<LessonKind, string> = { volume: '부피', 'surface-area': '겉넓이', diagonal: '대각선', 'shortest-path': '최단 거리', 'edge-relations': '위치 관계', similar: '닮음', counts: '개수', 'sphere-section': '단면 비교', thread: '실 감기' }
+export const LESSON_LABEL: Record<LessonKind, string> = { volume: '부피', 'surface-area': '겉넓이', diagonal: '대각선', 'shortest-path': '최단 거리', 'edge-relations': '위치 관계', similar: '닮음', counts: '개수', 'sphere-section': '단면 비교', thread: '실 감기', revolve: '회전체', section: '단면', 'revolve-net': '전개도', 'revolve-area': '겉넓이', 'revolve-volume': '부피' }
 
 // 화면 위에 작게 쓰는 학년 표시. 각뿔·원뿔·삼각기둥 겉넓이는 피타고라스 단계를 볼 때만
 export function lessonGrade(lesson: Lesson, scene: ShapeScene) {
   const pythagoras = '중3 · 피타고라스 활용'
   if (lesson.kind === 'sphere-section') return '중2 이상 · 심화'
+  if (lesson.kind === 'revolve' || lesson.kind === 'section' || lesson.kind === 'revolve-net') return '중1'
   if (lesson.kind === 'diagonal' || lesson.kind === 'shortest-path' || lesson.kind === 'thread') return pythagoras
   if (isRegular(scene)) return lesson.kind === 'counts' ? '중1' : pythagoras
   return lesson.kind === 'surface-area' && slantPlan(scene) && lesson.progress <= 1 / lessonStepCount(scene, lesson.kind) + 1e-6 ? pythagoras : null
 }
 
 // 어느 자세에서 보여주는지: 'solid' 는 바로 세운 입체(unfold 0), 'net' 은 바닥에 펼친 전개도(unfold 1)
-export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'solid', diagonal: 'solid', 'shortest-path': 'net', 'edge-relations': 'solid', similar: 'solid', counts: 'solid', 'sphere-section': 'solid', thread: 'solid' }
+export const LESSON_POSE: Record<LessonKind, 'solid' | 'net'> = { volume: 'solid', 'surface-area': 'solid', diagonal: 'solid', 'shortest-path': 'net', 'edge-relations': 'solid', similar: 'solid', counts: 'solid', 'sphere-section': 'solid', thread: 'solid', revolve: 'solid', section: 'solid', 'revolve-net': 'solid', 'revolve-area': 'solid', 'revolve-volume': 'solid' }
 
 const isRegular = (scene: ShapeScene) => scene.shape.startsWith('regular-')
 
 // 도형별 탭: 교과서에서 실제로 배우는 것만 (ui.md 공식 시각화 규칙). 닮음·최단 거리는 직육면체·정육면체에만
 export function lessonTabs(scene: ShapeScene): LessonKind[] {
-  if (boxSizeOf(scene)) return ['surface-area', 'volume', 'edge-relations', 'diagonal', 'similar', 'shortest-path']
-  if (scene.shape === 'cylinder') return ['surface-area', 'volume', 'thread']
-  return isRegular(scene) ? ['counts', 'surface-area', 'volume'] : ['surface-area', 'volume']
+  if (boxSizeOf(scene)) return ['surface-area', 'volume', 'edge-relations', 'diagonal', 'similar', 'shortest-path', 'section']
+  if (scene.shape === 'cylinder') return ['surface-area', 'volume', 'thread', 'revolve', 'section']
+  if (scene.shape === 'cone' || scene.shape === 'sphere') return ['surface-area', 'volume', 'revolve', 'section']
+  if (scene.shape === 'revolution') return ['revolve', 'section', 'revolve-net', 'revolve-area', 'revolve-volume']
+  return isRegular(scene) ? ['counts', 'surface-area', 'volume', 'section'] : ['surface-area', 'volume', 'section']
 }
 
 // 정다면체 겉넓이·부피의 식 (regularLayout.ts). 정다면체가 아니면 null
@@ -65,6 +71,11 @@ export const LESSON_HINT: Record<LessonKind, string> = {
   'edge-relations': '빨간 모서리와 다른 모서리는 어떤 사이일까요? 다른 모서리를 눌러 바꿀 수 있어요',
   similar: '모서리를 늘리면 겉넓이와 부피는 몇 배가 될까요?',
   counts: '면, 모서리, 꼭짓점을 하나씩 켜며 세어 볼까요',
+  revolve: '이 평면도형을 빨간 축으로 돌리면 어떤 입체가 될까요?',
+  section: '입체를 평면으로 자르면 어떤 모양이 나올까요?',
+  'revolve-net': '옆면을 펴면 어떤 모양일까요?',
+  'revolve-area': '',
+  'revolve-volume': '',
   thread: '실을 감은 가장 짧은 길은 어떤 모양일까요?',
   'sphere-section': '바닥과 높이가 같은 두 도형이에요. 어느 높이에서 잘라도 단면 넓이가 같을까요?',
 }
@@ -112,6 +123,24 @@ function volumeHint(scene: ShapeScene, progress: number, mode: PiMode, stair = S
   return `한 층 = 밑넓이 ${show(area)} × 두께 1 · ${done}층까지 ${show(area * done)} cm³`
 }
 
+// 회전체: 평면도형, 된 입체, 세로 단면, 옆면을 편 모양
+const REVOLUTION_WORDS: Record<string, [string, string, string]> = {
+  rectangle: ['직사각형', '원기둥이', '직사각형'],
+  'right-triangle': ['직각삼각형', '원뿔이', '부채꼴'],
+  semicircle: ['반원', '구가', ''],
+  trapezoid: ['사다리꼴', '원뿔대가', '부채꼴에서 작은 부채꼴을 뺀 모양'],
+}
+
+// 단면 모양의 이름: 곡면 도형은 돌린 도형으로 계산하고, 다면체는 다각형을 판별한다
+export function sectionShapeName(scene: ShapeScene, kind: 'vertical' | 'horizontal' | 'tilted', cut: number) {
+  if (scene.shape === 'revolution') return sectionName(scene.size, kind, cut)
+  if (scene.shape === 'sphere') return sectionName({ figure: 'semicircle', radius: scene.size.radius, height: 2 * scene.size.radius, gap: 0 }, kind, cut)
+  if (scene.shape === 'cylinder' || scene.shape === 'cone') return sectionName({ figure: scene.shape === 'cylinder' ? 'rectangle' : 'right-triangle', radius: scene.size.radius, height: scene.size.height, gap: 0 }, kind, cut)
+  const poly = polyhedronOf(scene)
+  return poly ? polySectionName(poly, kind, cut) : null
+}
+const endsWithBatchim = (word: string) => (word.charCodeAt(word.length - 1) - 0xac00) % 28 !== 0
+
 // 구: 겉넓이는 실 감기, 부피는 통에 붓기 (sphereLessons.ts)
 function sphereHint({ kind, progress, pi = 'pi' }: Lesson, r: number) {
   if (kind === 'sphere-section') return progress <= 0 ? LESSON_HINT[kind] : null // 그 뒤의 글은 pageResult.lines
@@ -137,6 +166,25 @@ function sphereVolume(r: number, mode: PiMode) {
 // 닮음은 시작 전에 몇 배인지 먼저 어림하게 하고, 부피 직전(한 면까지 보고 멈춤)에 다시 묻고, 끝나면 모서리 길이의 합을 물어
 // "넓이·부피가 k²·k³ 배니까 다 그렇겠지"라는 과잉 일반화를 점검한다 (리포트 T29 참고 자료)
 export function lessonHint(lesson: Lesson, scene?: ShapeScene): string | null {
+  if (lesson.kind === 'section' && scene && lesson.progress > 0) {
+    if (lesson.progress < 1) return null
+    const kind = lesson.cutKind ?? 'vertical'
+    const name = sectionShapeName(scene, kind, lesson.cut ?? 0.5)
+    if (!name) return '이 높이에서는 잘리는 부분이 없어요'
+    return `${{ vertical: '세로로', horizontal: '가로로', tilted: '비스듬히' }[kind]} 자르면 ${name}${endsWithBatchim(name) ? '이에요' : '예요'}`
+  }
+  if (scene?.shape === 'revolution' && lesson.progress > 0) {
+    if (lesson.progress < 1 || lesson.kind === 'revolve-area' || lesson.kind === 'revolve-volume') return null // 움직이는 동안에는 글이 없다
+    const { figure, gap } = scene.size
+    const [from, to, flat] = REVOLUTION_WORDS[figure]
+    if (lesson.kind === 'revolve') return gap > 0 ? `${from}을 축에서 떨어뜨려 돌렸더니 가운데가 뚫린 입체가 됐어요` : `${from}을 한 바퀴 돌렸더니 ${to} 됐어요`
+    if (lesson.kind === 'revolve-net') return `옆면을 펴니 ${flat}이에요`
+  }
+  if (lesson.kind === 'revolve' && lesson.progress > 0) {
+    // 돌리는 동안에는 글이 없다. 다 돌리면 무엇이 되었는지
+    const [from, to] = scene?.shape === 'cylinder' ? ['직사각형', '원기둥이'] : scene?.shape === 'cone' ? ['직각삼각형', '원뿔이'] : ['반원', '구가']
+    return lesson.progress >= 1 ? `${from}을 한 바퀴 돌렸더니 ${to} 됐어요` : null
+  }
   if (scene?.shape === 'sphere') return sphereHint(lesson, scene.size.radius)
   if (lesson.kind === 'thread' && scene?.shape === 'cylinder' && lesson.progress > 0) {
     const at = lesson.progress * 3
@@ -225,6 +273,14 @@ export function boxCenterOf(scene: ShapeScene): [number, number, number] {
 
 // 단계 수. 설명할 수 없는 도형이면 0. 접어서 닫히는 다면체만. 겉넓이·위치 관계·닮음·부피는 모든 다면체, 대각선·최단 거리는 상자만
 export function lessonStepCount(scene: ShapeScene, kind: LessonKind, scale = 2) {
+  if (scene.shape === 'revolution') {
+    const { figure, gap } = scene.size
+    if (kind === 'revolve' || kind === 'section') return 1
+    if (kind === 'revolve-net') return gap === 0 && figure !== 'semicircle' ? 1 : 0 // 전개도는 축에 붙은 도형만, 구는 전개도가 없다
+    return (kind === 'revolve-area' || kind === 'revolve-volume') && revolutionMeasure(scene.size) ? 1 : 0
+  }
+  if (kind === 'revolve') return scene.shape === 'cylinder' || scene.shape === 'cone' || scene.shape === 'sphere' ? 1 : 0 // 돌리기
+  if (kind === 'section') return scene.shape === 'cylinder' || scene.shape === 'cone' || scene.shape === 'sphere' || netCheck(scene)?.closed ? 1 : 0 // 곡면 도형이나 닫히는 다면체
   if (scene.shape === 'sphere') return kind === 'surface-area' ? 3 : kind === 'volume' ? 2 : kind === 'sphere-section' ? 1 : 0
   // 곡면 도형: 겉넓이(밑면 → 옆면), 부피, 닮음 (curvedLessons.ts)
   if (scene.shape === 'cylinder' || scene.shape === 'cone') {
@@ -302,6 +358,10 @@ export function sphereSectionLines(r: number, cut: number) {
 }
 
 export function lessonSummary(scene: ShapeScene, kind: LessonKind, scale = 2, mode: PiMode = 'pi', cut = 0.5): LessonResult | null {
+  if (scene.shape === 'revolution') {
+    const measure = revolutionMeasure(scene.size)
+    return measure && kind === 'revolve-area' ? { formula: '', lines: measure.area } : measure && kind === 'revolve-volume' ? { formula: '', lines: measure.volume } : null
+  }
   if (scene.shape === 'sphere' && kind === 'sphere-section') return { formula: '', lines: sphereSectionLines(scene.size.radius, cut) }
   const result = summaryOf(scene, kind, scale, mode)
   const general = generalFormula(scene.shape, kind, mode)

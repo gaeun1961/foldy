@@ -19,6 +19,9 @@ import { buildRegularSurfaceLesson, buildRegularVolumeLesson } from './regularMe
 import { surfaceSteps } from './surfaceLayout.ts'
 import { buildPrismSurfaceLesson, withTriangleCopy } from './surfaceWhy.ts'
 import { LENGTH_COLOR } from './formulas.ts'
+import { polyTerms, withTerms } from './lessonTerms.ts'
+import { buildPolySectionLesson } from './polySection.ts'
+import type { CutKind } from './revolveLayout.ts'
 import { withEndLines, type LengthLine } from './lengthLines.ts'
 import { buildPrismVolumeLesson, buildPyramidVolumeLesson } from './solidVolume.ts'
 
@@ -42,7 +45,12 @@ export interface LessonObject {
 }
 
 // tree: 면 메시에 직접 붙이는 설명(최단 거리)이 쓴다. 그런 물체는 dispose 에서 스스로 뗀다
-export function buildLesson(scene: ShapeScene, poly: Polyhedron, tree: FaceTree, kind: LessonKind, radius: number, scale = 2): LessonObject | null {
+export function buildLesson(scene: ShapeScene, poly: Polyhedron, tree: FaceTree, kind: LessonKind, radius: number, scale = 2, cutKind?: CutKind): LessonObject | null {
+  if (kind === 'section') return buildPolySectionLesson(poly, cutKind)
+  return withTerms(lessonBody(scene, poly, tree, kind, radius, scale), polyTerms(scene, poly, kind), radius * 0.22)
+}
+
+function lessonBody(scene: ShapeScene, poly: Polyhedron, tree: FaceTree, kind: LessonKind, radius: number, scale = 2): LessonObject | null {
   const box = boxSizeOf(scene)
   // 상자 치수로 그리는 설명은 가운데가 원점이라, 실제 입체 가운데로 옮긴다 (전개도 grid 로 접은 입체)
   const centered = (lesson: LessonObject) => {

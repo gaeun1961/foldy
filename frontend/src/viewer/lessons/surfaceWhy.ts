@@ -90,7 +90,7 @@ export function buildPrismSurfaceLesson(poly: Polyhedron, { sides: n, edge: a, h
 
   const sprites: ReturnType<typeof textSprite>[] = []
   const label = (text: string, at: Point) => {
-    const s = textSprite(text, reach * 0.14)
+    const s = textSprite(text, reach * (text.length > 6 ? 0.26 : 0.14))
     s.sprite.position.set(...at)
     group.add(s.sprite)
     sprites.push(s)
@@ -101,12 +101,12 @@ export function buildPrismSurfaceLesson(poly: Polyhedron, { sides: n, edge: a, h
   const edgeLabel = label(lengthText(a), [(ring[0][0] + ring[1][0]) / 2, h / 2 + reach * 0.02, front + reach * 0.04])
   const aroundLabel = label(lengthText(n * a), [(flatBottom[0][0] + flatBottom[n][0]) / 2, floor + reach * 0.02, front + reach * 0.05])
   const flatCenter = (flatBottom[0][0] + flatBottom[n][0]) / 2
-  const sideArea = label(areas.side, [flatCenter, floor + reach * 0.02, front + h / 2])
+  const sideArea = label(`옆면 ${areas.side}`, [flatCenter, floor + reach * 0.02, front + h / 2])
   const flatTopCenter = topAt(center[0], center[1], 1)
   const areaLabels = [sideArea]
   if (areas.base) {
-    areaLabels.push(label(areas.base, [center[0], floor + reach * 0.02, center[1]]))
-    if (!triangle) areaLabels.push(label(areas.base, [flatTopCenter[0], floor + reach * 0.02, flatTopCenter[2]]))
+    areaLabels.push(label(`밑면 ${areas.base}`, [center[0], floor + reach * 0.02, center[1]]))
+    if (!triangle) areaLabels.push(label(`밑면 ${areas.base}`, [flatTopCenter[0], floor + reach * 0.02, flatTopCenter[2]]))
   }
   // 삼각기둥: 앞에서 구한 직각삼각형을 펼친 윗면에 다시 그린다
   const topLeg = surfaceSteps(poly).find((step) => poly.faces[step.face].vertices.length === 3)

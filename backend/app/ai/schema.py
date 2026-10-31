@@ -21,6 +21,7 @@ VERTEX_COUNT = {
     "cylinder": 0,
     "cone": 1,
     "sphere": 0,
+    "revolution": 0,
 }
 
 Positive = Annotated[float, Field(gt=0)]
@@ -42,6 +43,16 @@ class PolygonSize(BaseModel):
     sides: Annotated[int, Field(ge=3, le=12)]  # 밑면 정다각형의 변 수
     edge: Positive  # 밑면 한 변
     height: Positive
+
+
+class RevolutionSize(BaseModel):
+    figure: Literal[
+        "rectangle", "right-triangle", "semicircle", "trapezoid"
+    ]  # 돌리는 평면도형
+    radius: Positive  # 바닥 쪽 가로 (반원은 반지름)
+    height: Positive  # 높이 (반원은 쓰지 않음)
+    top: Positive | None = None  # 사다리꼴 윗변
+    gap: Annotated[float, Field(ge=0)] = 0  # 회전축에서 떨어진 거리
 
 
 class SphereSize(BaseModel):
@@ -288,6 +299,13 @@ class SphereScene(_Scene):
     net: DefaultNet
 
 
+class RevolutionScene(_Scene):
+    shape: Literal["revolution"]
+    size: RevolutionSize
+    lines: Annotated[list[PolyhedronLine], Field(max_length=0)]
+    net: DefaultNet
+
+
 class ShapeScene(RootModel):
     """shape 값으로 어느 형식인지 고른다. ShapeScene.model_validate(json) 으로 검증."""
 
@@ -298,6 +316,7 @@ class ShapeScene(RootModel):
         | PolygonSolidScene
         | CylinderScene
         | ConeScene
-        | SphereScene,
+        | SphereScene
+        | RevolutionScene,
         Field(discriminator="shape"),
     ]

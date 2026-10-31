@@ -3,10 +3,25 @@
 // 위치를 섞지 않고 굽힌 정도를 바꿔서 길이가 늘거나 줄지 않는다. 아래 점 함수들은 옆면 가운데 선이 바닥에 붙은 자세이고,
 // 화면에서는 밑면 원이 바닥에 남도록 전체를 그 원의 접선으로 돌린다(standPoint). 그래서 다 접으면 입체가 똑바로 선다
 import * as THREE from 'three'
-import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
+import type { ConePoint, CylinderPoint, Line, RoundSize, ShapeScene } from '../shared/types.ts'
+import { heightOf, profileOf } from './lessons/revolveLayout.ts'
+import { PAPER, type Theme3D } from './theme.ts'
 
 export type Point = [x: number, y: number, z: number]
 export type CurvedShape = 'cylinder' | 'cone'
+
+// 책 장면(CurvedViewer)과 홀로그램 무대(stage.ts)가 같이 쓰는 값. 한 곳에서만 정한다
+// 원기둥·원뿔·구·회전체의 크기. 구는 지름을, 회전체는 단면 높이를 높이로 (카메라·책 크기)
+export function roundSizeOf(scene: ShapeScene): RoundSize {
+  if (scene.shape === 'revolution') return { radius: Math.max(...profileOf(scene.size).map((p) => p[0])), height: heightOf(scene.size) }
+  return scene.shape === 'sphere' ? { radius: scene.size.radius, height: 2 * scene.size.radius } : (scene.size as RoundSize)
+}
+// 곡면 선(관) 반지름: 펼친 전개도 크기의 0.4%. 작은 화면(홀로그램)은 scale 로 굵게
+export function curvedLineRadius(size: RoundSize, scale = 1) {
+  return Math.max(2 * Math.PI * size.radius, size.height + 4 * size.radius) * 0.004 * scale
+}
+// 옆면을 자른 선 위치 (shape-scene.md 곡면 전개도, 없으면 0)
+export const seamOf = (scene: ShapeScene) => (scene.net as { seam?: number }).seam ?? 0
 
 // 원기둥 옆면: a 는 가운데 선에서 잰 가로 길이(−πr ~ πr), v 는 세로(−h/2 ~ h/2). 곡률 (1 − s) / r 로 굽힌다
 export function cylinderPoint(a: number, v: number, s: number, r: number): Point {
@@ -150,11 +165,20 @@ export function curvedLinePoints(shape: CurvedShape, size: RoundSize, line: Line
 }
 
 // 만나는 선 색 (ui.md 색 기준): 자른 선 둘, 위 둘레와 위 원, 아래 둘레와 아래 원
-const PAIR = { seam: '#e5484d', top: '#3e63dd', bottom: '#3e63dd' } // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
-const PLAIN = '#3c4048'
+// 색은 3D 디자인 토큰 (theme.ts curved). 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
 const DRAWN = '#7048e8' // 곡면 위 선 (실 감기와 같은 색)
 
-export function buildCurvedNet(shape: CurvedShape, size: RoundSize, faces: [THREE.Material, THREE.Material], lineRadius: number, drawn: Line<CylinderPoint | ConePoint>[] = [], seam = 0): CurvedNet {
+export function buildCurvedNet(
+  shape: CurvedShape,
+  size: RoundSize,
+  faces: [THREE.Material, THREE.Material],
+  lineRadius: number,
+  drawn: Line<CylinderPoint | ConePoint>[] = [],
+  seam = 0,
+  colors: Theme3D['curved'] = PAPER.curved,
+): CurvedNet {
+  const PAIR = { seam: colors.seam, top: colors.rim, bottom: colors.rim }
+  const PLAIN = colors.plain
   const { radius: r, height: h } = size
   const L = slantOf(size)
   const group = new THREE.Group()

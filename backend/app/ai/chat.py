@@ -36,7 +36,7 @@ SYSTEM_PROMPT = """\
 
 도형 데이터(ShapeScene JSON) 읽는 법
 - shape: cuboid 직육면체, cube 정육면체, regular-tetrahedron 정사면체, regular-octahedron 정팔면체,
-  regular-dodecahedron 정십이면체, regular-icosahedron 정이십면체, prism 각기둥, pyramid 각뿔, cylinder 원기둥, cone 원뿔, sphere 구
+  regular-dodecahedron 정십이면체, regular-icosahedron 정이십면체, prism 각기둥, pyramid 각뿔, cylinder 원기둥, cone 원뿔, sphere 구, revolution 회전체
 - size: width 가로, depth 세로(깊이), height 높이, edge 한 모서리, radius 밑면 반지름,
   sides 각기둥·각뿔 밑면 정다각형의 변 수 (3 이면 삼각기둥·삼각뿔, 5 면 오각기둥·오각뿔. 이 이름으로 불러)
 - 각기둥·각뿔 꼭짓점: 밑면 0 ~ sides-1 (0 앞왼쪽, 1 앞오른쪽, 위에서 볼 때 앞→오른쪽→뒤→왼쪽),

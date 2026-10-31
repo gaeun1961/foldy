@@ -10,6 +10,7 @@ import type { LessonObject } from './index.ts'
 import { lengthText, slantText, type PiMode } from './lengthLabels.ts'
 import { withPythagorasStep } from './pythagorasStep.ts'
 import { threadPlan } from './regularLayout.ts'
+import { buildRevolutionSectionLesson, buildRevolveLesson, type CutKind } from './revolve.ts'
 import { buildThreadLesson } from './thread.ts'
 import { buildPourLesson } from './pour.ts'
 import { buildCurvedSurfaceLesson } from './curvedSurface.ts'
@@ -17,6 +18,7 @@ import { layerProgress, pieces, stackProgress } from './volumeLayout.ts'
 import { withStairStep } from './whyThird.ts'
 import { LENGTH_COLOR } from './formulas.ts'
 import { withEndLines } from './lengthLines.ts'
+import { curvedTerms, withTerms } from './lessonTerms.ts'
 
 const SEGMENTS = 64
 const INK = '#3c4048'
@@ -45,7 +47,12 @@ export function outline(shape: CurvedShape, r: number, h: number) {
 const solidMesh = (shape: CurvedShape, r: number, h: number) =>
   (shape === 'cylinder' ? new THREE.CylinderGeometry(r, r, h, SEGMENTS) : new THREE.ConeGeometry(r, h, SEGMENTS)).translate(0, h / 2, 0)
 
-export function buildCurvedLesson(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale: number, pi: PiMode = 'pi'): LessonObject | null {
+export function buildCurvedLesson(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale: number, pi: PiMode = 'pi', cutKind?: CutKind): LessonObject | null {
+  if (kind === 'section') return buildRevolutionSectionLesson({ figure: shape === 'cylinder' ? 'rectangle' : 'right-triangle', radius: size.radius, height: size.height, gap: 0 }, cutKind)
+  return withTerms(curvedBody(shape, size, kind, scale, pi), curvedTerms(shape, size, kind), Math.max(2 * size.radius, size.height) * 0.22)
+}
+
+function curvedBody(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale: number, pi: PiMode): LessonObject | null {
   if (kind === 'surface-area') {
     // 끝나면 밑면에 반지름 r. 옆면 가로·세로는 펼친 그림의 색이 그대로 공식과 맞는다
     const reachAll = Math.max(2 * size.radius, size.height)
@@ -56,6 +63,7 @@ export function buildCurvedLesson(shape: CurvedShape, size: RoundSize, kind: Les
     const reach = Math.hypot(size.radius, size.height)
     return withPythagorasStep(lesson, 3, plan, { foot: new THREE.Vector3(), end: new THREE.Vector3(size.radius, 0, 0), top: new THREE.Vector3(0, size.height, 0), out: new THREE.Vector3(reach * 0.1, 0, reach * 0.1), reach, edgeColor: LENGTH_COLOR.l }, 2)
   }
+  if (kind === 'revolve') return buildRevolveLesson({ figure: shape === 'cylinder' ? 'rectangle' : 'right-triangle', radius: size.radius, height: size.height, gap: 0 })
   if (kind === 'thread' && shape === 'cylinder') {
     const extent = Math.max(2 * size.radius, size.height)
     return withEndLines(buildThreadLesson(size, pi, threadPlan(size.radius, size.height, pi).label), [{ from: new THREE.Vector3(0, extent * 0.004, 0), to: new THREE.Vector3(size.radius, extent * 0.004, 0), color: LENGTH_COLOR.r }], extent * 0.012)

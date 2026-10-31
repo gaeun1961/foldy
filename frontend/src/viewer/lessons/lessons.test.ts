@@ -10,7 +10,12 @@ import { curvedSurfaceSteps, stripIndex, unrollChain, faceArea, faceNormal, oppo
 import { slantPlan, surd } from './regularLayout.ts'
 import { boxLengthLabels, computedLengthText, faceLengthLabels, piValue, slantText } from './lengthLabels.ts'
 import { colorTokens, generalFormula, LENGTH_COLOR, SECTION_RADIUS_COLOR } from './formulas.ts'
+import { curvedTerms, polyTerms, revolutionTerms } from './lessonTerms.ts'
 import { pourState } from './pour.ts'
+import { heightOf, profileOf, sectionName, sectionStrips } from './revolveLayout.ts'
+import { polySectionName, polySectionPoints } from './polySection.ts'
+import { revolutionMeasure } from './regularLayout.ts'
+import type { RevolutionSize } from '../../shared/types.ts'
 import { cubePyramids, layerProgress, STAIR_LAYERS, stackProgress, stairRatio, volumeLayout } from './volumeLayout.ts'
 
 const EPS = 1e-9
@@ -216,7 +221,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
     check(caps.length === 1 && faceNormal(p, caps[0].face)[1] > 0.99, `${scene.shape} 윗면으로 보여줌`)
   }
   // 도형별 탭
-  check(lessonTabs(cube).join() === 'surface-area,volume,edge-relations,diagonal,similar,shortest-path' && lessonTabs(prism).join() === 'surface-area,volume' && lessonTabs(pyramid).join() === 'surface-area,volume' && lessonTabs(ico).join() === 'counts,surface-area,volume', '도형별 탭')
+  check(lessonTabs(cube).join() === 'surface-area,volume,edge-relations,diagonal,similar,shortest-path,section' && lessonTabs(prism).join() === 'surface-area,volume,section' && lessonTabs(pyramid).join() === 'surface-area,volume,section' && lessonTabs(ico).join() === 'counts,surface-area,volume,section', '도형별 탭')
   // 단위는 최종 값에만: 식에는 단위가 없고, 값이 없으면 안 쓴다
   const triangular = solid('prism', { sides: 3, edge: 2, height: 4 })
   check(lessonSummary(triangular, 'surface-area')!.formula === '√3 × 2 + 옆넓이 24' && lessonSummary(triangular, 'surface-area')!.value === '24 + 2√3 cm²', `삼각기둥 겉넓이 ${lessonSummary(triangular, 'surface-area')!.formula}`)
@@ -266,7 +271,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   const shape = (s: string, radius: number, height: number) => ({ shape: s, size: { radius, height }, vertexLabels: s === 'cone' ? [null] : [], lines: [], net: { layout: 'default' } }) as unknown as ShapeScene
   const pipe = shape('cylinder', 3, 5)
   check(lessonSummary(pipe, 'thread')!.value === '√(36π² + 25) cm' && lessonSummary(pipe, 'thread')!.formula === '√((6π)² + 5²)' && lessonSummary(pipe, 'thread')!.general === '√((2πr)² + h²)', `원기둥 실 ${lessonSummary(pipe, 'thread')!.value}`)
-  check(lessonSummary(pipe, 'thread', 2, '3.14')!.value === `약 ${+Math.hypot(18.84, 5).toFixed(2)} cm` && lessonStepCount(pipe, 'thread') === 3 && lessonTabs(pipe).join() === 'surface-area,volume,thread', '원기둥 실 3.14, 탭')
+  check(lessonSummary(pipe, 'thread', 2, '3.14')!.value === `약 ${+Math.hypot(18.84, 5).toFixed(2)} cm` && lessonStepCount(pipe, 'thread') === 3 && lessonTabs(pipe).join() === 'surface-area,volume,thread,revolve,section', '원기둥 실 3.14, 탭')
   check(lessonStepCount(shape('cone', 3, 4), 'thread') === 0 && !lessonTabs(shape('cone', 3, 4)).includes('thread'), '원뿔에는 실 감기가 없다')
   check(lessonGrade({ kind: 'thread', progress: 0 }, pipe) !== null && !lessonTabs({ shape: 'prism', size: { sides: 4, edge: 3, height: 5 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene).includes('similar'), '학년 표시, 닮음은 직육면체·정육면체에만')
 }
@@ -309,6 +314,89 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(hints.some((h) => h.startsWith('같은 삼각형을 붙이면 직사각형이에요. 그 반이라 6 × 5 ÷ 2 = 15 cm²')), `각뿔 안내 ${hints}`)
 }
 
+// 회전체: 평면도형의 둘레는 축에서 시작해 축으로 돌아온다. 입체의 치수 그대로
+{
+  const round = (shape: string, radius: number, height: number) => ({ shape, size: { radius, height }, vertexLabels: shape === 'cone' ? [null] : [], lines: [], net: { layout: 'default' } }) as unknown as ShapeScene
+  const figures: RevolutionSize[] = [{ figure: 'rectangle', radius: 3, height: 5, gap: 0 }, { figure: 'right-triangle', radius: 3, height: 4, gap: 0 }, { figure: 'trapezoid', radius: 5, height: 4, top: 2, gap: 0 }, { figure: 'semicircle', radius: 3, height: 6, gap: 0 }]
+  for (const size of figures) {
+    const p = profileOf(size)
+    check(p[0][0] === 0 && p[0][1] === 0 && Math.abs(p[p.length - 1][0]) < 1e-9 && Math.abs(p[p.length - 1][1] - heightOf(size)) < 1e-9, `${size.figure} 둘레는 축에서 축으로`)
+    const moved = profileOf({ ...size, gap: 2 })
+    check(moved.every(([x]) => x >= 2 - 1e-9) && moved[0][0] === moved[moved.length - 1][0] && moved[0][1] === moved[moved.length - 1][1], `${size.figure} 떨어뜨리면 닫힌 둘레`)
+  }
+  check(profileOf(figures[3]).every(([x, y]) => Math.abs(Math.hypot(x, y - 3) - 3) < 1e-9), '반원은 가운데에서 거리 r')
+  const solidOf = (size: RevolutionSize) => ({ shape: 'revolution', size, vertexLabels: [], lines: [], net: { layout: 'default' } }) as unknown as ShapeScene
+  const area = (size: RevolutionSize) => revolutionMeasure(size)?.area.map((l) => l.text).join(' / ')
+  const volume = (size: RevolutionSize) => revolutionMeasure(size)?.volume.map((l) => l.text).join(' / ')
+  check(area(figures[0]) === '겉넓이 = 2πr² + 2πrh = 48π cm²' && volume(figures[0]) === '부피 = πr²h = 45π cm³', `원기둥 ${area(figures[0])} ${volume(figures[0])}`)
+  check(area(figures[1]) === '겉넓이 = πr² + πrl = 9π + 15π = 24π cm²' && volume(figures[1]) === '부피 = ⅓πr²h = 12π cm³', `원뿔 ${area(figures[1])}`)
+  check(area(figures[2]) === '겉넓이 = 아랫면 + 윗면 + 바깥 옆면 / = 25π + 4π + 35π = 64π cm²' && volume(figures[2]) === '부피 = 큰 원뿔 − 작은 원뿔 / = 52π cm³', `원뿔대 ${area(figures[2])} ${volume(figures[2])}`)
+  const ball = { figure: 'semicircle', radius: 6, height: 12, gap: 0 } as RevolutionSize
+  check(area(ball) === '겉넓이 = 4πr² = 144π cm²' && volume(ball) === '부피 = ⁴⁄₃πr³ = 288π cm³', '구')
+  // 축에서 떨어지면 바깥 입체 − 가운데 구멍. 삼각형은 파푸스 정리 값과 맞춘다: 2π × 무게중심 2 × 넓이 6 = 24π
+  const hollow = { figure: 'rectangle', radius: 2, height: 5, gap: 1 } as RevolutionSize
+  check(volume(hollow) === '부피 = 바깥 입체 − 가운데 구멍 / = 45π − 5π = 40π cm³' && area(hollow) === '겉넓이 = 아래 고리 + 위 고리 + 바깥 옆면 + 안쪽 옆면 / = 8π + 8π + 30π + 10π = 56π cm²', `뚫린 원기둥 ${area(hollow)} ${volume(hollow)}`)
+  const hollowTriangle = { figure: 'right-triangle', radius: 3, height: 4, gap: 1 } as RevolutionSize
+  check(volume(hollowTriangle) === '부피 = 바깥 입체 − 가운데 구멍 / = 28π − 4π = 24π cm³' && area(hollowTriangle) === '겉넓이 = 아래 고리 + 바깥 옆면 + 안쪽 옆면 / = 15π + 25π + 8π = 48π cm²', `뚫린 삼각형 ${area(hollowTriangle)} ${volume(hollowTriangle)}`)
+  check(volume({ figure: 'trapezoid', radius: 5, height: 4, top: 2, gap: 1 })!.endsWith('= 84π − 4π = 80π cm³'), `뚫린 사다리꼴 ${volume({ figure: 'trapezoid', radius: 5, height: 4, top: 2, gap: 1 })}`)
+  check(revolutionMeasure({ figure: 'semicircle', radius: 3, height: 6, gap: 1 }) === null, '떨어진 반원은 중학교 공식으로 구하지 않는다')
+  check(lessonTabs(solidOf(figures[0])).join() === 'revolve,section,revolve-net,revolve-area,revolve-volume' && lessonStepCount(solidOf(figures[3]), 'revolve-net') === 0 && lessonStepCount(solidOf({ ...figures[0], gap: 1 }), 'revolve-net') === 0 && lessonStepCount(solidOf({ ...figures[1], gap: 1 }), 'revolve-area') === 1 && lessonStepCount(solidOf({ ...figures[3], gap: 1 }), 'revolve-volume') === 0, '회전체 탭')
+  check(lessonHint({ kind: 'revolve', progress: 1 }, solidOf(figures[2])) === '사다리꼴을 한 바퀴 돌렸더니 원뿔대가 됐어요' && lessonHint({ kind: 'revolve', progress: 1 }, solidOf({ ...figures[0], gap: 1 }))!.includes('가운데가 뚫린') && lessonHint({ kind: 'section', progress: 1 }, solidOf(figures[1])) === '세로로 자르면 이등변삼각형이에요' && lessonHint({ kind: 'revolve-net', progress: 1 }, solidOf(figures[2]))!.includes('작은 부채꼴을 뺀') && lessonHint({ kind: 'revolve', progress: 0.5 }, solidOf(figures[0])) === null, '회전체 안내')
+  check(lessonSummary(solidOf(figures[0]), 'revolve-volume')!.lines![0].text === '부피 = πr²h = 45π cm³' && lessonGrade({ kind: 'revolve-volume', progress: 1 }, solidOf(figures[0])) === null, '왼쪽 쪽 부피, 학년 표시 없음')
+  check(colorTokens('= 48π cm²').every((t) => t.color === undefined), 'cm 는 색칠하지 않는다')
+  // 단면: 띠를 더한 넓이가 공식과 맞는다
+  const areaOf = (size: RevolutionSize, kind: 'vertical' | 'horizontal' | 'tilted', cut: number) => {
+    const strips = sectionStrips(size, kind, cut, 2000)
+    const du = strips[1].u - strips[0].u
+    return strips.reduce((sum, { spans }) => sum + spans.reduce((t, [a, b]) => t + (b - a), 0) * du, 0)
+  }
+  const near = (value: number, want: number, msg: string) => check(Math.abs(value - want) < want * 0.01, `${msg}: ${value} ≠ ${want}`)
+  near(areaOf(figures[0], 'vertical', 0.5), 2 * 3 * 5, '원기둥 세로 = 직사각형 둘')
+  near(areaOf(figures[0], 'horizontal', 0.5), Math.PI * 9, '원기둥 가로 = 원')
+  near(areaOf(figures[1], 'vertical', 0.5), 3 * 4, '원뿔 세로 = 이등변삼각형')
+  near(areaOf(figures[1], 'horizontal', 0.5), Math.PI * 1.5 ** 2, '원뿔 가로: 높이 절반이면 반지름 절반')
+  near(areaOf(hollow, 'horizontal', 0.5), Math.PI * (9 - 1), '뚫린 원기둥 가로 = 고리')
+  near(areaOf(hollow, 'vertical', 0.5), 2 * 2 * 5, '뚫린 원기둥 세로 = 떨어진 직사각형 둘')
+  near(areaOf(figures[0], 'tilted', 0.5), (Math.PI * 9) / Math.cos((35 * Math.PI) / 180), '원기둥 비스듬히 = 타원 (옆면만 지날 때)')
+  near(areaOf(ball, 'tilted', 0.5), Math.PI * 36, '구는 가운데를 비스듬히 지나도 큰 원')
+  check(sectionStrips(hollow, 'horizontal', 0.5).some(({ spans }) => spans.length === 2), '뚫린 곳은 구간이 둘')
+  check(areaOf(figures[1], 'horizontal', 1) < 0.1, '원뿔 꼭대기는 단면이 없다')
+  check(lessonHint({ kind: 'section', progress: 1, cutKind: 'horizontal' }, solidOf(figures[0])) === '가로로 자르면 원이에요' && lessonHint({ kind: 'section', progress: 1, cutKind: 'tilted' }, solidOf(ball)) === '비스듬히 자르면 원이에요' && lessonHint({ kind: 'section', progress: 1, cutKind: 'horizontal' }, solidOf(hollow)) === '가로로 자르면 고리예요', '단면 안내')
+  check(sectionName(figures[0], 'tilted', 0.5) === '타원' && sectionName(figures[0], 'tilted', 0.05) === '타원이 잘린 모양' && sectionName(figures[1], 'horizontal', 1) === null && sectionName(hollow, 'vertical', 0.5) === '떨어진 직사각형 두 개', `단면 이름 ${sectionName(figures[0], 'tilted', 0.05)}`)
+  const coneScene = round('cone', 3, 4)
+  check(lessonTabs(coneScene).join() === 'surface-area,volume,revolve,section' && lessonStepCount(coneScene, 'revolve') === 1 && lessonGrade({ kind: 'revolve', progress: 0 }, coneScene) === '중1', '회전체 탭')
+  check(lessonHint({ kind: 'revolve', progress: 0.5 }, coneScene) === null && lessonHint({ kind: 'revolve', progress: 1 }, coneScene) === '직각삼각형을 한 바퀴 돌렸더니 원뿔이 됐어요' && lessonHint({ kind: 'revolve', progress: 0 }, coneScene)!.includes('빨간 축') && lessonSummary(coneScene, 'revolve') === null, '회전체 안내')
+  check(lessonStepCount({ shape: 'prism', size: { sides: 4, edge: 3, height: 5 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene, 'revolve') === 0, '각기둥에는 없다')
+  check(lessonHint({ kind: 'revolve', progress: 1 }, { shape: 'sphere', size: { radius: 6 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene) === '반원을 한 바퀴 돌렸더니 구가 됐어요', '구 조사')
+}
+
+// 다면체 단면: 평면이 모서리와 만나는 점으로 만든 다각형의 이름
+{
+  const make = (shape: string, size: object) => polyhedronOf({ shape, size, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene)!
+  const cuboidP = polyhedronOf({ shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: [], lines: [], net: { layout: 'cross' } } as unknown as ShapeScene)!
+  const cubeP = polyhedronOf({ shape: 'cube', size: { edge: 3 }, vertexLabels: [], lines: [], net: { layout: 'cross' } } as unknown as ShapeScene)!
+  check(polySectionName(cuboidP, 'vertical', 0.5) === '직사각형' && polySectionName(cuboidP, 'horizontal', 0.5) === '직사각형' && polySectionName(cubeP, 'horizontal', 0.5) === '정사각형' && polySectionName(cubeP, 'tilted', 0.5) === '직사각형', `상자 단면 ${polySectionName(cubeP, 'tilted', 0.5)}`)
+  check(polySectionName(make('regular-tetrahedron', { edge: 3 }), 'horizontal', 0.5) === '정삼각형', `정사면체 ${polySectionName(make('regular-tetrahedron', { edge: 3 }), 'horizontal', 0.5)}`)
+  const squareP = make('pyramid', { sides: 4, edge: 6, height: 4 })
+  check(polySectionName(squareP, 'horizontal', 0.5) === '정사각형' && polySectionName(squareP, 'vertical', 0.5) === '이등변삼각형', `사각뿔 ${polySectionName(squareP, 'vertical', 0.5)}`)
+  check(polySectionName(squareP, 'horizontal', 1) === null, '꼭대기에서는 단면이 없다')
+  check(polySectionName(make('prism', { sides: 5, edge: 2, height: 4 }), 'horizontal', 0.5) === '정오각형' && polySectionName(make('prism', { sides: 6, edge: 2, height: 4 }), 'horizontal', 0.5) === '정육각형', '각기둥 가로는 밑면 모양')
+  // 둘레 순서: 이웃한 점을 이으면 넓이가 맞다 (4 × 3 직사각형)
+  const pts = polySectionPoints(cuboidP, 'vertical', 0.5)
+  const area = pts.reduce((sum, p, i) => { const q = pts[(i + 1) % pts.length]; return sum + p[0] * q[1] - q[0] * p[1] }, 0) / 2
+  check(Math.abs(Math.abs(area) - 12) < 1e-9, `직육면체 세로 단면 넓이 ${area}`)
+}
+
+// 용어: 끝난 결과 도형에 해당 용어를 띄운다
+{
+  const boxScene = { shape: 'cuboid', size: { width: 4, depth: 2, height: 3 }, vertexLabels: Array(8).fill(null), lines: [], net: { layout: 'cross' } } as unknown as ShapeScene
+  const words = (terms: { word: string }[]) => terms.map((t) => t.word).join()
+  check(words(polyTerms(boxScene, polyhedronOf(boxScene)!, 'volume')) === '면,모서리,꼭짓점' && words(polyTerms(boxScene, polyhedronOf(boxScene)!, 'diagonal')) === '입체 대각선' && words(polyTerms(boxScene, polyhedronOf(boxScene)!, 'edge-relations')) === '평행,만남,꼬인 위치', '직육면체 용어')
+  check(words(curvedTerms('cone', { radius: 3, height: 4 }, 'surface-area')) === '밑면,옆면,모선' && words(curvedTerms('cylinder', { radius: 3, height: 5 }, 'surface-area')) === '밑면,옆면,밑면', '곡면 용어')
+  check(words(revolutionTerms({ figure: 'trapezoid', radius: 5, height: 4, top: 2, gap: 0 }, 'revolve')) === '원뿔대,밑면,옆면,모선' && words(revolutionTerms({ figure: 'rectangle', radius: 3, height: 5, gap: 1 }, 'revolve')) === '밑면,옆면,모선' && words(revolutionTerms({ figure: 'rectangle', radius: 3, height: 5, gap: 0 }, 'section')) === '', '회전체 용어')
+  check(words(revolutionTerms({ figure: 'trapezoid', radius: 5, height: 4, top: 2, gap: 0 }, 'revolve-net')) === '밑면,옆면' && words(revolutionTerms({ figure: 'right-triangle', radius: 3, height: 4, gap: 0 }, 'revolve-net')) === '밑면,옆면,모선', '전개도 용어')
+}
+
 // 뿔이 왜 ⅓인지: 원판 합 ÷ 원기둥이 ⅓로 가까워지고, 정육면체는 똑같은 사각뿔 3개로 빈틈없이 나뉜다 (구석 꼭대기가 어느 밑면에도 없다)
 {
   check(['0.469', '0.385', '0.343', '0.338'].every((v, k) => stairRatio(STAIR_LAYERS[k], 3, 4).toFixed(3) === v), `원판 비율 ${STAIR_LAYERS.map((n) => stairRatio(n).toFixed(3))}`)
@@ -333,7 +421,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(lessonSummary(six, 'surface-area')!.value === '144π cm²' && lessonSummary(six, 'surface-area')!.formula === '4 × 36π' && lessonSummary(six, 'volume')!.value === '288π cm³' && lessonSummary(six, 'volume')!.formula === '⅔ × 통의 부피 432π', `구 ${lessonSummary(six, 'volume')!.value}`)
   check(lessonSummary(six, 'surface-area', 2, '3.14')!.value === '452.16 cm²' && lessonSummary(six, 'volume', 2, '3.14')!.value === '904.32 cm³', '구 3.14')
   check(lessonSummary(ball(2), 'volume')!.value === '32π/3 cm³' && lessonSummary(ball(2), 'volume', 2, '3.14')!.value === '약 33.49 cm³' && lessonSummary(ball(1.5), 'volume')!.value === '4.5π cm³', `구 분수 ${lessonSummary(ball(2), 'volume')!.value}`)
-  check(lessonTabs(six).join() === 'surface-area,volume' && lessonStepCount(six, 'surface-area') === 3 && lessonStepCount(six, 'volume') === 2 && lessonStepCount(six, 'similar') === 0, '구 탭')
+  check(lessonTabs(six).join() === 'surface-area,volume,revolve,section' && lessonStepCount(six, 'surface-area') === 3 && lessonStepCount(six, 'volume') === 2 && lessonStepCount(six, 'similar') === 0, '구 탭')
   check(lessonHint({ kind: 'surface-area', progress: 1 / 3 }, six) === '가운데를 자른 원의 넓이 = π × 6 × 6 = 36π cm²', `구 안내 ${lessonHint({ kind: 'surface-area', progress: 1 / 3 }, six)}`)
   check(lessonHint({ kind: 'volume', progress: 1 / 2 }, six)!.endsWith('36π × 12 = 432π cm³') && lessonHint({ kind: 'surface-area', progress: 0.4 }, six) === null, '구 부피 안내, 움직이는 동안은 없음')
   const done = pourState(1, 1, 2 / 3)

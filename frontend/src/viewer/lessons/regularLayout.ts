@@ -1,7 +1,7 @@
 // 피타고라스로 구하는 값의 숫자 쪽 (ui.md 공식 시각화 규칙, 중3 피타고라스 활용). 화면 물체는 regularMeasure.ts, pythagorasStep.ts
 // 정다면체: 겉넓이는 면의 높이, 부피는 입체 높이를 구해 √ 를 쓴 식과 답을 만든다. 부피는 정사면체·정팔면체만, 정십이면체 겉넓이는 식만
 // 각뿔·원뿔·삼각기둥: 겉넓이 앞에 옆면 높이(모선), 밑면 높이를 구하는 단계 하나 (slantPlan)
-import type { ShapeScene } from '../../shared/types.ts'
+import type { RevolutionSize, ShapeScene } from '../../shared/types.ts'
 import { isExact, piValue, slantText, type PiMode } from './lengthLabels.ts'
 
 const FACES: Record<string, number> = { 'regular-tetrahedron': 4, 'regular-octahedron': 8, 'regular-dodecahedron': 12, 'regular-icosahedron': 20 }
@@ -80,6 +80,32 @@ export function prismHints(n: number, a: number, h: number) {
 export function prismAreaTexts(n: number, a: number, h: number) {
   const area = (n * a * a) / (4 * Math.tan(Math.PI / n))
   return { base: n === 3 ? `${surd(a * a, 4, 3)} cm²` : isExact(area) ? `${num(area)} cm²` : null, side: `${num(n * a * h)} cm²` }
+}
+
+// 회전체 겉넓이·부피의 왼쪽 쪽 글. 축에서 떨어지면 바깥 입체 − 가운데 구멍. 떨어진 반원은 π² 가 나와 중학교 공식으로 구하지 않는다 (null)
+export function revolutionMeasure({ figure, radius: w, height: h, top: topEdge = w, gap: g }: RevolutionSize): { area: { text: string }[]; volume: { text: string }[] } | null {
+  const pi = (n: number) => piValue(n, 'pi')
+  const third = (n: number) => (isExact(n / 3) ? pi(n / 3) : `${num(n)}π/3`)
+  if (figure === 'semicircle') return g > 0 ? null : { area: [{ text: `겉넓이 = 4πr² = ${pi(4 * w * w)} cm²` }], volume: [{ text: `부피 = ⁴⁄₃πr³ = ${third(4 * w ** 3)} cm³` }] }
+  const top = figure === 'rectangle' ? w : figure === 'right-triangle' ? 0 : topEdge
+  const [R, r] = [g + w, g + top] // 아래·위의 바깥 반지름
+  const l = Math.hypot(R - r, h)
+  const exact = isExact(l)
+  const outer = exact ? pi((R + r) * l) : `${num(R + r)}${slantText(R - r, h)}π`
+  // 칠할 면들: 아래, 위(있으면), 바깥 옆면, 안쪽 옆면(떨어졌을 때). 옆면 값이 √ 면 합을 내지 않는다
+  const parts: [string, number][] = [[g > 0 ? '아래 고리' : '아랫면', R * R - g * g], ...(r > g ? ([[g > 0 ? '위 고리' : '윗면', r * r - g * g]] as [string, number][]) : [])]
+  const flat = parts.reduce((sum, [, n]) => sum + n, 0)
+  const inner = 2 * g * h
+  const whole = flat + inner + (exact ? (R + r) * l : 0)
+  const sum = (exact ? pi(whole) : `${pi(flat + inner)} + ${outer}`) + ' cm²'
+  const bigVolume = h * (R * R + R * r + r * r)
+  if (g === 0 && figure === 'rectangle') return { area: [{ text: `겉넓이 = 2πr² + 2πrh = ${sum}` }], volume: [{ text: `부피 = πr²h = ${third(bigVolume)} cm³` }] }
+  if (g === 0 && figure === 'right-triangle') return { area: [{ text: `겉넓이 = πr² + πrl = ${pi(flat)} + ${outer}${exact ? ` = ${sum}` : ' cm²'}` }], volume: [{ text: `부피 = ⅓πr²h = ${third(bigVolume)} cm³` }] }
+  const names = [...parts.map(([name]) => name), '바깥 옆면', ...(g > 0 ? ['안쪽 옆면'] : [])]
+  const values = [...parts.map(([, n]) => pi(n)), outer, ...(g > 0 ? [pi(inner)] : [])]
+  const area = [{ text: `겉넓이 = ${names.join(' + ')}` }, { text: `= ${values.join(' + ')}${exact ? ` = ${sum}` : ' cm²'}` }]
+  if (g === 0) return { area, volume: [{ text: '부피 = 큰 원뿔 − 작은 원뿔' }, { text: `= ${third(bigVolume)} cm³` }] }
+  return { area, volume: [{ text: '부피 = 바깥 입체 − 가운데 구멍' }, { text: `= ${third(bigVolume)} − ${pi(g * g * h)} = ${third(bigVolume - 3 * g * g * h)} cm³` }] }
 }
 
 export interface SlantPlan {
