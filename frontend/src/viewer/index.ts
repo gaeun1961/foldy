@@ -48,3 +48,5 @@ export { CONE_THIRD_LINK, LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonGrade, l
 export { SIMILAR_SCALES } from './lessons/similarLayout'
 export { RELATION_COLORS } from './lessons/edgeRelationsLayout'
 export { STAIR_LAYERS } from './lessons/volumeLayout'
+export { HologramViewer, type HologramProps } from './HologramViewer'
+export { hologramSupported } from './holoLayout' // 아크릴 피라미드 홀로그램 (제안, docs/proposals/hologram/spec.md)

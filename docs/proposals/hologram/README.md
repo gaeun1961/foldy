@@ -1,12 +1,18 @@
 # 제안 - 아크릴 피라미드 홀로그램
 
 > **제안 문서입니다. 팀 합의 전이며 계약(`docs/specs/`)이 아닙니다.**
-> 기획안(`docs/03-product-plan.md`)의 범위는 바꾸지 않았습니다. 팀이 받기로 하면 이슈를 만들고, 이 문서의 내용을 `docs/specs/`와 기획안으로 옮깁니다.
+> 기획안(`docs/03-product-plan.md`)의 범위는 바꾸지 않았습니다. 팀이 받기로 하면 이슈를 만들고, 아래 "합칠 때"대로 옮깁니다.
 
 - 일시: 2026-10-31 (KST)
 - 작성자: Phodo
 - 에이전트: Claude Code
-- 브랜치: `proposal/hologram` (이슈 없음, 아래 "진행 방식")
+- 브랜치: `proposal/hologram` (로컬, 이슈 없음, main `69f60ff` 위)
+
+| 문서 | 내용 |
+|---|---|
+| 이 문서 | 왜, 무엇을 바꿨나, 보는 법, 합칠 때 |
+| [spec.md](spec.md) | 화면 명세: `HologramViewer` props, 화면 배치·반사 규칙, 움직임, 홀로그램 보기 UI |
+| [api.md](api.md) | 다음 단계 초안: 노트북 조작을 휴대폰 홀로그램이 따라오는 연동 API (구현 안 함) |
 
 ## 왜
 
@@ -14,74 +20,53 @@ foldy는 어린 학생이 도형을 입체로 떠올리기 어려울 때 돕는 
 
 참고: [HoloDisplay](https://github.com/kgabriel-dev/HoloDisplay) (MIT). 화면 배치(가운데 사각형 둘레 사다리꼴 4칸)와 아크릴 재단 방식만 참고했다. 코드는 옮기지 않았다. HoloDisplay는 정지 이미지·GIF를 회전해 붙이고, 우리는 카메라 4대로 실시간 3D를 그린다.
 
-## 진행 방식
+## 무엇을 바꿨나
 
-- 이슈 없이 `proposal/hologram` 브랜치에서 만든다. 기획안 범위 밖이라 팀 합의 전에 이슈·TODO를 만들면 다른 사람 작업 목록을 어지럽히기 때문이다 (AGENTS.md Git 흐름의 예외, 제안이 받아들여지면 이슈로 바꾼다)
-- 서비스 코드(`frontend/src/`)·ShapeScene·ViewerProps는 바꾸지 않는다. 실험 페이지 `frontend/lab/`에만 둔다. `lab → src` import는 01 의존 규칙상 허용되고, `npm run build`에 들어가지 않는다
-- 단계
-  1. **혼자 도는 홀로그램 화면 (이번)**: 연동 없이 도형이 돌며 접혔다 펴진다. 실물 아크릴로 방향·크기를 확인한다
-  2. 실물 확인 결과로 화면 명세를 쓴다
-  3. 노트북에서 조작하면 휴대폰 홀로그램이 따라오는 연동과 API 명세 (backend 중계, 방 코드·QR)
-  4. 결정과 확인 결과를 T00 리포트로 남기고 팀에 제안한다
+책 화면 아래 바의 **"홀로그램"** 버튼(차례 옆)을 누르면 지금 만든 도형이 화면 전체 홀로그램으로 바뀐다. "돌아가기"를 누르면 책 화면이 그대로 돌아온다.
 
-## 1단계: 실험 페이지
+| 파일 | 변경 |
+|---|---|
+| `frontend/src/viewer/HologramViewer.tsx` | 새 파일. 홀로그램 화면 (카메라 4대 → 텍스처 4장 → 사다리꼴 4칸) |
+| `frontend/src/viewer/holoLayout.ts` | 새 파일. 배치·반사 방향·크기 계산, `hologramSupported` (three.js 없음) |
+| `frontend/src/viewer/holoLayout.test.ts` | 새 파일. 배치 계산 검사 |
+| `frontend/src/ui/HologramMode.tsx` | 새 파일. 홀로그램 보기 (전체 화면, 설정 판, 돌아가기) |
+| `frontend/src/viewer/index.ts` | 2줄 추가: `HologramViewer`, `HologramProps`, `hologramSupported` export |
+| `frontend/src/ui/App.tsx` | 12줄: `hologram` 상태, 홀로그램 버튼, `HologramMode`, 홀로그램 동안 책 장면 끄기 |
+| `frontend/src/index.css` | 끝에 홀로그램 블록 추가 (기존 규칙은 그대로) |
+| `frontend/package.json` | `npm test`에 `holoLayout.test.ts` 추가 |
 
-### 실행
+- 바꾸지 않은 것: ShapeScene, `ViewerProps`, `ThreeViewer.tsx`, 기존 CSS 규칙, backend, 기획안
+- 디자인: 버튼은 차례와 같은 `contents-button`, 설정 판은 `--panel`·`--panel-shadow`, 버튼은 `primary-button`·`secondary-button`·`menu-button`, 슬라이더는 `slider-row`. 새 색·그림자 토큰은 없다. 홀로그램 화면 자체는 아크릴에 비치도록 검은 배경이다
+- 검증: `npm run build`, `npm run lint`, `npm test` 통과. PC 브라우저(1280×495)에서 직육면체로 버튼 → 홀로그램 → 설정 → 돌아가기 확인, 콘솔 오류 없음
+
+## 보는 법
 
 ```sh
 cd frontend
 npm run dev -- --host
 ```
 
-- PC: `http://localhost:5173/lab/holo.html`
-- 휴대폰·태블릿: PC와 같은 와이파이에서 `http://{PC IP}:5173/lab/holo.html` (`--host`로 띄우면 터미널에 Network 주소가 나온다)
-- 화면을 누르면 설정이 열리고 닫힌다. 설정은 기기에 남는다 (localStorage)
+- PC: `http://localhost:5173/`
+- 휴대폰·태블릿: PC와 같은 와이파이에서 `http://{PC IP}:5173/` (`--host`로 띄우면 터미널에 Network 주소가 나온다)
+- 도형을 만들고 아래 바의 "홀로그램" → 기기를 눕히고 가운데 사각형 위에 아크릴 피라미드를 뒤집어 올린다
 
-### 파일
+## 실물 확인할 것
 
-| 파일 | 내용 |
-|---|---|
-| `frontend/lab/holo.html` | 페이지와 설정 패널 |
-| `frontend/lab/holo.ts` | 렌더링: 카메라 4대 → 텍스처 4장 → 사다리꼴 4칸 합성, 접기 반복, 설정 |
-| `frontend/lab/holoLayout.ts` | 화면 배치 계산 (three.js 없음): 사다리꼴 꼭짓점, 텍스처 좌표(반사 방향), 카메라 방향, 크기 맞추기 |
-| `frontend/lab/holoLayout.test.ts` | 배치 계산 검사. `node lab/holoLayout.test.ts` |
-
-서비스 코드에서 가져다 쓰는 것: `ui/manualScene.ts`(`SHAPES`, `crossScene`: 치수 → ShapeScene), `viewer/polyhedra.ts`(`polyhedronOf`, `foldOrderOf`), `viewer/faceTree.ts`(`buildFaceTree`, `applyUnfold`, `stepUnfold`, `layOnFloor`, `facingYaw`, `farFirstOrder`). 그래서 서비스 화면과 같은 전개도가 같은 순서로 접힌다.
-
-### 화면 배치
-
-- 화면 짧은 변 L의 정사각형 가운데에 한 변 c(설정 "가운데 크기", 기본 0.2 L)의 검은 사각형. 피라미드 꼭지가 여기 놓인다
-- 둘레를 대각선으로 나눈 사다리꼴 4칸: 아래·오른쪽·위·왼쪽
-- 칸마다 카메라 하나: 아래 칸 = 앞(+z), 오른쪽 칸 = 오른쪽(+x), 위 칸 = 뒤, 왼쪽 칸 = 왼쪽. 그 칸 쪽에 선 사람이 그 방향의 모습을 본다
-- 반사 방향: 칸의 바깥쪽이 떠 보이는 도형의 위쪽이다. 좌우는 그 칸 쪽에 선 사람 기준 그대로다 (45° 거울 면은 면과 나란한 방향을 바꾸지 않는다). 실물에서 반대로 보이면 설정 "좌우 반전"을 켠다
-- 렌더링: 칸마다 `WebGLRenderTarget`(가로 L × 세로 (L − c)/2)에 그리고, 사다리꼴 메시에 텍스처로 붙인다. 사다리꼴 밖은 잘린다
-
-### 보이는 모습
-
-- 검은 배경, 면은 반투명 색(면마다 다른 색, 안쪽도 같은 색), 모서리는 굵은 흰 선(`Line2`). 작은 피라미드에서도 보이게
-- 반복: 펼친 채 1.5초 → 한 면씩 접기(면당 0.9초) → 접힌 채 4초 → 한 번에 펼치기 1.5초. 그동안 세로축으로 천천히 돈다
-- 다 접히면 카메라가 다가가 입체를 크게, 펼칠수록 물러나고 높이 45°까지 올라가 바닥에 누운 전개도가 납작하지 않게 본다
-- 도형: 직육면체, 정육면체, 정다면체 4종, 각기둥, 각뿔 (원기둥·원뿔은 말기 방식이 달라 아직 제외)
-
-### 휴대폰 대응
-
-- 4번 그리므로 해상도 배율은 2까지
-- "전체 화면" 버튼: 전체 화면 + 화면 꺼짐 방지(Wake Lock). Wake Lock은 HTTPS나 localhost에서만 되므로, 와이파이 IP(http)로 열면 화면 꺼짐 시간을 기기 설정에서 늘린다. iOS Safari는 전체 화면을 지원하지 않아 "홈 화면에 추가"로 연다
-
-## 실물 확인할 것 (2단계 전에)
-
-- [ ] 좌우·위아래 방향이 맞는지 (글자 없는 도형이라 직육면체 가로·세로 비율과 색 순서로 본다)
-- [ ] 휴대폰·태블릿 각각 알맞은 "가운데 크기"와 "보는 높이"
+- [ ] 좌우·위아래 방향 (직육면체 가로·세로 비율과 면 색 순서로 본다. 거꾸로면 설정 "좌우 반전")
+- [ ] 휴대폰·태블릿 각각 알맞은 "가운데"(피라미드 꼭지 크기)와 "높이"
 - [ ] 모서리 굵기·면 투명도가 아크릴에서 잘 보이는지
-- [ ] 아크릴 재단 크기 (HoloDisplay 계산기 또는 45° 사다리꼴: 아랫변 c, 윗변 L, 기울어진 높이 (L − c)/2 × √2)
+- [ ] 좁은 화면(휴대폰 세로)에서 아래 바의 홀로그램 버튼 자리
+- [ ] 아크릴 재단: 45° 사다리꼴, 아랫변 c, 윗변 L, 높이 (L − c)/2 × √2 (L = 화면 짧은 변, c = 가운데 사각형 한 변)
 
-## 3단계 미리 보기: 연동 API (초안, 확정 아님)
+## 합칠 때
 
-휴대폰 홀로그램은 아크릴로 덮여서 화면을 누를 수 없다. 노트북 서비스 화면에서 고른 도형·접기 값을 휴대폰이 따라오게 한다. 기기가 다르므로 backend가 중계한다. LLM 호출이 없어 키 문제는 없다.
+받기로 하면:
 
-- `POST /api/holo/rooms` → `{ room: "4831" }` 방 만들기. 서비스 화면이 방 코드와 QR(`/lab/holo.html?room=4831`)을 보여 준다
-- `PUT /api/holo/rooms/{room}` 본문 `{ scene: ShapeScene, unfold: number, foldMode: "all" | "step" }` 서비스 화면이 바뀔 때마다 보낸다
-- `GET /api/holo/rooms/{room}/events` Server-Sent Events. 홀로그램 화면이 받아 그린다
-- 방은 메모리에만 두고 일정 시간 뒤 지운다. 저장·로그인 없음
+1. `[기능] 홀로그램 보기` 이슈를 만든다 (영역 라벨 `3d`·`ui`)
+2. `spec.md`의 "뷰어" 절을 `docs/specs/viewer.md`에, "화면" 절을 `docs/specs/ui.md`에 옮긴다. `docs/01-folder-architecture.md`의 `viewer/`·`ui/` 파일 목록에 새 파일을 더한다
+3. 기획안 `docs/03-product-plan.md` 핵심 기능에 한 줄 더한다
+4. 이 브랜치를 그 이슈 번호의 브랜치로 옮겨 PR을 연다. 이 폴더(`docs/proposals/hologram/`)는 지우고 결정은 `docs/reports/T00-hologram.md`로 남긴다
 
-이 단계는 `docs/specs/api.md`와 ShapeScene을 읽기만 한다. 서비스 화면에 "홀로그램으로 보기" 버튼을 더하는 것은 프론트 담당과 맞춘 뒤 정한다.
+`App.tsx` 변경이 작아서 그사이 화면이 바뀌어도 다시 붙이기 쉽다: 상태 한 줄, `<Viewer>` 조건에 `!hologram`, 차례 옆 버튼, `<ChatPanel>` 앞 `<HologramMode>`.
+
+받지 않기로 하면 이 브랜치를 지우면 된다. main에는 아무것도 들어가지 않았다.

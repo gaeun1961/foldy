@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
-import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
+import { CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, hologramSupported, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
 import { FoldControls, StepDots, type FoldMode } from './FoldControls'
+import { HologramMode } from './HologramMode'
 import { foldStatus, polygonName, shapeName, unfoldOf } from './foldStatus.ts'
 import { ChatPanel } from './ChatPanel'
 import { DragHandle } from './DragHandle'
@@ -73,6 +74,7 @@ function variantScene(scene: ShapeScene, k: number): ShapeScene {
 export default function App() {
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
+  const [hologram, setHologram] = useState(false) // 홀로그램 보기 (제안, docs/proposals/hologram/spec.md). 켜져 있는 동안 책 장면은 그리지 않는다
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
   const [fit, setFit] = useState(NO_FIT) // 칸에 맞춘 사진 위치. 3D 책 페이지에도 같은 자리에 깐다 (TODO-36)
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
@@ -180,7 +182,7 @@ export default function App() {
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔은 밑면 모양을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size
             }} />}
-        {scene && (
+        {scene && !hologram && (
           <Viewer
             scene={scene}
             unfold={unfold}
@@ -346,6 +348,11 @@ export default function App() {
               >
                 차례
               </button>
+              {hologramSupported(scene) && (
+                <button type="button" className="contents-button" onClick={() => setHologram(true)}>
+                  홀로그램
+                </button>
+              )}
               {!lesson && marking && canMark && <FaceMarks mark={mark} onMark={setMark} />}
             </div>
           </>
@@ -390,6 +397,7 @@ export default function App() {
           />
         </div>
       </details>
+      {hologram && scene && <HologramMode scene={scene} onClose={() => setHologram(false)} />}
       <ChatPanel
         scene={scene}
         onView={({ highlightVertices, foldPercent }) => {
