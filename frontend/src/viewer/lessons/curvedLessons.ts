@@ -21,9 +21,9 @@ import { withEndLines } from './lengthLines.ts'
 import { curvedTerms, withTerms } from './lessonTerms.ts'
 
 const SEGMENTS = 64
-const INK = '#3c4048'
-const ACTIVE = '#ffe8a8'
-const PIECE = ['#f08c00', '#1c7ed6', '#2f9e44']
+const INK = '#2f2a25'
+const ACTIVE = '#f8df8e'
+const PIECE = ['#e0442e', '#2f6fd0', '#2e9e4f']
 
 // 모양 틀: 위·아래 둘레와 세로 선 넷. y = 0 이 바닥, 축이 원점
 export function outline(shape: CurvedShape, r: number, h: number) {
@@ -78,9 +78,9 @@ function curvedBody(shape: CurvedShape, size: RoundSize, kind: LessonKind, scale
 }
 
 // 길이 글자를 만들고 지우는 도우미
-function labels(group: THREE.Group, width: number, items: [string, number, number, number][]) {
-  return items.map(([text, x, y, z]) => {
-    const s = textSprite(text, width)
+function labels(group: THREE.Group, width: number, items: [string, number, number, number, string][]) {
+  return items.map(([text, x, y, z, color]) => {
+    const s = textSprite(text, width, false, color)
     s.sprite.position.set(x, y, z)
     group.add(s.sprite)
     return s
@@ -92,7 +92,7 @@ function stackLesson({ radius: r, height: h }: RoundSize): LessonObject {
   const group = new THREE.Group()
   const geometry = new THREE.CylinderGeometry(r, r, 1, SEGMENTS)
   const edges = new THREE.EdgesGeometry(geometry, 30)
-  const normal = new THREE.MeshStandardMaterial({ color: '#ffffff' })
+  const normal = new THREE.MeshStandardMaterial({ color: '#faf6ee' })
   const active = new THREE.MeshStandardMaterial({ color: ACTIVE })
   const lineMaterial = new THREE.LineBasicMaterial({ color: INK })
   // 점선 틀: 시작 전에도 어떤 모양을 채울지 보인다
@@ -112,12 +112,12 @@ function stackLesson({ radius: r, height: h }: RoundSize): LessonObject {
   })
   const size = Math.max(2 * r, h)
   const [radiusLabel, heightLabel] = labels(group, size * 0.45, [
-    [lengthText(r), r / 2, 0, r + size * 0.12],
-    [lengthText(h), -r - size * 0.1, h / 2, r * 0.7],
+    [lengthText(r), r / 2, 0, r + size * 0.12, LENGTH_COLOR.r],
+    [lengthText(h), -r - size * 0.1, h / 2, r * 0.7, LENGTH_COLOR.h],
   ])
   // 밑면 (밑넓이): 층을 쌓기 전에 먼저 칠한다
   const baseGeometry = new THREE.CircleGeometry(r, SEGMENTS).rotateX(-Math.PI / 2)
-  const baseMaterial = new THREE.MeshBasicMaterial({ color: '#ffb74d', side: THREE.DoubleSide })
+  const baseMaterial = new THREE.MeshBasicMaterial({ color: '#f8df8e', side: THREE.DoubleSide })
   const base = new THREE.Mesh(baseGeometry, baseMaterial)
   base.position.y = 0.01
   group.add(base)
@@ -214,7 +214,7 @@ function similarLesson(shape: CurvedShape, { radius: r, height: h }: RoundSize, 
     return mesh
   })
   const solidGeometry = own(solidMesh(shape, r, h))
-  const normal = own(new THREE.MeshStandardMaterial({ color: '#ffffff' }))
+  const normal = own(new THREE.MeshStandardMaterial({ color: '#faf6ee' }))
   const active = own(new THREE.MeshStandardMaterial({ color: ACTIVE }))
   const copies = Array.from({ length: k ** 3 }, (_, n) => {
     const layer = Math.floor(n / (k * k))

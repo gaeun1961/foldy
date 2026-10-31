@@ -9,7 +9,7 @@ import { defaultEdge, edgeRelations } from './edgeRelationsLayout.ts'
 import type { LessonObject } from './index.ts'
 
 export type LessonTerm = { word: string; at: [number, number, number] }
-const INK = '#6741d9' // 길이 글자와 구분되게
+const INK = '#2f2a25' // 길이 글자와 구분되게
 
 export function polyTerms(scene: ShapeScene, poly: Polyhedron, kind: string): LessonTerm[] {
   const box = boxSizeOf(scene)

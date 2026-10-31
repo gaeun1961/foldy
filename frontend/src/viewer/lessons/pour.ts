@@ -5,8 +5,8 @@ import * as THREE from 'three'
 import { clamp01, DONE, textSprite } from './draw.ts'
 import type { LessonObject } from './index.ts'
 
-const WATER = '#74c0fc'
-const INK = '#3c4048'
+const WATER = '#2f6fd0'
+const INK = '#2f2a25'
 const LIFT = 1.15 // 통 위로 들어 올리는 높이 (높이 h 의 배수)
 
 // progress(0~1) → 지금 모습. three.js 없음 (npm test 로 검사)
@@ -76,7 +76,7 @@ export function buildPourLesson(o: PourOptions): LessonObject {
     return s
   })
   const sprites = [...tickLabels]
-  const heightLabel = textSprite(o.heightLabel, size * 0.45)
+  const heightLabel = textSprite(o.heightLabel, size * 0.45, false, '#2f6fd0')
   heightLabel.sprite.position.set(cupX, baseY, R + size * 0.18)
   group.add(heightLabel.sprite)
   sprites.push(heightLabel)

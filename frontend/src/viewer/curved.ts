@@ -166,7 +166,7 @@ export function curvedLinePoints(shape: CurvedShape, size: RoundSize, line: Line
 
 // 만나는 선 색 (ui.md 색 기준): 자른 선 둘, 위 둘레와 위 원, 아래 둘레와 아래 원
 // 색은 3D 디자인 토큰 (theme.ts curved). 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
-const DRAWN = '#7048e8' // 곡면 위 선 (실 감기와 같은 색)
+const DRAWN = '#2e9e4f' // 곡면 위 선 (실 감기와 같은 색)
 
 export function buildCurvedNet(
   shape: CurvedShape,

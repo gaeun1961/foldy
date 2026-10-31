@@ -42,6 +42,7 @@ export type DrawState = 'idle' | 'picked' | 'no-path'
 export { Viewer } from './Viewer'
 export { EmptyBook } from './EmptyBook' // 도형이 없을 때 빈 책 + 차례 (viewer.md "빈 책")
 export type { BookContent } from './bookScene'
+export { setMatColor } from './bookScene' // 매트 밝기 비교용 임시 (ui.md 컨셉)
 export { foldStepCount, netCheck } from './polyhedra'
 export { NET_VARIANTS, netVariant } from './gridNet' // 정육면체 전개도 11가지 → 치수에 맞춘 grid 면 (viewer.md "전개도 grid")
 export { CONE_THIRD_LINK, LESSON_HINT, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, type Lesson, type LessonKind, type PiMode } from './lessons/data'

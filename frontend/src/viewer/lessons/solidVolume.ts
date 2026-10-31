@@ -10,8 +10,8 @@ import { lengthText } from './lengthLabels.ts'
 import { buildPourLesson } from './pour.ts'
 import { layerProgress, pieces } from './volumeLayout.ts'
 
-const FILL = '#ffffff'
-const ACTIVE = '#ffe8a8'
+const FILL = '#faf6ee'
+const ACTIVE = '#f8df8e'
 const GAP = 0.04 // 층 사이 틈 (층이 하나하나 보이게)
 const prismOf = (size: PolygonSize) => polyhedronOf({ shape: 'prism', size, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene)!
 
@@ -23,7 +23,7 @@ export function buildPrismVolumeLesson(poly: Polyhedron, { sides: n, height: h }
   const edges = new THREE.EdgesGeometry(geometry)
   const normal = new THREE.MeshStandardMaterial({ color: FILL })
   const active = new THREE.MeshStandardMaterial({ color: ACTIVE })
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
+  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#2f2a25' })
   const layers = pieces(h)
   let y = -h / 2
   const slabs = layers.map((sy) => {
@@ -37,7 +37,7 @@ export function buildPrismVolumeLesson(poly: Polyhedron, { sides: n, height: h }
   })
   // 맨 위 면 (밑넓이): 다 쌓은 뒤에 칠한다
   const topY = h / 2 - GAP + 0.012
-  const baseMaterial = new THREE.MeshBasicMaterial({ color: '#ffb74d' })
+  const baseMaterial = new THREE.MeshBasicMaterial({ color: '#f8df8e' })
   const base = new THREE.Mesh(geometry, baseMaterial)
   base.scale.set(1, 0.004 / h, 1)
   base.position.y = topY

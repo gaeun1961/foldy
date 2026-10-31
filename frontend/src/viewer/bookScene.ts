@@ -4,17 +4,22 @@ import { colorTokens } from './lessons/formulas.ts'
 import * as THREE from 'three'
 
 // 색은 docs/specs/ui.md 색 기준 "3D 뷰 배경"
-export const DESK_COLOR = '#c8ad8c' // 연한 오크색: 밝은 책과 패널이 뜨도록 (index.css --desk 와 같게)
+export const DESK_COLOR = '#c9a983' // 나무 책상 (index.css --desk 와 같게, ui.md 컨셉)
 // 책 장면 카메라 방향: 위에서 내려다본다 (수평에서 62°). 왼쪽 쪽 글씨가 덜 기울어지게.
 // 순서가 없는 도형(정다면체·각뿔)을 눕히는 방향(facingYaw)과 접는 순서(farFirstOrder)도 이 방향으로 정한다. 홀로그램 무대(stage.ts)도 같은 값을 써서 같은 순서로 접힌다
 export const VIEW_DIR = new THREE.Vector3(0.3, 1.96, 1)
-const MAT_COLOR = '#5c6b66'
-const COVER_COLOR = '#8a7d7b'
-const PAPER_COLOR = '#fbf8f1'
-const PAPER_EDGE = '#ece5d6'
-export const INK = '#2a2f3a'
+const COVER_COLOR = '#b08d57' // 차분한 황토
+const PAPER_COLOR = '#faf6ee' // 따뜻한 미색
+const PAPER_EDGE = '#efe8da'
+export const INK = '#2f2a25'
 const PAGE_SCALE = 2
-export const RED = '#b5452f'
+const ANSWER = '#e0442e' // 최종 답만 빨강
+const RESULT_FILL = '#fbecb8' // 결과 칸: 노랑 색연필로 칠한 형광펜
+const PENCILS = ['#e0442e', '#2f6fd0', '#2e9e4f', '#f5c518'] // 화면의 강조색 전부 (ui.md 컨셉)
+
+// 매트: 밝기를 비교하는 임시 토글 때문에 하나를 같이 쓴다 (ui.md 컨셉). 정해지면 상수로
+const matMaterial = new THREE.MeshStandardMaterial({ color: '#4d4945', roughness: 0.9 })
+export const setMatColor = (color: string) => matMaterial.color.set(color)
 export const FONT = "'Pretendard Variable', Pretendard, system-ui, sans-serif"
 
 // 빈 책 오른쪽 쪽의 차례 한 줄 (viewer.md "빈 책")
@@ -57,7 +62,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
     const right = w * 0.88
     let y = h * 0.14
     ctx.textAlign = 'left'
-    ctx.fillStyle = RED
+    ctx.fillStyle = INK
     ctx.font = `bold 30px ${FONT}`
     ctx.fillText('CONTENTS', x, y)
     y += 90
@@ -72,7 +77,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
     contents.forEach(({ title, page }, k) => {
       const ready = page !== null
       ctx.textAlign = 'left'
-      ctx.fillStyle = ready ? RED : '#c9c0b0'
+      ctx.fillStyle = ready ? INK : '#c9c0b0'
       ctx.font = `bold 44px ${FONT}`
       ctx.fillText(String(k + 1), x, y)
       ctx.fillStyle = ready ? INK : '#b5ad9f'
@@ -103,7 +108,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
   const maxWidth = w * 0.74
   let y = h * 0.14
   ctx.textAlign = 'left'
-  ctx.fillStyle = RED
+  ctx.fillStyle = INK
   ctx.font = `bold 30px ${FONT}`
   ctx.fillText('입체도형 · 전개도', x, y)
   y += 90
@@ -137,10 +142,10 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
       const inline = !line.link || drawMath(ctx, rows[rows.length - 1], x, y, false, false) + linkWidth <= maxWidth
       return { ...line, rows, linkWidth, inline }
     })
-    const total = laid.reduce((sum, l) => sum + (l.rows.length + (l.inline ? 0 : 1)) * rowHeight + 10, 0)
     const reveal = result.reveal ?? laid.length
+    const total = laid.reduce((sum, l) => sum + (l.rows.length + (l.inline ? 0 : 1)) * rowHeight + 10, 0)
     if (reveal > 0) {
-      ctx.fillStyle = '#fff0a8'
+      ctx.fillStyle = RESULT_FILL
       ctx.beginPath()
       ctx.roundRect(x - 24, y - 46, maxWidth + 48, total + 16, 16)
       ctx.fill()
@@ -159,7 +164,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
         if (line.inline) y -= rowHeight
         if (on) {
           ctx.font = linkFont
-          ctx.fillStyle = RED
+          ctx.fillStyle = INK
           const linkX = x + maxWidth - line.linkWidth + 24
           ctx.fillText(line.link.label, linkX, y)
           ctx.fillRect(linkX, y + 6, line.linkWidth - 24, 2)
@@ -172,7 +177,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
   } else if (result?.table) {
     const columns = result.table
     const width = maxWidth / columns.length
-    ctx.fillStyle = '#fff0a8'
+    ctx.fillStyle = RESULT_FILL
     ctx.beginPath()
     ctx.roundRect(x - 24, y - 52, maxWidth + 48, 232, 16)
     ctx.fill()
@@ -182,7 +187,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
       ctx.fillStyle = INK
       ctx.font = `600 42px ${FONT}`
       ctx.fillText(name, middle, y, width)
-      ctx.fillStyle = RED
+      ctx.fillStyle = ANSWER
       ctx.font = `bold 84px ${FONT}`
       ctx.fillText(value, middle, y + 120, width)
     })
@@ -196,8 +201,8 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
     const rows = wrap(ctx, result.formula, maxWidth)
     let line = 0
     const shown = () => ++line <= (result.reveal ?? 3)
-    // 노란 형광펜: 식과 값 뒤를 칠해 눈에 띄게
-    ctx.fillStyle = '#fff0a8'
+    // 형광펜: 식과 값 뒤를 칠해 눈에 띄게
+    ctx.fillStyle = RESULT_FILL
     ctx.beginPath()
     ctx.roundRect(x - 24, y - 52, maxWidth + 48, (result.general ? 76 : 0) + rows.length * 64 + (result.value ? 148 : 16) + (result.ratios?.length ?? 0) * 96, 16)
     ctx.fill()
@@ -226,7 +231,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
         ctx.fillStyle = INK
         ctx.font = `600 42px ${FONT}`
         ctx.fillText(label, x, y)
-        ctx.fillStyle = RED
+        ctx.fillStyle = ANSWER
         ctx.font = `bold 76px ${FONT}`
         ctx.fillText(value, x + 200, y)
         const end = x + 200 + ctx.measureText(value).width + 24
@@ -238,7 +243,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
     }
     if (result.value) {
       y += 40
-      ctx.fillStyle = RED
+      ctx.fillStyle = ANSWER
       ctx.font = `bold 84px ${FONT}`
       if (shown()) ctx.fillText(result.value, x, y, maxWidth)
       y += 40
@@ -252,7 +257,7 @@ export function pageTexture(pageW: number, pageD: number, side: 'left' | 'right'
     y += 10
     for (const { id, label, active, enabled } of menu) {
       ctx.font = `${active ? 'bold' : '600'} 54px ${FONT}`
-      ctx.fillStyle = !enabled ? '#b5ad9f' : active ? RED : INK
+      ctx.fillStyle = !enabled ? '#b5ad9f' : INK
       ctx.fillText(`${active ? '▸ ' : ''}${label}`, x, y, maxWidth)
       menuRows.push({ id, top: (y - 60) / h, bottom: (y + 24) / h, enabled })
       y += 84
@@ -426,9 +431,42 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
 
   // 데스크 매트와 책상
   const matTop = coverY - coverT / 2
-  const matW = (2 * pageW + 2 * coverMargin) * 1.25
+  const matW = (2 * pageW + 2 * coverMargin) * 1.32
   const matD = (pageD + 2 * coverMargin) * 1.15
-  add(new THREE.BoxGeometry(matW, matT, matD), own(new THREE.MeshStandardMaterial({ color: MAT_COLOR, roughness: 1 })), spineX, matTop - matT / 2, cz)
+  const matShape = new THREE.Shape()
+  const matR = matD * 0.04
+  const [halfW, halfD] = [matW / 2, matD / 2]
+  matShape.moveTo(-halfW + matR, -halfD)
+  matShape.lineTo(halfW - matR, -halfD)
+  matShape.quadraticCurveTo(halfW, -halfD, halfW, -halfD + matR)
+  matShape.lineTo(halfW, halfD - matR)
+  matShape.quadraticCurveTo(halfW, halfD, halfW - matR, halfD)
+  matShape.lineTo(-halfW + matR, halfD)
+  matShape.quadraticCurveTo(-halfW, halfD, -halfW, halfD - matR)
+  matShape.lineTo(-halfW, -halfD + matR)
+  matShape.quadraticCurveTo(-halfW, -halfD, -halfW + matR, -halfD)
+  const matMesh = add(new THREE.ExtrudeGeometry(matShape, { depth: matT, bevelEnabled: false }).rotateX(-Math.PI / 2).translate(0, -matT / 2, 0), matMaterial, spineX, matTop - matT / 2, cz)
+  matMesh.receiveShadow = true
+  // 색연필 네 자루: 책 오른쪽 옆 매트 위에 비스듬히. 육각 기둥 + 깎인 끝 (ui.md 컨셉)
+  const pencilR = pageD * 0.012
+  const pencilL = pageD * 0.55
+  const woodTip = own(new THREE.MeshStandardMaterial({ color: '#e8d3ae' }))
+  const pencilX = spineX + pageW + coverMargin + (halfW - pageW - coverMargin) / 2
+  PENCILS.forEach((color, k) => {
+    const paint = own(new THREE.MeshStandardMaterial({ color, roughness: 0.6 }))
+    const pencil = new THREE.Group()
+    const body = new THREE.Mesh(own(new THREE.CylinderGeometry(pencilR, pencilR, pencilL, 6)), paint)
+    const tip = new THREE.Mesh(own(new THREE.ConeGeometry(pencilR, pencilR * 3, 6)), woodTip)
+    tip.position.y = pencilL / 2 + pencilR * 1.5
+    const core = new THREE.Mesh(own(new THREE.ConeGeometry(pencilR * 0.35, pencilR * 1.05, 6)), paint)
+    core.position.y = pencilL / 2 + pencilR * 2.48
+    body.castShadow = true
+    tip.castShadow = true
+    pencil.add(body, tip, core)
+    pencil.rotation.set(Math.PI / 2, 0, -0.14 + k * 0.05)
+    pencil.position.set(pencilX + (k - 1.5) * pencilR * 3.4, matTop + pencilR, cz + (k - 1.5) * pencilR * 2)
+    group.add(pencil)
+  })
   const wood = own(woodTexture())
   const deskSize = size * 60
   wood.repeat.set(deskSize / (size * 3), deskSize / (size * 3))

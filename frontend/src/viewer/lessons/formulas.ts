@@ -2,9 +2,9 @@
 import type { ShapeKind } from '../../shared/types.ts'
 import type { PiMode } from './lengthLabels.ts'
 
-export const LENGTH_COLOR = { a: '#c2255c', b: '#2f9e44', c: '#1c7ed6', r: '#2f9e44', h: '#1c7ed6', l: '#e8590c' }
+export const LENGTH_COLOR = { a: '#e0442e', b: '#2e9e4f', c: '#2f6fd0', r: '#e0442e', h: '#2f6fd0', l: '#2e9e4f' } // 색연필 색 (ui.md 컨셉)
 
-export const SECTION_RADIUS_COLOR = '#e8590c' // 구 단면 비교의 단면 반지름
+export const SECTION_RADIUS_COLOR = '#2e9e4f' // 구 단면 비교의 단면 반지름
 
 // 공식 속 글자·낱말의 색. 높이는 어느 도형에서나 파랑
 const TOKEN_COLOR: Record<string, string> = { ...LENGTH_COLOR, 가로: LENGTH_COLOR.a, '한 변': LENGTH_COLOR.a, 세로: LENGTH_COLOR.b, 반지름: LENGTH_COLOR.r, 높이: LENGTH_COLOR.h, 모선: LENGTH_COLOR.l, '단면 반지름': SECTION_RADIUS_COLOR }

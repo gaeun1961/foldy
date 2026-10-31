@@ -168,7 +168,7 @@ export function ThreeViewer({
     callbacksRef.current.onFacePick?.(null)
     const tree = buildFaceTree(poly, looks.normal.faces, looks.normal.edge)
     // 마주 보는 면 보기: 고른 두 면 위에 반투명 연보라 판. 깊이 검사를 꺼서 다 접어 바닥·뒤쪽에 가려져도 비쳐 보인다
-    const throughMaterial = new THREE.MeshBasicMaterial({ color: '#9b7bff', transparent: true, opacity: 0.35, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
+    const throughMaterial = new THREE.MeshBasicMaterial({ color: '#f5c518', transparent: true, opacity: 0.35, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
     const throughPlates = tree.nodes.map((n) => {
       const plate = new THREE.Mesh(n.mesh.geometry, throughMaterial) // 면 메시와 같은 모양 (geometry 는 면 트리가 정리)
       plate.visible = false
@@ -240,7 +240,7 @@ export function ThreeViewer({
     }
 
     // 회전축 모서리를 굵게: 붙는 모서리를 따라 가는 원기둥. pivot 에 붙이면 축 위에 있어서 회전해도 그 자리다
-    const barMaterial = new THREE.MeshBasicMaterial({ color: '#3c4048' })
+    const barMaterial = new THREE.MeshBasicMaterial({ color: '#2f2a25' })
     const bars = new Map<number, THREE.Mesh>()
     for (const n of tree.nodes) {
       if (!n.pivot) continue
@@ -258,9 +258,9 @@ export function ThreeViewer({
     // 면에 가려진 부분은 같은 자리의 옅은 분홍 1px 점선으로 비쳐 보인다 (가려진 모서리와 같은 방식, showHiddenEdges 를 따름).
     // 점선은 원기둥 굵기(1%)보다 더 당겨져서(2%) 보이는 선분에는 끼지 않는다
     // lines 가 바뀌면 이 함수로 선분만 다시 그린다
-    const lineMaterial = new THREE.MeshBasicMaterial({ color: '#e64980' })
+    const lineMaterial = new THREE.MeshBasicMaterial({ color: '#2e9e4f' })
     const hiddenLineMaterial = pullTowardCamera(
-      new THREE.LineDashedMaterial({ color: '#f08fb0', dashSize: radius * 0.03, gapSize: radius * 0.03, depthFunc: THREE.GreaterDepth, depthWrite: false }),
+      new THREE.LineDashedMaterial({ color: '#8dcba0', dashSize: radius * 0.03, gapSize: radius * 0.03, depthFunc: THREE.GreaterDepth, depthWrite: false }),
       pull,
     )
     let tubes: THREE.Object3D[] = []
@@ -294,7 +294,7 @@ export function ThreeViewer({
 
     // 선 긋기 (viewer.md "선 긋기"): 면마다 2·3·4등분점 표시점을 미리 두고, 지금 등분만 보인다.
     // 고른 첫 점은 선분 색의 큰 점(pickMarker)으로 그 면 메시에 붙인다
-    const divisionMaterial = new THREE.MeshBasicMaterial({ color: '#3d6fd9' })
+    const divisionMaterial = new THREE.MeshBasicMaterial({ color: '#2f6fd0' })
     const divisionGeometry = new THREE.SphereGeometry(radius * 0.013, 12, 8)
     const divisionMarkers: { n: number; mesh: THREE.Mesh }[] = []
     for (const node of tree.nodes)
@@ -325,7 +325,7 @@ export function ThreeViewer({
     pull.value = radius * 0.02
     const hiddenMaterial = pullTowardCamera(
       new THREE.LineDashedMaterial({
-        color: '#9aa0a8',
+        color: '#8c8680',
         dashSize: radius * 0.03,
         gapSize: radius * 0.03,
         depthFunc: THREE.GreaterDepth,
@@ -409,7 +409,7 @@ export function ThreeViewer({
 
     // 학습지 전개도 꼭짓점 라벨: 복사본마다 다른 글자라 (면, 꼭짓점)마다 Sprite 하나. 문제 풀이에 필요해서 한글도 보인다 (ui.md "라벨")
     const cornerMaterials = (grid?.cornerLabels ?? []).map(({ face, vertex, text }) => {
-      const material = pullTowardCamera(new THREE.SpriteMaterial({ map: labelTexture(text), color: '#3c4048', depthWrite: false }), labelPull)
+      const material = pullTowardCamera(new THREE.SpriteMaterial({ map: labelTexture(text), color: '#2f2a25', depthWrite: false }), labelPull)
       const sprite = new THREE.Sprite(material)
       sprite.position.set(...poly.positions[vertex])
       sprite.center.set(-0.1, -0.1)
@@ -443,7 +443,7 @@ export function ThreeViewer({
         const up = pts[0].clone().sub(pts[3]).normalize() // 전개도에서 위쪽 (왼쪽 아래 → 왼쪽 위)
         const size = Math.min(pts[0].distanceTo(pts[1]), pts[0].distanceTo(pts[3])) * 0.6
         for (const n of [normal, normal.clone().negate()]) {
-          const material = new THREE.MeshBasicMaterial({ map: labelTexture(text), color: '#3c4048', transparent: true, depthWrite: false })
+          const material = new THREE.MeshBasicMaterial({ map: labelTexture(text), color: '#2f2a25', transparent: true, depthWrite: false })
           const plate = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material)
           plate.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(up.clone().cross(n), up, n))
           plate.position.copy(center).addScaledVector(n, radius * 0.003)
@@ -515,7 +515,7 @@ export function ThreeViewer({
       pairEdges.forEach((pair, k) =>
         pair.forEach((mesh) => {
           mesh.visible = showMatchingEdges && !lessonOn
-          mesh.scale.x = mesh.scale.z = k === picked ? 2.5 : 1 // 고른 쌍은 함께 굵게 (색만으로 구분하지 않기)
+          mesh.scale.x = mesh.scale.z = (k === picked ? 2.5 : 1) * (k >= PAIR_COLORS.length ? 1.7 : 1) // 고른 쌍은 함께 굵게 (색만으로 구분하지 않기)
         }),
       )
       // 강조: props 가 먼저, 없으면 누른 꼭짓점. 강조한 꼭짓점은 목록 순서대로 색, 나머지는 흐리게. 평소에는 모두 진한 회색

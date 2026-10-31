@@ -2,7 +2,7 @@
 // 1 표지가 열리고 종이 여러 장이 넘어온다 → 2 도형들이 페이지에서 떠올라 날아다닌다 → 3 속표지가 넘어가며 도형을 하나씩 흡수한다 → 4 빈 책
 // 이미지 파일 없이 책 장면의 상자·캔버스 텍스처와 three.js 기본 도형으로만 만든다
 import * as THREE from 'three'
-import { FONT, INK, pageTexture, RED, type buildBook } from './bookScene'
+import { FONT, INK, pageTexture, type buildBook } from './bookScene'
 
 type Book = ReturnType<typeof buildBook>
 type Own = <T extends { dispose(): void }>(x: T) => T
@@ -184,7 +184,7 @@ export function buildOpening(book: Book, size: number) {
   const ctx = (titleMap.image as HTMLCanvasElement).getContext('2d')! // 1024 너비 기준 좌표 그대로
   const h = (1024 * d) / w
   ctx.textAlign = 'center'
-  ctx.fillStyle = RED
+  ctx.fillStyle = INK
   ctx.font = `bold 30px ${FONT}`
   ctx.fillText('POP-UP BOOK', 512, h * 0.38)
   ctx.fillStyle = INK

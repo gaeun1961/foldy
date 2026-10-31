@@ -7,7 +7,7 @@ import type { LessonObject } from './index.ts'
 import type { SlantPlan } from './regularLayout.ts'
 import { faceNormal, surfaceSteps } from './surfaceLayout.ts'
 
-type Points = { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; edgeColor?: string; shift?: { leg: THREE.Vector3; rise: THREE.Vector3; edge: THREE.Vector3 }; edgeFirst?: boolean; whole?: { from: THREE.Vector3; to: THREE.Vector3; text: string } }
+type Points = { foot: THREE.Vector3; end: THREE.Vector3; top: THREE.Vector3; out: THREE.Vector3; reach: number; edgeColor?: string; legColor?: string; shift?: { leg: THREE.Vector3; rise: THREE.Vector3; edge: THREE.Vector3 }; edgeFirst?: boolean; whole?: { from: THREE.Vector3; to: THREE.Vector3; text: string } }
 
 // lesson 은 원래 단계가 stepsAfter 개. 전체를 한 단계 늘려 첫 단계에 직각삼각형을 보이고, 끝까지 남긴다. hideAfter: 이 단계 뒤로 지운다 (원뿔은 옆면을 펴면 입체가 없어진다)
 export function withPythagorasStep(lesson: LessonObject, stepsAfter: number, plan: SlantPlan, points: Points, hideAfter = Infinity): LessonObject {
@@ -50,5 +50,5 @@ export function prismBasePoints(poly: Polyhedron): Points {
   const step = surfaceSteps(poly).find((s) => poly.faces[s.face].vertices.length === 3)!
   const reach = reachOf(poly)
   const lift = v3(faceNormal(poly, step.face)).multiplyScalar(reach * 0.015)
-  return { foot: v3(step.legs[1].from).add(lift), end: v3(step.legs[0].to).add(lift), top: v3(step.legs[1].to).add(lift), out: lift.clone().multiplyScalar(5), reach, edgeFirst: true }
+  return { foot: v3(step.legs[1].from).add(lift), end: v3(step.legs[0].to).add(lift), top: v3(step.legs[1].to).add(lift), out: lift.clone().multiplyScalar(5), reach, edgeFirst: true, edgeColor: '#e0442e', legColor: '#2e9e4f' }
 }

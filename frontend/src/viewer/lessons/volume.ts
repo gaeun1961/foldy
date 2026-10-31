@@ -13,9 +13,9 @@ export function buildVolumeLesson(size: BoxSize, radius: number): LessonObject {
   const group = new THREE.Group()
   const geometry = new THREE.BoxGeometry(1, 1, 1)
   const edges = new THREE.EdgesGeometry(geometry)
-  const normal = new THREE.MeshStandardMaterial({ color: '#ffffff' })
-  const active = new THREE.MeshStandardMaterial({ color: '#ffe8a8' })
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
+  const normal = new THREE.MeshStandardMaterial({ color: '#faf6ee' })
+  const active = new THREE.MeshStandardMaterial({ color: '#f8df8e' })
+  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#2f2a25' })
   const meshes = cubes.map((c) => {
     const mesh = new THREE.Mesh(geometry, normal)
     mesh.castShadow = true
@@ -26,7 +26,7 @@ export function buildVolumeLesson(size: BoxSize, radius: number): LessonObject {
   })
 
   // 밑면 (밑넓이): 층을 쌓기 전에 먼저 칠한다
-  const baseMaterial = new THREE.MeshBasicMaterial({ color: '#ffb74d', side: THREE.DoubleSide })
+  const baseMaterial = new THREE.MeshBasicMaterial({ color: '#f8df8e', side: THREE.DoubleSide })
   const baseGeometry = new THREE.PlaneGeometry(size.width, size.depth).rotateX(-Math.PI / 2)
   const base = new THREE.Mesh(baseGeometry, baseMaterial)
   base.position.y = -size.height / 2 + 0.01

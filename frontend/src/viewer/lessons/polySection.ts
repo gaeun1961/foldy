@@ -82,14 +82,14 @@ export function buildPolySectionLesson(poly: Polyhedron, kind: CutKind = 'vertic
   const a = cutAngle(kind)
   const [c, s] = [Math.cos(a), Math.sin(a)]
   const reach = Math.max(...poly.positions.map((p) => Math.hypot(p[0], p[1], p[2]))) * 1.1
-  const planeMaterial = new THREE.MeshBasicMaterial({ color: '#74c0fc', transparent: true, side: THREE.DoubleSide, depthWrite: false })
+  const planeMaterial = new THREE.MeshBasicMaterial({ color: '#8c8680', transparent: true, side: THREE.DoubleSide, depthWrite: false })
   const planeGeometry = new THREE.PlaneGeometry(reach * 2.6, reach * 2.6)
   const plane = new THREE.Mesh(planeGeometry, planeMaterial)
   const rise = new THREE.Vector3(0, s, -c)
   plane.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), rise, new THREE.Vector3(1, 0, 0).cross(rise)))
   group.add(plane)
-  const faceMaterial = new THREE.MeshBasicMaterial({ color: '#ffb74d', transparent: true, side: THREE.DoubleSide, depthWrite: false })
-  const lineMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
+  const faceMaterial = new THREE.MeshBasicMaterial({ color: '#f8df8e', transparent: true, side: THREE.DoubleSide, depthWrite: false })
+  const lineMaterial = new THREE.LineBasicMaterial({ color: '#2f2a25' })
   const face = new THREE.Mesh(new THREE.BufferGeometry(), faceMaterial)
   const outline = new THREE.LineLoop(new THREE.BufferGeometry(), lineMaterial)
   group.add(face, outline)
@@ -110,7 +110,7 @@ export function buildPolySectionLesson(poly: Polyhedron, kind: CutKind = 'vertic
     label?.sprite.removeFromParent()
     label = null
     if (points.length) {
-      label = textSprite(polygonShapeName(polySectionPoints(poly, kind, cut)), reach * 0.5, false, '#6741d9')
+      label = textSprite(polygonShapeName(polySectionPoints(poly, kind, cut)), reach * 0.5, false, '#2f2a25')
       label.sprite.position.copy(center).add(lift.clone().multiplyScalar(4))
       label.sprite.visible = shown >= 1
       group.add(label.sprite)
