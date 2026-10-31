@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node src/viewer/faceTree.test.ts && node src/viewer/curved.test.ts && node src/ui/foldStatus.test.ts && node src/ui/manualScene.test.ts && node src/viewer/lessons/lessons.test.ts && node src/ui/photoPrep.test.ts && node src/ui/perspective.test.ts && node src/ui/worksheetStore.test.ts",
+    "test": "node src/viewer/faceTree.test.ts && node src/viewer/curved.test.ts && node src/ui/foldStatus.test.ts && node src/ui/manualScene.test.ts && node src/viewer/lessons/lessons.test.ts && node src/ui/photoPrep.test.ts && node src/ui/perspective.test.ts && node src/ui/worksheetStore.test.ts && node src/viewer/photoUv.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

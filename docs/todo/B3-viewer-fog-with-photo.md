@@ -16,6 +16,7 @@
 2. 3D 장면이 흐리게 보인다 (2026-10-31 스크린샷: 정육면체 한 모서리 1, 사진 1.4배)
 
 ## 원인 (짐작, 확인 필요)
+- **단서 (2026-10-31)**: `ThreeViewer.tsx` 230줄 근처에서 펼친 전개도 범위(`flatNet`)를 **사진 네 귀퉁이까지** 넓힌다(`flatNet.expandByPoint(photoMesh.localToWorld(...))`). 사진을 전개도에 맞춰 키우면 책·카메라 범위가 사진만큼 커져 카메라가 멀어진다
 - `ThreeViewer.tsx` `world.fog = new THREE.Fog(DESK_COLOR, radius * 8, radius * 22)`의 `radius`는 도형 크기인데, 사진이 커지면 책·카메라 범위가 사진에 맞춰 넓어져 카메라가 안개 시작 거리 밖으로 나가는 것으로 보인다. 카메라 거리와 `radius`·사진 크기를 찍어 확인
 - [B1](B1-viewer-wheel-zoom.md)(카메라 거리 제한)과 같이 보면 좋다
 
