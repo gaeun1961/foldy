@@ -1,6 +1,6 @@
 // 책상 위 소품 (viewer.md "책 장면", TODO-45): 정다면체 주사위, 컴퍼스, 삼각자 두 개, 아날로그 시계, 필통, 지우개와 가루.
 // 이미지 파일 없이 도형과 캔버스 텍스처로만 만든다. 색은 ui.md 컨셉: 중성색 + 연한 색연필 색 (진한 색은 시계 초침의 빨강뿐)
-// 서 있는 물건(시계·컴퍼스·필통)은 책 뒤(−z)에, 납작한 물건은 책 옆·앞에 둬서 도형을 가리지 않는다
+// 시계·컴퍼스·필통은 책 뒤(−z)에, 납작한 물건은 책 옆·앞에 둬서 도형을 가리지 않는다
 import * as THREE from 'three'
 
 const INK = '#2f2a25'
@@ -112,13 +112,14 @@ function buildClock(R: number, own: Own) {
   return clock
 }
 
-// 컴퍼스: 다리를 벌리고 서 있고, 바늘 둘레에 연필로 그린 원이 남아 있다. 바늘 끝은 원점
+// 컴퍼스: 다리를 조금 벌린 채 책상에 눕혀 둔다. 다리가 있는 평면(xy)을 눕혀 바닥에 붙인다
 function buildCompass(L: number, own: Own) {
   const compass = new THREE.Group()
+  compass.rotation.x = -Math.PI / 2
   const metal = own(new THREE.MeshStandardMaterial({ color: '#c9c5bd', metalness: 0.3, roughness: 0.35 }))
   const dark = own(new THREE.MeshStandardMaterial({ color: SOFT, roughness: 0.6 }))
   const graphite = own(new THREE.MeshStandardMaterial({ color: INK, roughness: 0.5 }))
-  const a = (24 * Math.PI) / 180 // 다리 하나가 세로에서 벌어진 각
+  const a = (14 * Math.PI) / 180 // 다리 하나가 가운데에서 벌어진 각
   const r = L * 0.035
   const hinge = new THREE.Vector3(Math.sin(a) * L, Math.cos(a) * L, 0)
   for (const s of [-1, 1]) {
@@ -144,12 +145,7 @@ function buildCompass(L: number, own: Own) {
     m.castShadow = true
     compass.add(m)
   }
-  // 그린 원: 반지름 = 두 다리 끝 사이
-  const R = 2 * hinge.x
-  const ring = new THREE.Mesh(own(new THREE.RingGeometry(R - r * 0.3, R + r * 0.3, 96).rotateX(-Math.PI / 2)), own(new THREE.MeshBasicMaterial({ color: INK, transparent: true, opacity: 0.25 })))
-  ring.position.y = L * 0.002
-  compass.add(ring)
-  return compass
+  return new THREE.Group().add(compass) // 바깥 묶음이 돌아야 눕힌 채로 방향만 바뀐다
 }
 
 // 삼각자: 투명한 아크릴 판 + 가운데 구멍 + 두 변의 눈금. 직각이 원점, 두 변이 +x 와 −z 로
@@ -246,8 +242,7 @@ export function buildDeskProps(at: DeskLayout, own: Own) {
   const clock = buildClock(u * 1.15, own)
   clock.rotation.x = -0.35 // 위에서 내려다보는 카메라에 판이 잘 보이게 살짝 뒤로 기댄다
   place(clock, left + u * 2.2, at.deskY, far - u * 1.7, 0.25)
-  const compass = buildCompass(u * 2.8, own)
-  place(compass, at.spineX + u * 0.6, at.deskY, far - u * 3.4, -0.5)
+  place(buildCompass(u * 2.8, own), at.spineX + u * 0.4, at.deskY, far - u * 1.6, 1.3)
   place(buildPencilCase(u * 4.6, u * 0.75, own), right - u * 2.8, at.deskY, far - u * 1.3, 0.1)
 
   // 책 왼쪽: 삼각자 두 개가 겹쳐 있다 (45° 와 30°·60°)
