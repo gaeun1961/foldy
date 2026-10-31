@@ -23,10 +23,17 @@ check(pageSlots(page, [4 / 3])[0].w === 3, '하나는 폭 가득')
 // 개수가 늘수록 하나하나는 작아진다 (같은 비율)
 const width = (n: number) => pageSlots(page, Array(n).fill(4 / 3))[0].w
 check(width(2) <= width(1) && width(4) <= width(2) && width(6) <= width(4), '많을수록 작게')
+// 보기는 모두 같은 높이 (모양이 달라도)
+const mixed = pageSlots(page, [4 / 3, 2.5, 1, 4 / 3, 3])
+check(mixed.every((s) => Math.abs(s.h - mixed[0].h) < 1e-9), '모두 같은 높이')
+mixed.forEach((s, i) => check(inside(s), `섞인 모양 ${i} 페이지 안`))
+// 5개는 앞줄부터 채운다 (2+2+1)
+const five = pageSlots(page, Array(5).fill(4 / 3))
+check(five[1].y === five[0].y && five[4].y > five[2].y, '다섯 개는 2+2+1')
 // 6개 넘게 와도 6개까지만
 check(pageSlots(page, Array(9).fill(1)).length === 6, '최대 6개')
 // 3개(세로 페이지)는 한 줄에 셋보다 세로로 쌓는 편이 크다
 const three = pageSlots(page, Array(3).fill(4 / 3))
 check(three[1].y > three[0].y, '세 개는 위아래로')
 
-console.log('ok: 여러 도형 배치 (1~6개 페이지 안·안 겹침·비율, 하나는 크게, 많을수록 작게, 최대 6개)')
+console.log('ok: 여러 도형 배치 (1~6개 페이지 안·안 겹침·비율, 하나는 크게, 많을수록 작게, 최대 6개, 같은 높이, 앞줄부터)')
