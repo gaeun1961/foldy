@@ -34,15 +34,25 @@ export function overflow(items: { id: string; savedAt: number }[], max = MAX_SAV
     .map((w) => w.id)
 }
 
+// crypto.randomUUID 는 HTTPS·localhost 에서만 있다. 휴대폰에서 같은 와이파이 주소(http)로 열면 없어서 저장이 실패했다 (코드 검토)
+function newId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 let opening: Promise<IDBDatabase | null> | null = null
 // IndexedDB 를 못 쓰면(사생활 보호 모드 등) null. 그때 보관함은 숨긴다
 function db(): Promise<IDBDatabase | null> {
   opening ??= new Promise((resolve) => {
-    if (typeof indexedDB === 'undefined') return resolve(null)
-    const req = indexedDB.open(DB, 1)
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' })
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => resolve(null)
+    try {
+      if (typeof indexedDB === 'undefined') return resolve(null)
+      const req = indexedDB.open(DB, 1)
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' })
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => resolve(null)
+      req.onblocked = () => resolve(null)
+    } catch {
+      resolve(null) // 막힌 브라우저(사생활 보호 모드 등)는 보관함 없이
+    }
   })
   return opening
 }
@@ -52,10 +62,15 @@ function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) => IDBRe
     (d) =>
       new Promise((resolve) => {
         if (!d) return resolve(undefined)
-        const tx = d.transaction(STORE, mode)
-        const req = work(tx.objectStore(STORE))
-        tx.oncomplete = () => resolve(req ? req.result : undefined)
-        tx.onerror = () => resolve(undefined)
+        try {
+          const tx = d.transaction(STORE, mode)
+          const req = work(tx.objectStore(STORE))
+          tx.oncomplete = () => resolve(req ? req.result : undefined)
+          tx.onerror = () => resolve(undefined)
+          tx.onabort = () => resolve(undefined) // 저장 공간이 모자라면 abort 된다. 끝나지 않고 기다리지 않게
+        } catch {
+          resolve(undefined)
+        }
       }),
   )
 }
@@ -73,7 +88,7 @@ export async function getWorksheet(id: string): Promise<SavedWorksheet | null> {
 
 export async function saveWorksheet(w: Omit<SavedWorksheet, 'id' | 'savedAt'>): Promise<string> {
   const old = overflow(await listWorksheets())
-  const id = crypto.randomUUID()
+  const id = newId()
   await run('readwrite', (s) => {
     old.forEach((k) => s.delete(k))
     s.put({ ...w, id, savedAt: Date.now() })

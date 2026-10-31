@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ShapeScene } from '../shared/types'
 import { analyze, OfflineError } from './api'
+import { ITEM_LABELS, MAX_ITEMS } from '../viewer'
 import { CornerPick } from './CornerPick'
 import { NetPreview } from './NetPreview'
 import { TOUCH } from './device'
@@ -60,7 +61,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
   const loading = state.kind === 'loading' || state.kind === 'preparing'
   // 내 학습지 보관함 (worksheets.md W3): 이 기기 안. 읽기에 성공하면 저장하고, 누르면 /analyze 없이 다시 연다
   const [shelf, setShelf] = useState<WorksheetItem[]>([])
-  const refreshShelf = () => void listWorksheets().then(setShelf)
+  const refreshShelf = () => void listWorksheets().then(setShelf, () => setShelf([]))
   useEffect(refreshShelf, [])
   // 읽는 동안 지난 초 (팀 테스트 엔진 agy 는 2분쯤 걸린다, worksheets.md W4)
   const [now, setNow] = useState(() => Date.now())
@@ -85,16 +86,22 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
     setState({ kind: 'picking' })
   }
 
-  const pick = async (original: File) => {
+  // 사진 준비·돌리기가 실패하면(메모리 부족, 모르는 형식) 버튼이 꺼진 채 멈추지 않게 오류로 돌린다 (코드 검토)
+  const prepare = async (make: () => Promise<File>) => {
     setState({ kind: 'preparing' })
-    setBase(await prepPhoto(original))
+    try {
+      setBase(await make())
+    } catch {
+      setState({ kind: 'error', message: '사진을 열지 못했어요. 다른 사진으로 해 볼까요?' })
+    }
   }
+
+  const pick = (original: File) => prepare(() => prepPhoto(original))
 
   // 옆으로 찍은 학습지를 바로 세운다 (worksheets.md W5). 돌린 사진이 기준 사진이 되어 네모·칸 밑 사진이 모두 그 방향
   const turn = async (turns: number) => {
     if (!photo) return
-    setState({ kind: 'preparing' })
-    setBase(await rotatePhoto(photo.file, turns))
+    await prepare(() => rotatePhoto(photo.file, turns))
   }
 
   // 보관함에서 열기: 사진 인식이 성공했을 때와 같은 길 (onPhoto → onScene). App 은 다르게 다루지 않는다
@@ -138,9 +145,10 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
       else onScene(first.scene, first.place)
       setShapes([])
       setState({ kind: 'done', scene: first.scene })
-      const thumb = await prepPhoto(photo.file, 240)
-      await saveWorksheet({ name: defaultName(first.scene, new Date()) + (more.length ? ` 외 ${more.length}개` : ''), photo: photo.file, thumb, scene: first.scene, place: first.place, more })
-      refreshShelf()
+      // 보관함 저장은 실패해도 읽기는 성공이다 (예전에는 같은 try 안이라 저장 오류가 "읽기 실패"로 보였다, 코드 검토)
+      void prepPhoto(photo.file, 240)
+        .then((thumb) => saveWorksheet({ name: defaultName(first.scene, new Date()) + (more.length ? ` 외 ${more.length}개` : ''), photo: photo.file, thumb, scene: first.scene, place: first.place, more }))
+        .then(refreshShelf, () => {})
     } catch (e) {
       setState({ kind: e instanceof OfflineError ? 'soft' : 'error', message: (e as Error).message })
       onManual?.()
@@ -209,7 +217,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
           )}
           {shapes.map((s, i) => (
             <div key={i} aria-hidden style={{ position: 'absolute', pointerEvents: 'none', border: '2px solid #3a7d87', borderRadius: 4, left: `${s.x * 100}%`, top: `${s.y * 100}%`, width: `${s.w * 100}%`, height: `${s.h * 100}%` }}>
-              <span style={{ position: 'absolute', left: 2, top: 0, font: 'bold 13px sans-serif', color: '#fff', background: '#3a7d87', borderRadius: 3, padding: '0 3px' }}>{'①②③④⑤⑥'[i]}</span>
+              <span style={{ position: 'absolute', left: 2, top: 0, font: 'bold 13px sans-serif', color: '#fff', background: '#3a7d87', borderRadius: 3, padding: '0 3px' }}>{ITEM_LABELS[i]}</span>
             </div>
           ))}
           {box && <div className="pick-box" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }} />}
@@ -251,7 +259,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
           <button
             type="button"
             className="secondary-button"
-            disabled={loading || !usable || shapes.length >= 5}
+            disabled={loading || !usable || shapes.length >= MAX_ITEMS - 1}
             onClick={() => {
               setShapes([...shapes, box!])
               setBox(null)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { WorksheetItem } from './worksheetStore'
 
 // 내 학습지 목록 (docs/specs/worksheets.md W3, ui.md 화면 배치 2번): 썸네일 + 이름 + 날짜. 누르면 열고, ⋯로 이름 바꾸기·지우기
@@ -11,9 +11,14 @@ interface Props {
 }
 
 function Thumb({ blob }: { blob: Blob }) {
-  const url = useMemo(() => URL.createObjectURL(blob), [blob])
-  useEffect(() => () => URL.revokeObjectURL(url), [url])
-  return <img src={url} alt="" />
+  // 주소는 effect 안에서 만들고 지운다 (useMemo 로 만들면 개발 모드 StrictMode 가 effect 를 두 번 돌려 지운 주소를 쓴다)
+  const img = useRef<HTMLImageElement>(null)
+  useEffect(() => {
+    const url = URL.createObjectURL(blob)
+    if (img.current) img.current.src = url
+    return () => URL.revokeObjectURL(url)
+  }, [blob])
+  return <img ref={img} alt="" />
 }
 
 export function WorksheetShelf({ items, disabled, onOpen, onRename, onDelete }: Props) {

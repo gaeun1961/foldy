@@ -21,6 +21,7 @@ export function CornerPick({ url, onDone, onCancel }: Props) {
   const [corners, setCorners] = useState<Pt[]>(START)
   const [active, setActive] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
   const img = useRef<HTMLImageElement>(null)
 
   const pointAt = (e: React.PointerEvent) => {
@@ -33,7 +34,9 @@ export function CornerPick({ url, onDone, onCancel }: Props) {
     const el = img.current
     if (!el) return
     setBusy(true)
+    setFailed(false)
     await new Promise((r) => setTimeout(r, 0)) // "펴는 중…"을 먼저 그리고 계산
+    try {
     const [W, H] = [el.naturalWidth, el.naturalHeight]
     const src = document.createElement('canvas')
     src.width = W
@@ -48,6 +51,11 @@ export function CornerPick({ url, onDone, onCancel }: Props) {
     const flat = warp(ctx.getImageData(0, 0, W, H), px, w, h)
     out.getContext('2d')!.putImageData(new ImageData(flat.data as Uint8ClampedArray<ArrayBuffer>, w, h), 0, 0)
     onDone(await canvasToFile(out, 'flat.jpg'))
+    } catch {
+      // 네 점이 한 줄에 있거나(homography) 그림을 못 만들면 멈추지 않고 다시 맞추게 (코드 검토)
+      setFailed(true)
+      setBusy(false)
+    }
   }
 
   return (
@@ -74,6 +82,11 @@ export function CornerPick({ url, onDone, onCancel }: Props) {
           />
         ))}
       </div>
+      {failed && (
+        <p className="upload-status error" role="status">
+          펴지 못했어요. 동그라미 네 개를 학습지 네 귀퉁이로 벌려 주세요
+        </p>
+      )}
       <div className="pick-buttons">
         <button type="button" className="primary-button" disabled={busy} onClick={flatten}>
           {busy ? '펴는 중…' : '펴기'}

@@ -9,6 +9,7 @@ analyze_image(): /analyze 가 부른다. 같은 사진은 기억해 둔 결과�
 
 import hashlib
 import json
+import logging
 import mimetypes
 import os
 import shutil
@@ -26,6 +27,8 @@ from pydantic import ValidationError
 
 from app.ai.schema import ShapeScene
 from app.ai.vision_prompt import VISION_PROMPT
+
+logger = logging.getLogger(__name__)
 
 MODEL = "gemini-3.5-flash"  # 그림을 읽고 꼭짓점 번호를 맞춰야 해서 챗봇(lite)보다 큰 모델. 비교는 eval/vision_eval.py --model
 TIMEOUT_MS = 60_000
@@ -234,12 +237,8 @@ def read_problem(image: bytes, content_type: str) -> str | None:
             ),
         )
         return _clean_text(response.text or "")
-    except (
-        VisionError,
-        json.JSONDecodeError,
-        genai.errors.APIError,
-        httpx.TimeoutException,
-    ):
+    except Exception as e:  # noqa: BLE001 — 문제 글은 덤이라 어떤 오류든 도형 결과를 버리지 않는다 (코드 검토)
+        logger.warning("문제 글 읽기 실패: %s", e)
         return None
 
 
@@ -260,17 +259,24 @@ def analyze_image(
 ) -> ShapeScene:
     """problem: 문제 칸 사진(선택). 있으면 글자만 따로 동시에 읽어 scene.problem 을 그것으로 바꾼다."""
     key = hashlib.sha256(image + (problem or b"")).hexdigest()
-    if key in _remembered:
-        return _remembered[key]
+    with _remember_lock:
+        if key in _remembered:
+            return _remembered[key]
     if problem is None:
         return _analyze_shape(image, content_type, key)
-    with ThreadPoolExecutor(max_workers=1) as pool:
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
         text = pool.submit(read_problem, problem, content_type)
         scene = _analyze_shape(image, content_type, None)
         problem_text = text.result()
+    finally:
+        # 도형 읽기가 실패하면 문제 글을 기다리지 않고 바로 오류를 돌려준다 (예전에는 최대 300초 기다렸다, 코드 검토)
+        pool.shutdown(wait=False, cancel_futures=True)
     if problem_text:
         scene = ShapeScene(root=scene.root.model_copy(update={"problem": problem_text}))
-    _remember(key, scene)
+        _remember(
+            key, scene
+        )  # 문제 글을 못 읽었으면 기억하지 않는다 (다시 읽으면 또 시도하게)
     return scene
 
 
@@ -292,7 +298,13 @@ def _analyze_shape(image: bytes, content_type: str, key: str | None) -> ShapeSce
     return scene
 
 
+_remember_lock = (
+    threading.Lock()
+)  # 여러 요청이 스레드에서 동시에 돈다 (run_in_threadpool, 세마포어 3)
+
+
 def _remember(key: str, scene: ShapeScene) -> None:
-    if len(_remembered) >= REMEMBER:
-        _remembered.pop(next(iter(_remembered)))
-    _remembered[key] = scene
+    with _remember_lock:
+        while len(_remembered) >= REMEMBER:
+            _remembered.pop(next(iter(_remembered)), None)
+        _remembered[key] = scene

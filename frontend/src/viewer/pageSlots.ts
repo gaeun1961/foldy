@@ -12,6 +12,7 @@ export interface Rect {
 }
 
 export const MAX_ITEMS = 6
+export const ITEM_LABELS = '①②③④⑤⑥' // 여러 도형 번호 (네모·단추·책 번호판이 같이 쓴다)
 const GAP = 0.04 // 도형 사이 간격 = 페이지 짧은 변 × 이 값
 
 // 순서를 지키며 n 개를 줄로 나누는 모든 경우 (n ≤ 6 이라 32가지 이하)

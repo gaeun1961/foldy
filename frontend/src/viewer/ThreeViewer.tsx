@@ -5,7 +5,7 @@ import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
 import { buildBook, DESK_COLOR, pageTexture, VIEW_DIR } from './bookScene.ts'
-import { pageSlots } from './pageSlots.ts'
+import { ITEM_LABELS, pageSlots } from './pageSlots.ts'
 import { startPenDraw, type PenDraw } from './penDraw.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
@@ -13,6 +13,8 @@ import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
 import { PAPER, type Look } from './theme.ts'
 
 // 처음 카메라가 보는 점에서 카메라 쪽 방향 (비스듬히 위, 오른쪽 앞). 정다면체는 이 방향에서 먼 면부터 접는다
+// 펜으로 그려 내기: 마지막으로 다 그린 drawIn 값. 뷰어가 내려갔다 올라와도(홀로그램, 읽는 중 빈 책, 곡면 도형) 같은 값이면 다시 그리지 않게 모듈에 둔다
+let lastDrawn: number | undefined
 const MOVING = 1e-6 // 이 값보다 0·1 에서 떨어져 있어야 "접히는 중" (단계 경계의 부동소수 오차 무시)
 // 맞닿는 모서리 쌍 색: 빨강, 주황, 노랑, 초록, 청록, 파랑, 보라 (ui.md 색 기준). 쌍이 더 많으면 돌려 쓴다.
 // 고른(강조한) 꼭짓점도 이 색을 목록 순서대로 쓴다
@@ -93,7 +95,7 @@ export function ThreeViewer({
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
   const drawMarksRef = useRef<((scene: ShapeScene) => void) | null>(null)
   // 펜으로 그려 내기 (viewer.md "펜으로 그려 내기"): 지금 값과 마지막으로 그린 값. 다르면 도형을 만들 때 그린다
-  const drawRef = useRef<{ want?: number; drawn?: number }>({})
+  const drawRef = useRef<{ want?: number }>({})
   useEffect(() => {
     drawRef.current.want = drawIn // 아래 도형 만들기 effect 보다 먼저 돈다
   }, [drawIn])
@@ -268,7 +270,7 @@ export function ThreeViewer({
         const corner = at(s.x, s.y)
         // 번호판 ①②…: 칸 왼쪽 위. 지금 접는 도형은 강조색
         const plateSize = Math.min(s.w, s.h) * f * 0.2
-        const plate = numberPlate('①②③④⑤⑥'[i], plateSize, i === activeIndex)
+        const plate = numberPlate(ITEM_LABELS[i], plateSize, i === activeIndex)
         plate.position.set(corner.x - plateSize * 0.35, 0.002, corner.z - plateSize * 0.35)
         world.add(plate)
         plates.push(plate)
@@ -663,6 +665,8 @@ export function ThreeViewer({
       book.dispose()
       book = buildBook(bookRange ?? flatNet, radius, pageRef.current.pageText, [], pageRef.current.pageNumbers, pageRef.current.pageResult, pageRef.current.pageMenu)
       world.add(book.group)
+      const left = book.leftPage()
+      if (left) penDraw?.retargetPage((left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial) // 펜이 쓰는 중이면 새 쪽에도 가림
     }
     rebuildBookRef.current = rebuildBook
     // 전개도로 보는 설명은 결과가 왼쪽 쪽에 나오므로, 카메라가 왼쪽 쪽 글까지 담는다
@@ -679,7 +683,7 @@ export function ThreeViewer({
     let penDraw: PenDraw | null = null
     let blankPage: THREE.Texture | null = null
     const draw = drawRef.current
-    if (draw.want !== undefined && draw.want !== draw.drawn && !viewRef.current.lesson && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (draw.want !== undefined && draw.want !== lastDrawn && !viewRef.current.lesson && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       const want = draw.want // 다 그린 뒤에 그렸다고 적는다. 그리는 중에 다시 만들어지면(사진이 뒤따라 오는 등) 처음부터 다시 그린다
       const materials = new Set<THREE.Material>()
       tree.root.traverse((o) => {
@@ -711,7 +715,7 @@ export function ThreeViewer({
         page: left && blankPage ? { material: (left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial, blank: blankPage, x0: book.center.x - book.page.w, z0: book.center.z - book.page.d / 2, w: book.page.w, d: book.page.d, y: book.top } : null,
         size: radius * 0.75,
         onDone: () => {
-          draw.drawn = want
+          lastDrawn = want
           penBusy = false
           apply()
         },

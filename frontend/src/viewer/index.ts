@@ -56,3 +56,4 @@ export { RELATION_COLORS } from './lessons/edgeRelationsLayout'
 export { STAIR_LAYERS } from './lessons/volumeLayout'
 export { HologramViewer, type HologramProps } from './HologramViewer'
 export { stageSupported as hologramSupported } from './stage' // 아크릴 피라미드 홀로그램 (viewer.md "홀로그램"). 무대가 그리는 도형이면 홀로그램도 된다
+export { ITEM_LABELS, MAX_ITEMS } from './pageSlots' // 여러 도형 번호·최대 개수 (ui 가 viewer 안 파일을 바로 부르지 않게)

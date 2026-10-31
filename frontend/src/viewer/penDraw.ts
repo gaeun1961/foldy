@@ -96,7 +96,10 @@ function hideUntilDrawn(material: THREE.Material, reveal: FloorReveal) {
     shader.uniforms.revealMap = reveal.map
     shader.uniforms.revealBox = reveal.box
     shader.uniforms.revealOn = reveal.on
-    shader.vertexShader = 'varying vec3 vRevealPos;\n' + shader.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvRevealPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+    shader.uniforms.revealFrame = reveal.frame
+    shader.vertexShader =
+      'uniform mat4 revealFrame;\nvarying vec3 vRevealPos;\n' +
+      shader.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvRevealPos = (revealFrame * modelMatrix * vec4(transformed, 1.0)).xyz;')
     shader.fragmentShader =
       'uniform sampler2D revealMap;\nuniform vec4 revealBox;\nuniform float revealOn;\nvarying vec3 vRevealPos;\n' +
       shader.fragmentShader.replace(
@@ -149,7 +152,7 @@ function penModel(length: number) {
   return group
 }
 
-export type PenDraw = { pen: THREE.Group; update: (now: number) => void; dispose: () => void }
+export type PenDraw = { pen: THREE.Group; update: (now: number) => void; retargetPage: (material: THREE.MeshStandardMaterial) => void; dispose: () => void }
 
 // 그릴 판 하나: frame(판 좌표계, 없으면 월드) 안의 전개도 범위 box(x·z), 판 높이 y, 가릴 재질. 판마다 재질이 따로여야 한다(가림 그림이 판마다 다름)
 // onDrawn: 그 판을 다 칠했을 때 (그림자처럼 가림 셰이더가 안 걸리는 것을 그때 켠다)
@@ -198,6 +201,10 @@ export function startPenDraw(opts: {
         return { mask, area, w, h }
       })()
     : null
+  // 그리는 중에 책을 다시 만들면(왼쪽 쪽 글·공식 결과가 바뀜) 새 왼쪽 쪽 재질에 같은 가림을 다시 건다
+  const retargetPage = (material: THREE.MeshStandardMaterial) => {
+    if (page && pageMask && pageOn.value) writeUntilDrawn(material, page.blank, pageMask.mask.texture, pageOn)
+  }
   const pageAt = (p: Point) => new THREE.Vector3(page!.x0 + (p.x / pageMask!.w) * page!.w, page!.y, page!.z0 + (p.y / pageMask!.h) * page!.d)
 
   // 단계: 판마다 [건너가기(첫 판은 없음), 칠하기], 그다음 왼쪽 쪽으로 건너가 쓰기, 들어 올리기
@@ -282,6 +289,7 @@ export function startPenDraw(opts: {
   return {
     pen,
     update,
+    retargetPage,
     dispose: () => {
       finish(false)
       for (const s of sheets) s.mask.texture.dispose()
