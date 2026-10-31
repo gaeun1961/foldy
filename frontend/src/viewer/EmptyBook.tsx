@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { aimLight, bookLights, buildBook, DESK_COLOR, VIEW_DIR, bookView, fitOf, readingRange, type BookContent, type BookMenuItem } from './bookScene.ts'
 import { buildOpening, buildPageTurn, LOW_ANGLE, OPENING_SECONDS } from './opening.ts'
+import { startPenSketch } from './penDraw.ts'
 
 // 빈 책 (docs/specs/viewer.md "빈 책"): 도형이 없을 때 같은 책 장면을 도형 없이 그린다.
 // 왼쪽 쪽은 pageText, 오른쪽 쪽은 차례(contents, 줄 끝에 쪽 번호). 쪽 번호가 있는 줄을 누르면 차례 쪽이 넘어간 뒤 onPick(번호)
@@ -14,6 +15,7 @@ interface Props {
   pageOf?: (index: number) => BookSpread // 차례 index번째 도형의 쪽: 고른 도형까지 넘어가는 종이마다 지나가는 도형의 쪽을 찍는다
   opening?: boolean // 처음 한 번 오프닝을 보여 준다 (viewer.md "오프닝"). 도중에 false 가 되면 바로 끝낸다
   onOpened?: () => void // 오프닝이 끝났거나 건너뛰었을 때
+  reading?: string // 읽는 중인 학습지 사진 주소: 오른쪽 쪽에 깔고 펜이 그 위를 계속 칠한다 (viewer.md "빈 책" 읽는 중)
 }
 
 export type BookSpread = { text: string[]; pageNumbers?: [number, number]; menu?: BookMenuItem[] }
@@ -23,7 +25,7 @@ const VIEW = VIEW_DIR.clone().normalize() // 도형 화면이 보는 방향. 차
 // 전개도 대신 페이지 크기를 정할 기본 범위 (가로 6 × 세로 6, y = 0)
 const NET = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(6, 0, 6))
 
-export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened }: Props) {
+export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, reading }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const pickRef = useRef(onPick)
   const pageOfRef = useRef(pageOf)
@@ -35,11 +37,11 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     openingRef.current = opening
     openedRef.current = onOpened
   }, [onPick, pageOf, opening, onOpened])
-  const key = JSON.stringify({ pageText, contents, pageNumbers })
+  const key = JSON.stringify({ pageText, contents, pageNumbers, reading })
 
   useEffect(() => {
     const container = containerRef.current!
-    const { pageText, contents, pageNumbers } = JSON.parse(key) as Props
+    const { pageText, contents, pageNumbers, reading } = JSON.parse(key) as Props
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.shadowMap.enabled = true // 기본 PCF. 가장자리는 light.shadow.radius 로 흐리게 (도형 화면과 같게)
@@ -110,6 +112,30 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     // 오프닝: 같은 장면 위에서 돌고, 끝나면 빈 책 그대로 이어진다. 카메라는 조금 멀리서 다가온다
     const show = openingRef.current ? buildOpening(book, size) : null
     let intro = show
+    // 읽는 중: 오른쪽 쪽 여백 안에 사진을 비율대로 깔고, 펜이 사진 위를 계속 칠한다 (사진을 다 읽은 뒤에 시작)
+    let sketch: ReturnType<typeof startPenSketch> | null = null
+    let photo: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
+    let disposed = false
+    if (reading) {
+      new THREE.TextureLoader().load(reading, (texture) => {
+        if (disposed) return texture.dispose()
+        texture.colorSpace = THREE.SRGBColorSpace
+        texture.anisotropy = 8
+        const room = { w: book.page.w * 0.84, d: book.page.d * 0.84 }
+        const aspect = texture.image.width / texture.image.height
+        const w = Math.min(room.w, room.d * aspect)
+        const d = w / aspect
+        const cx = book.center.x + book.page.w / 2
+        photo = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: texture, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))
+        photo.rotation.x = -Math.PI / 2
+        photo.position.set(cx, book.top, book.center.z)
+        world.add(photo)
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+        sketch = startPenSketch({ x: cx - w / 2, z: book.center.z - d / 2, w, d, y: book.top }, book.page.w * 0.28)
+        world.add(sketch.group)
+      })
+    }
+
     // 시간은 프레임마다 더한다(한 번에 최대 1/30초). 첫 프레임이 늦거나 멈칫해도 단계를 건너뛰지 않는다
     let t = 0
     let last = -1
@@ -143,6 +169,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
           camera.position.copy(controls.target).addScaledVector(dir, distance * (1 + 0.3 * (1 - Math.min(1, t / 2.4)) ** 2))
         }
       }
+      sketch?.update(now)
       controls.update()
       renderer.render(world, camera)
     })
@@ -155,6 +182,11 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       renderer.domElement.removeEventListener('pointermove', onMove)
       controls.dispose()
       show?.finish()
+      disposed = true
+      sketch?.dispose()
+      photo?.geometry.dispose()
+      photo?.material.map?.dispose()
+      photo?.material.dispose()
       turn?.show.dispose()
       book.dispose()
       show?.dispose()

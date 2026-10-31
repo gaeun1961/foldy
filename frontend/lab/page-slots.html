@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>foldy lab - 여러 도형 배치</title>
+    <style>
+      body { margin: 0; padding: 16px; font-family: system-ui, 'Malgun Gothic', sans-serif; background: #e9e0d1; color: #1f2430; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p { margin: 0 0 12px; font-size: 14px; }
+      .row { display: flex; flex-wrap: wrap; gap: 16px; }
+      figure { margin: 0; text-align: center; font-size: 13px; }
+      svg { width: 180px; background: #fbf8f1; border-radius: 6px; box-shadow: 2px 3px 8px rgb(80 60 30 / 25%); }
+      h2 { font-size: 15px; margin: 14px 0 6px; }
+      .face { fill: #e3f1fb; stroke: #3c4048; stroke-width: 0.012; }
+      .num { font-size: 0.16px; fill: #8a8070; }
+    </style>
+  </head>
+  <body>
+    <h1>여러 도형 배치 미리보기 (worksheets.md "여러 도형 배치", 팀과 같이 보기)</h1>
+    <p>책 오른쪽 페이지(세로 3 : 4)에 전개도를 1~6개 놓았을 때. 같은 문제의 보기는 모두 같은 높이, 그 높이가 가장 커지게 줄을 나눈다(앞줄부터). "높이 %"는 보기 하나의 높이 ÷ 페이지 높이. 서비스 화면에는 아직 연결하지 않았다.</p>
+    <h2>정육면체 전개도</h2>
+    <div class="row" id="cube"></div>
+    <h2>모양이 다른 직육면체 전개도 섞기</h2>
+    <div class="row" id="mixed"></div>
+    <script type="module" src="./page-slots.ts"></script>
+  </body>
+</html>

@@ -32,6 +32,19 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 |---|---|---|
 | **TODO-49** [데모 영상 찍기](49-demo-video.md) | [#147](https://github.com/gaeun1961/foldy/issues/147) | TODO-46, TODO-47, TODO-48 |
 
+## 버그 (담당 대기)
+
+재현·원인·고치는 방향을 적어 둔 버그. 가져갈 때 `[버그]` 이슈를 만들고 assignee를 건다.
+
+- **B1** [3D 위에서 휠을 굴리면 책이 사라지고 책상만 보임](B1-viewer-wheel-zoom.md) · [#128](https://github.com/gaeun1961/foldy/issues/128) — 3D: 카메라 거리 제한 없음
+- **B3** [사진을 전개도에 맞춰 키우면 3D 장면 전체가 뿌옇게 보임](B3-viewer-fog-with-photo.md) · [#129](https://github.com/gaeun1961/foldy/issues/129) — 3D: 안개 거리가 도형 크기 기준
+- **B2** [옆으로 찍은 사진은 전개도 칸 밑 사진과 인식한 전개도가 어긋남](B2-photo-overlay-rotated.md) — UI: 사진 돌리기(worksheets.md W5)
+
+## 모바일 웹 (시기 미정)
+
+휴대폰으로 학습지를 찍어 쓰는 작업 M1~M5. 계획·변경 지도·합칠 때 규칙은 [specs/mobile.md](../specs/mobile.md) ([#126](https://github.com/gaeun1961/foldy/issues/126)). 시기가 정해지면 이슈와 TODO 파일을 만든다.
+다음 단계 W1~W4(팀 테스트용 인식 엔진 `agy`, 보관함, 인식 대기 화면)는 [specs/worksheets.md](../specs/worksheets.md) ([#127](https://github.com/gaeun1961/foldy/issues/127), 계약 [#125](https://github.com/gaeun1961/foldy/issues/125), 홀로그램 사진 [#130](https://github.com/gaeun1961/foldy/issues/130)).
+
 ## 나중에 (3차)
 
 2차(정다면체 TODO-16, 각기둥·각뿔 TODO-31)는 시연을 위해 1차보다 먼저 끝냈다(사용자 결정, 리포트 T16·T31). 3차는 아직 가져가지 않는다. 이슈는 "not planned"로 닫혀 있고, 시작할 때 다시 연다.

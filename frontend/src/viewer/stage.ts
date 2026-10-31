@@ -14,6 +14,8 @@ import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape
 import { applyUnfold, buildFaceTree, disposeFaceTree, facingYaw, farFirstOrder, layOnFloor, stepUnfold, type FaceTree } from './faceTree.ts'
 import { buildRevolutionBody } from './lessons/revolve.ts'
 import { buildSphereBody } from './lessons/sphereLessons.ts'
+import type { NetPhoto } from './index.ts'
+import { glowPixels, netPointUv } from './photoUv.ts'
 import { foldOrderOf, polyhedronOf } from './polyhedra.ts'
 import type { Theme3D } from './theme.ts'
 
@@ -113,7 +115,71 @@ function thickEdges(tree: FaceTree, material: LineMaterial) {
   return lines
 }
 
-function polyhedronStage(scene: ShapeScene, theme: Theme3D): Stage | null {
+// 학습지 사진을 면마다 입힌다 (viewer.md "홀로그램" 학습지 사진 입히기, 이슈 #130). 다 펼친 상태에서 면 꼭짓점의 루트 좌표
+// (책 장면이 사진을 까는 좌표)를 재 두고, 사진을 읽어 비율을 알면 UV 를 넣고 면 재질에 텍스처를 붙인다. 정리 함수를 돌려준다
+function dressWithPhoto(tree: FaceTree, materials: THREE.MeshBasicMaterial[][], photo: NetPhoto, theme: Theme3D) {
+  applyUnfold(tree, 1)
+  tree.root.updateMatrixWorld(true)
+  const v = new THREE.Vector3()
+  const flat = tree.nodes.map((n) => {
+    const p = (n.mesh.geometry as THREE.BufferGeometry).getAttribute('position')
+    const xy: number[] = []
+    for (let i = 0; i < p.count; i++) {
+      tree.root.worldToLocal(v.fromBufferAttribute(p, i).applyMatrix4(n.mesh.matrixWorld))
+      xy.push(v.x, -v.y) // 루트 (x, y) = 전개도 (x, −y)
+    }
+    return xy
+  })
+  applyUnfold(tree, 0)
+  let texture: THREE.Texture | null = null
+  let gone = false
+  const img = new Image()
+  img.onload = () => {
+    if (gone) return
+    const aspect = img.naturalWidth / img.naturalHeight
+    tree.nodes.forEach((n, k) => {
+      const xy = flat[k]
+      const uv: number[] = []
+      for (let i = 0; i < xy.length; i += 2) {
+        const { u, v } = netPointUv(xy[i], xy[i + 1], photo, aspect)
+        uv.push(u, v)
+      }
+      ;(n.mesh.geometry as THREE.BufferGeometry).setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    })
+    if (theme.photo === 'glow') {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0)
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      glowPixels(data.data, theme.looks.normal.opacity)
+      ctx.putImageData(data, 0, 0)
+      texture = new THREE.CanvasTexture(canvas)
+    } else {
+      texture = new THREE.Texture(img)
+      texture.needsUpdate = true
+    }
+    texture.colorSpace = THREE.SRGBColorSpace
+    for (const m of materials.flat()) {
+      m.map = texture
+      if (theme.photo === 'glow') {
+        // 면 색(facePalette)은 그대로 두고 투명도를 사진이 정한다: 면은 평소처럼 형형색색 반투명, 선·글자만 진하게 (viewer.md 토큰 photo)
+        m.transparent = true
+        m.opacity = 1
+        m.depthWrite = false
+      } else m.color.set('#ffffff') // 종이 테마는 사진 색 그대로
+      m.needsUpdate = true
+    }
+  }
+  img.src = photo.src
+  return () => {
+    gone = true
+    texture?.dispose()
+  }
+}
+
+function polyhedronStage(scene: ShapeScene, theme: Theme3D, photo?: NetPhoto): Stage | null {
   const poly = polyhedronOf(scene)
   if (!poly) return null
   const normal = theme.looks.normal
@@ -128,6 +194,8 @@ function polyhedronStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   tree.nodes.forEach((n) => (n.mesh.material = faceMaterials[n.face]))
   const lineMaterial = thick ? new LineMaterial({ color: normal.edge, linewidth: 2 }) : null
   const lines = lineMaterial ? thickEdges(tree, lineMaterial) : []
+  // 학습지 사진 (grid 전개도만, 책 장면과 같은 조건): 눕히기 전에 펼친 좌표를 잰다
+  const undress = photo && scene.net.layout === 'grid' ? dressWithPhoto(tree, faceMaterials, photo, theme) : null
 
   // 책 장면과 같은 자세: 전개도를 바닥에 눕히고, 순서가 없는 도형은 앞에서 먼 면부터 접는다
   const yaw = poly.foldOrder ? 0 : facingYaw(tree, poly, VIEW_DIR)
@@ -155,6 +223,7 @@ function polyhedronStage(scene: ShapeScene, theme: Theme3D): Stage | null {
       object.removeFromParent()
       lines.forEach((l) => l.geometry.dispose())
       lineMaterial?.dispose()
+      undress?.()
       faceMaterials.flat().forEach((m) => m.dispose())
       edgeMaterial.dispose()
       disposeFaceTree(tree)
@@ -206,6 +275,7 @@ function roundStage(scene: ShapeScene, theme: Theme3D): Stage | null {
   }
 }
 
-export function buildStage(scene: ShapeScene, theme: Theme3D): Stage | null {
-  return polyhedronStage(scene, theme) ?? roundStage(scene, theme)
+// options.photo: 면에 입힐 학습지 사진 (책 장면 ViewerProps.photo 와 같은 값, grid 전개도일 때만 쓴다)
+export function buildStage(scene: ShapeScene, theme: Theme3D, options: { photo?: NetPhoto } = {}): Stage | null {
+  return polyhedronStage(scene, theme, options.photo) ?? roundStage(scene, theme)
 }

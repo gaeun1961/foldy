@@ -1,3 +1,4 @@
+import { polyhedronOf } from './polyhedra'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import type { BookResult } from './bookScene'
 import type { Lesson } from './lessons/data'
@@ -24,6 +25,13 @@ export interface ViewerProps {
   pageNumbers?: [number, number] // 책 아래 귀퉁이 왼쪽·오른쪽 쪽 번호 (없으면 찍지 않음, UI가 차례에 맞춰 정한다)
   onRouteChoices?: (routes: Line<PolyhedronPoint>[][]) => void // 방금 그은 선의 길 후보 (첫째가 그은 길). 같은 면 두 점이면 그 면 위 직선 + 다른 면들을 지나는 길
   photo?: NetPhoto // 따라 그린 학습지 사진. 전개도 grid 일 때만 책 페이지에 깐다 (viewer.md "책 장면")
+  // 여러 도형 문제 (worksheets.md 여러 도형): 모든 도형(①부터). scene 은 그중 galleryIndex 번째이고 그것만 접힌다.
+  // 나머지는 책 오른쪽 쪽에 pageSlots 칸으로 펼친 채 놓이고(번호판 ①②…), 누르면 onPickGallery. 다면체(면 트리)만
+  gallery?: ShapeScene[]
+  galleryIndex?: number
+  onPickGallery?: (index: number) => void
+  onReady?: () => void // 도형을 만들고 첫 프레임을 그렸을 때 (다시 만들 때마다). 사진을 읽은 뒤 UI가 빈 책을 걷는 때 (viewer.md ViewerProps)
+  drawIn?: number // 펜으로 그려 내기: 이전에 그린 값과 다를 때 도형을 만들면 펜이 전개도와 왼쪽 쪽 글을 그려 낸다 (viewer.md "펜으로 그려 내기")
   onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
   faceMarking?: boolean // 면 표시 모드: 면을 누르면 마주 보는 면 보기 대신 onFaceMark (기본 false)
   onFaceMark?: (netFace: number) => void // 면 표시 모드에서 누른 면의 scene.net.faces 인덱스 (학습지 전개도 grid 만)
@@ -51,3 +59,8 @@ export { RELATION_COLORS } from './lessons/edgeRelationsLayout'
 export { STAIR_LAYERS } from './lessons/volumeLayout'
 export { HologramViewer, type HologramProps } from './HologramViewer'
 export { stageSupported as hologramSupported } from './stage' // 아크릴 피라미드 홀로그램 (viewer.md "홀로그램"). 무대가 그리는 도형이면 홀로그램도 된다
+export { ITEM_LABELS, MAX_ITEMS } from './pageSlots' // 여러 도형 번호·최대 개수 (ui 가 viewer 안 파일을 바로 부르지 않게)
+// 여러 도형을 책에 같이 놓을 수 있는 도형인지 (다면체, 면 트리). 원기둥·원뿔·구는 아직 못 놓는다 (viewer.md "여러 도형")
+export function canLayTogether(scene: ShapeScene) {
+  return polyhedronOf(scene) !== null
+}
