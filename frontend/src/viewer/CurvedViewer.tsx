@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
-import { buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
+import { bookGlide, buildBook, DESK_COLOR, VIEW_DIR } from './bookScene.ts'
 import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape } from './curved.ts'
 import { textSprite } from './lessons/draw.ts'
 import { buildCurvedLesson } from './lessons/curvedLessons.ts'
@@ -16,12 +16,13 @@ import { PAPER } from './theme.ts'
 
 // 곡면 도형(원기둥·원뿔·구) 화면 (docs/specs/viewer.md "곡면 도형"): 같은 책 위에서 옆면을 말고 밑면 원을 접는다. 구는 전개도가 없어 입체만.
 // 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 scene.lines 그대로 그리고, 화면에서 긋는 입력은 없다
-export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers, onReady }: ViewerProps) {
+export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers, fromContents = false, onReady }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef({ unfold, showMatchingEdges, showVertexLabels, lesson })
   const applyRef = useRef<(() => void) | null>(null)
   const pageRef = useRef({ pageText, pageResult, pageMenu, pageNumbers })
   const menuRef = useRef(onPageMenu)
+  const fromRef = useRef(fromContents)
   const rebuildBookRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
@@ -33,6 +34,9 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     menuRef.current = onPageMenu
     readyRef.current = onReady
   }, [onPageMenu, onReady])
+  useEffect(() => {
+    fromRef.current = fromContents
+  }, [fromContents])
   useEffect(() => {
     pageRef.current = { pageText, pageResult, pageMenu, pageNumbers }
   }, [pageText, pageResult, pageMenu, pageNumbers])
@@ -113,7 +117,8 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     controls.maxPolarAngle = Math.PI / 2 - 0.05
     camera.position.copy(VIEW_DIR)
 
-    // 왼쪽 쪽에 메뉴·결과가 있어서 카메라는 늘 왼쪽 쪽 글까지 담는다
+    // 왼쪽 쪽에 메뉴·결과가 있어서 카메라는 늘 왼쪽 쪽 글까지 담는다. 차례에서 넘어왔으면 빈 책 구도에서 다가간다(glide)
+    let glide: ReturnType<typeof bookGlide> | null = null
     const resize = () => {
       const range = (bookRange ?? bounds).clone().expandByPoint(book.textCorner)
       const center = range.getCenter(new THREE.Vector3())
@@ -130,10 +135,12 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
       camera.position.copy(controls.target).addScaledVector(dir, distance)
       // 안개는 책 너머 책상만 흐리게: 설명으로 카메라가 멀어져도 책이 뿌옇게 되지 않는다
       world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6)
+      glide?.sync()
     }
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
+    if (fromRef.current) glide = bookGlide(book, camera, controls)
 
     let lessonObject: LessonObject | null = null
     let lessonKey: string | null = null
@@ -185,7 +192,8 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     renderer.domElement.addEventListener('pointermove', onMove)
 
     let told = false // 첫 프레임을 그렸다고 알렸는가 (onReady)
-    renderer.setAnimationLoop(() => {
+    renderer.setAnimationLoop((now) => {
+      if (glide && !glide.step(now)) glide = null
       controls.update()
       renderer.render(world, camera)
       if (!told) {

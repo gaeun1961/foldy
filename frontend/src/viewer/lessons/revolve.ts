@@ -14,11 +14,11 @@ import { cutAngle, heightOf, profileOf, reachOf, sectionName, sectionStrips, typ
 export { heightOf, profileOf, sectionName, sectionStrips, type CutKind }
 
 const SEGMENTS = 96
-const AXIS = '#e03131'
-const FLAG = '#ffb74d'
-const SWEPT = '#b9dcff'
-const INK = '#3c4048'
-const GAP_COLOR = '#868e96'
+const AXIS = '#2f2a25' // 굵은 잉크: r 의 빨강과 구분
+const FLAG = '#f8df8e'
+const SWEPT = '#e9e2d3'
+const INK = '#2f2a25'
+const GAP_COLOR = '#8c8680'
 
 const latheOf = (size: RevolutionSize) => new THREE.LatheGeometry(profileOf(size).map(([x, y]) => new THREE.Vector2(x, y)), SEGMENTS, Math.PI / 2)
 
@@ -61,8 +61,8 @@ export function buildRevolveLesson(size: RevolutionSize): LessonObject {
 
   // 길이: 공식 글자와 같은 색. 돌린 뒤에도 처음 자리에 남는다
   const sprites: ReturnType<typeof textSprite>[] = []
-  const label = (text: string, x: number, y: number, z = 0, width = span * 0.26) => {
-    const s = textSprite(text, width)
+  const label = (text: string, x: number, y: number, z = 0, color?: string, width = span * 0.26) => {
+    const s = textSprite(text, width, false, color)
     s.sprite.position.set(x, y, z)
     group.add(s.sprite)
     sprites.push(s)
@@ -75,24 +75,24 @@ export function buildRevolveLesson(size: RevolutionSize): LessonObject {
   }
   const low = span * 0.004
   measure([gap, low], [gap + w, low], LENGTH_COLOR.r)
-  label(lengthText(w), gap + w / 2, 0, span * 0.14)
-  label('회전축', 0, h + span * 0.38, 0, span * 0.34)
+  label(lengthText(w), gap + w / 2, 0, span * 0.14, LENGTH_COLOR.r)
+  label('회전축', 0, h + span * 0.38, 0, undefined, span * 0.34)
   if (gap > 0) {
     measure([0, low], [gap, low], GAP_COLOR)
     label(lengthText(gap), gap / 2, 0, -span * 0.12)
   }
   if (figure === 'rectangle') {
     measure([gap + w, 0], [gap + w, h], LENGTH_COLOR.h)
-    label(lengthText(h), gap + w + span * 0.16, h / 2)
+    label(lengthText(h), gap + w + span * 0.16, h / 2, 0, LENGTH_COLOR.h)
   }
   if (figure === 'right-triangle' || figure === 'trapezoid') {
     measure([gap + w, 0], [gap + (figure === 'trapezoid' ? top : 0), h], LENGTH_COLOR.l)
     if (gap > 0) measure([gap, 0], [gap, h], LENGTH_COLOR.h)
-    label(lengthText(h), gap > 0 ? gap - span * 0.12 : -span * 0.16, h / 2)
+    label(lengthText(h), gap > 0 ? gap - span * 0.12 : -span * 0.16, h / 2, 0, LENGTH_COLOR.h)
   }
   if (figure === 'trapezoid') {
     measure([gap, h], [gap + top, h], LENGTH_COLOR.r)
-    label(lengthText(top), gap + top / 2, h + span * 0.08)
+    label(lengthText(top), gap + top / 2, h + span * 0.08, 0, LENGTH_COLOR.r)
   }
 
   // 다 돌리면 둘레 선으로 입체를 또렷하게
@@ -160,7 +160,7 @@ export function buildRevolutionSectionLesson(size: RevolutionSize, kind: CutKind
   group.add(new THREE.Mesh(own(latheOf(size)), own(new THREE.MeshStandardMaterial({ color: SWEPT, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }))))
   const a = cutAngle(kind)
   const [c, s] = [Math.cos(a), Math.sin(a)]
-  const planeMaterial = own(new THREE.MeshBasicMaterial({ color: '#74c0fc', transparent: true, side: THREE.DoubleSide, depthWrite: false }))
+  const planeMaterial = own(new THREE.MeshBasicMaterial({ color: '#8c8680', transparent: true, side: THREE.DoubleSide, depthWrite: false }))
   // 평면: 기운 방향 d 와 앞뒤 방향 z 로 펼친다
   const [planeU, planeV] = kind === 'vertical' ? [h + span * 0.3, 2 * reach + span * 0.5] : [(2 * reach) / c + span * 0.4, 2 * reach + span * 0.5]
   const plane = new THREE.Mesh(own(new THREE.PlaneGeometry(planeV, planeU)), planeMaterial)
@@ -215,7 +215,7 @@ export function buildRevolutionSectionLesson(size: RevolutionSize, kind: CutKind
     nameLabel = null
     const name = sectionName(size, kind, cut)
     if (name) {
-      nameLabel = textSprite(name, span * (name.length > 5 ? 0.5 : 0.28), name.length > 5, '#6741d9')
+      nameLabel = textSprite(name, span * (name.length > 5 ? 0.5 : 0.28), name.length > 5, '#2f2a25')
       nameLabel.sprite.position.set(0, kind === 'vertical' ? h / 2 : y0 + span * 0.04, span * 0.04)
       nameLabel.sprite.visible = shown >= 1
       group.add(nameLabel.sprite)
@@ -276,7 +276,7 @@ export function buildRevolutionNetLesson(size: RevolutionSize): LessonObject {
   const L = Math.hypot(R, cone.height)
   const extent = 2 * L + 2 * R
   const face = (color: string) => own(new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }))
-  const [baseMaterial, sideMaterial] = [face('#ffd982'), face(SWEPT)]
+  const [baseMaterial, sideMaterial] = [face('#f8df8e'), face(SWEPT)]
   group.add(new THREE.Mesh(own(new THREE.CircleGeometry(R, SEGMENTS).rotateX(-Math.PI / 2).translate(0, extent * 0.001, 0)), baseMaterial))
   const live = (index: number[], count: number, material: THREE.Material) => {
     const geometry = own(new THREE.BufferGeometry())
@@ -307,7 +307,7 @@ export function buildRevolutionNetLesson(size: RevolutionSize): LessonObject {
     const flat: Point = [flatCenter[0] + e * r * Math.cos(a), extent * 0.001, flatCenter[2] + e * r * Math.sin(a)]
     return [rolled[0] + (flat[0] - rolled[0]) * s, rolled[1] + (flat[1] - rolled[1]) * s, rolled[2] + (flat[2] - rolled[2]) * s]
   }
-  const pink = own(new THREE.MeshBasicMaterial({ color: '#c2255c' }))
+  const pink = own(new THREE.MeshBasicMaterial({ color: '#e0442e' }))
   const lines = [
     { l: thickLine(SEGMENTS, extent * 0.005, pink), points: (s: number) => range(SEGMENTS).map((i) => at(i / SEGMENTS, 0, s)) },
     { l: thickLine(SEGMENTS, extent * 0.005, pink), points: (_s: number) => range(SEGMENTS).map((i): Point => [R * Math.cos((i / SEGMENTS) * 2 * Math.PI), extent * 0.002, R * Math.sin((i / SEGMENTS) * 2 * Math.PI)]) },

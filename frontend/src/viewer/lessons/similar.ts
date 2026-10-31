@@ -7,19 +7,19 @@ import { similarLayout, similarSteps } from './similarLayout.ts'
 // 닮음 설명 (TODO-29, 바로 세운 입체). 원래 직육면체 옆에 k배 직육면체 틀을 두고
 // ① 길이: k배 모서리에 원래 모서리를 k개 이어 붙인다 ② 한 면: k배 앞면에 원래 앞면을 k × k 장 깐다
 // ③ 부피: 원래 직육면체를 k³ 개 한 층씩 채운다. 넓이·부피는 "몇 배"를 계산 대신 세게 한다 (리포트 T29 참고 자료)
-const PIECE = ['#f08c00', '#1c7ed6'] // 이어 붙이는 원래 모서리: 번갈아 두 색 (몇 개인지 세기 쉽게)
-const TILE = '#ffd982' // 원래 앞면, 깐 면
-const ACTIVE = '#ffe8a8' // 지금 채우는 층 (부피 설명과 같은 연한 노랑)
+const PIECE = ['#e0442e', '#2f6fd0'] // 이어 붙이는 원래 모서리: 번갈아 두 색 (몇 개인지 세기 쉽게)
+const TILE = '#f8df8e' // 원래 앞면, 깐 면
+const ACTIVE = '#f8df8e' // 지금 채우는 층 (부피 설명과 같은 연한 노랑)
 
 export function buildSimilarLesson(size: BoxSize, k: number, radius: number): LessonObject {
   const L = similarLayout(size, k)
   const [w, h, d] = L.size
   const r = radius * 0.012
   const group = new THREE.Group()
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
+  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#2f2a25' })
   const pieceMaterials = PIECE.map((color) => new THREE.MeshStandardMaterial({ color }))
   const tileMaterial = new THREE.MeshStandardMaterial({ color: TILE, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
-  const boxMaterials = { normal: new THREE.MeshStandardMaterial({ color: '#ffffff' }), active: new THREE.MeshStandardMaterial({ color: ACTIVE }) }
+  const boxMaterials = { normal: new THREE.MeshStandardMaterial({ color: '#faf6ee' }), active: new THREE.MeshStandardMaterial({ color: ACTIVE }) }
   const materials = [edgeMaterial, ...pieceMaterials, tileMaterial, boxMaterials.normal, boxMaterials.active]
 
   // k배 직육면체의 틀 (모서리만)

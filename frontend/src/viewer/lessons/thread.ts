@@ -9,7 +9,7 @@ import type { LessonObject } from './index.ts'
 import type { PiMode } from './lengthLabels.ts'
 
 const COUNT = 96
-const THREAD = '#7048e8' // 밑면 둘레(분홍), 높이(파랑)와 구분되게
+const THREAD = '#2e9e4f' // 밑면 둘레(분홍), 높이(파랑)와 구분되게
 
 export function buildThreadLesson(size: RoundSize, pi: PiMode, valueLabel: string): LessonObject {
   const base = buildCurvedSurfaceLesson('cylinder', size, pi)

@@ -71,7 +71,7 @@ export const LESSON_HINT: Record<LessonKind, string> = {
   'edge-relations': '빨간 모서리와 다른 모서리는 어떤 사이일까요? 다른 모서리를 눌러 바꿀 수 있어요',
   similar: '모서리를 늘리면 겉넓이와 부피는 몇 배가 될까요?',
   counts: '면, 모서리, 꼭짓점을 하나씩 켜며 세어 볼까요',
-  revolve: '이 평면도형을 빨간 축으로 돌리면 어떤 입체가 될까요?',
+  revolve: '이 평면도형을 굵은 축으로 돌리면 어떤 입체가 될까요?',
   section: '입체를 평면으로 자르면 어떤 모양이 나올까요?',
   'revolve-net': '옆면을 펴면 어떤 모양일까요?',
   'revolve-area': '',

@@ -365,7 +365,7 @@ for (let k = 0; k < NET_VARIANTS.length; k++) {
   check(sectionName(figures[0], 'tilted', 0.5) === '타원' && sectionName(figures[0], 'tilted', 0.05) === '타원이 잘린 모양' && sectionName(figures[1], 'horizontal', 1) === null && sectionName(hollow, 'vertical', 0.5) === '떨어진 직사각형 두 개', `단면 이름 ${sectionName(figures[0], 'tilted', 0.05)}`)
   const coneScene = round('cone', 3, 4)
   check(lessonTabs(coneScene).join() === 'surface-area,volume,revolve,section' && lessonStepCount(coneScene, 'revolve') === 1 && lessonGrade({ kind: 'revolve', progress: 0 }, coneScene) === '중1', '회전체 탭')
-  check(lessonHint({ kind: 'revolve', progress: 0.5 }, coneScene) === null && lessonHint({ kind: 'revolve', progress: 1 }, coneScene) === '직각삼각형을 한 바퀴 돌렸더니 원뿔이 됐어요' && lessonHint({ kind: 'revolve', progress: 0 }, coneScene)!.includes('빨간 축') && lessonSummary(coneScene, 'revolve') === null, '회전체 안내')
+  check(lessonHint({ kind: 'revolve', progress: 0.5 }, coneScene) === null && lessonHint({ kind: 'revolve', progress: 1 }, coneScene) === '직각삼각형을 한 바퀴 돌렸더니 원뿔이 됐어요' && lessonHint({ kind: 'revolve', progress: 0 }, coneScene)!.includes('굵은 축') && lessonSummary(coneScene, 'revolve') === null, '회전체 안내')
   check(lessonStepCount({ shape: 'prism', size: { sides: 4, edge: 3, height: 5 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene, 'revolve') === 0, '각기둥에는 없다')
   check(lessonHint({ kind: 'revolve', progress: 1 }, { shape: 'sphere', size: { radius: 6 }, vertexLabels: [], lines: [], net: { layout: 'default' } } as unknown as ShapeScene) === '반원을 한 바퀴 돌렸더니 구가 됐어요', '구 조사')
 }

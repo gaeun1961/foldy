@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { setMatColor } from '../viewer'
 import type { FoldMode } from './FoldControls'
 import { ViewOptions, type ViewOptionValues } from './ViewOptions'
 
@@ -13,11 +15,27 @@ interface Props {
 }
 
 export function ViewMenu({ lessonOn, steps, mode, onModeChange, values, onValues }: Props) {
+  const [mat, setMat] = useState('#4d4945') // 매트 밝기 비교용 임시 토글 (ui.md 컨셉). 정해지면 지운다
   if (lessonOn) return null // 공식 설명 중에는 고를 것이 없다 (빠르기·과정은 아래 바에)
   return (
     <details className="view-menu">
       <summary>보기</summary>
       <div className="view-popup">
+        <div className="toggle-row" role="group" aria-label="매트 밝기">
+          {([['#4d4945', '진회색 매트'], ['#8c8680', '연회색 매트']] as const).map(([color, label]) => (
+            <button
+              key={color}
+              type="button"
+              aria-pressed={mat === color}
+              onClick={() => {
+                setMat(color)
+                setMatColor(color)
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {steps > 0 && (
           <div className="toggle-row" role="group" aria-label="접는 방식">
             {(['step', 'all'] as const).map((m) => (

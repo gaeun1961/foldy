@@ -10,10 +10,10 @@ import { diagonalLayout, shortestRoutes } from './pythagorasLayout.ts'
 
 // 피타고라스 설명 (TODO-30). 단계마다 하나만 자라거나 나타나고(ui.md 친절한 설명 원칙), 직각삼각형마다 직각 표시를 붙인다.
 // 앞 단계의 빗변은 같은 색으로 남겨서 다음 삼각형의 한 변이 되는 것을 보인다
-const DIAGONAL = '#f08c00' // 밑면 대각선 (2단계에서도 같은 색)
-const SPACE = '#1c7ed6' // 입체 대각선
-const LEG = '#495057' // 직각삼각형의 다른 변 (모서리)
-const ROUTE_COLORS = ['#e8590c', '#1c7ed6'] // 최단 거리 후보: 긴 길, 짧은 길
+const DIAGONAL = '#8dcba0' // 밑면 대각선: 초록을 연하게 (지금 설명 중인 입체 대각선만 진하게)
+const SPACE = '#2e9e4f' // 입체 대각선
+const LEG = '#2f2a25' // 직각삼각형의 다른 변 (모서리)
+const ROUTE_COLORS = ['#e0442e', '#2e9e4f'] // 최단 거리 후보: 긴 길, 짧은 길 (대각선처럼 초록)
 
 function triangle(points: THREE.Vector3[], material: THREE.Material) {
   return new THREE.Mesh(new THREE.BufferGeometry().setFromPoints(points), material)

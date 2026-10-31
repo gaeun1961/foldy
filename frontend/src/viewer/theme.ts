@@ -28,23 +28,24 @@ export interface Theme3D {
 
 const look = (outside: string, inside: string, edge: string, opacity = 1): Look => ({ outside, inside, edge, opacity })
 
-// 책 장면 (docs/specs/ui.md 색 기준). 지금 화면 값 그대로
+// 책 장면 (docs/specs/ui.md "컨셉: 책상 위에서 색연필로 그린 책"): 색연필 네 색 + 잉크 + 종이
+const INK = '#2f2a25'
 export const PAPER: Theme3D = {
   name: 'paper',
   looks: {
-    normal: look('#ffffff', '#e3f1fb', '#3c4048'), // 면 바깥 흰색, 안쪽 아주 연한 하늘색, 모서리 진한 회색
-    active: look('#ffe8a8', '#ffd982', '#3c4048'), // 단계별 접기에서 지금 접히는 면
+    normal: look('#faf6ee', '#efe9dd', INK), // 면 바깥 미색, 안쪽 조금 진한 미색, 모서리 잉크
+    active: look('#f8df8e', '#f8df8e', INK), // 단계별 접기에서 지금 접히는 면: 노랑 색연필을 연하게
     faded: look('#f1eee8', '#ebe8e2', '#b9bdc4'), // 단계별 접기의 나머지 면
-    ghost: look('#ffffff', '#e3f1fb', '#3c4048', 0.12), // 설명 모드: 면을 거의 투명하게
-    filled: look('#cfe3c4', '#cfe3c4', '#3c4048'), // 학습지에서 색칠한 면 (grid fill)
-    overlap: look('#ffc9c9', '#ffc9c9', '#3c4048'), // 잘못된 전개도에서 겹친 면
-    opposite: look('#e5dbff', '#d9ccff', '#3c4048'), // 누른 면과 마주 보는 면
+    ghost: look('#faf6ee', '#efe9dd', INK, 0.12), // 설명 모드: 면을 거의 투명하게
+    filled: look('#d9d2c3', '#d9d2c3', INK), // 학습지에서 색칠한 면 (grid fill)
+    overlap: look('#ffc9c9', '#ffc9c9', INK), // 잘못된 전개도에서 겹친 면 (오류 표시만 예외)
+    opposite: look('#f8df8e', '#f8df8e', INK), // 누른 면과 마주 보는 면
   },
   facePalette: null,
   edgeWidth: 0,
-  pairs: ['#e5484d', '#f76b15', '#e2a400', '#30a46c', '#12a594', '#3e63dd', '#8e4ec6'],
-  curved: { seam: '#e5484d', rim: '#3e63dd', plain: '#3c4048' }, // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
-  sphereRing: '#3c4048',
+  pairs: ['#e0442e', '#2f6fd0', '#2e9e4f', '#f5c518', INK], // 색연필 네 색 + 잉크. 쌍이 더 많으면 같은 색의 굵은 선
+  curved: { seam: '#e0442e', rim: '#2f6fd0', plain: INK }, // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
+  sphereRing: INK,
   photo: 'paper',
 }
 
