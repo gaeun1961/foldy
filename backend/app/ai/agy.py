@@ -49,6 +49,7 @@ class _Proc:
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
+            errors="replace",  # 출력이 utf-8 이 아니어도 예외 대신 (사진 세션 요청)
         )
 
     def fresh(self) -> bool:
