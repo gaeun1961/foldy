@@ -31,6 +31,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 ## 모바일 웹 (시기 미정)
 
 휴대폰으로 학습지를 찍어 쓰는 작업 M1~M5. 계획·변경 지도·합칠 때 규칙은 [specs/mobile.md](../specs/mobile.md). 시기가 정해지면 이슈와 TODO 파일을 만든다.
+다음 단계 W1~W4(팀 테스트용 인식 엔진 `agy`, 보관함, 인식 대기 화면)는 [specs/worksheets.md](../specs/worksheets.md).
 
 ## 나중에 (3차)
 
