@@ -1,18 +1,16 @@
 // 아크릴 피라미드 홀로그램 화면 (제안, 팀 합의 전: docs/proposals/hologram/spec.md).
-// 도형을 앞·오른쪽·뒤·왼쪽 카메라 4대로 그려 각자의 텍스처에 담고, 화면 가운데 둘레의 사다리꼴 4칸에 붙인다.
-// 접기는 책 장면과 같은 면 트리(faceTree.ts)라서 같은 전개도가 같은 순서로 접힌다. 배치 계산은 holoLayout.ts
+// 무대(stage.ts)가 만든 도형 하나를 앞·오른쪽·뒤·왼쪽 카메라 4대로 그려 각자의 텍스처에 담고,
+// 화면 가운데 둘레의 사다리꼴 4칸에 붙인다. 홀로그램은 도형 종류를 모른다: 무대가 주는 물체·범위·접기만 쓴다.
+// 색은 3D 디자인 토큰 HOLOGRAM (theme.ts), 배치 계산은 holoLayout.ts
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { Line2 } from 'three/examples/jsm/lines/Line2.js'
-import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
-import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import type { ShapeScene } from '../shared/types.ts'
-import { applyUnfold, buildFaceTree, disposeFaceTree, facingYaw, farFirstOrder, layOnFloor, stepUnfold, type FaceTree } from './faceTree.ts'
 import { fitDistance, regions, uvOf, type Region } from './holoLayout.ts'
-import { foldOrderOf, polyhedronOf, type Polyhedron } from './polyhedra.ts'
+import { buildStage } from './stage.ts'
+import { HOLOGRAM } from './theme.ts'
 
 export interface HologramProps {
-  scene: ShapeScene // 다면체만 (hologramSupported). 바뀌면 다시 만든다
+  scene: ShapeScene // 무대가 그릴 수 있는 도형 (hologramSupported). 바뀌면 다시 만든다
   center?: number // 가운데 정사각형 한 변 / 화면 짧은 변 (피라미드 꼭지 크기, 기본 0.2)
   elevation?: number // 카메라 높이각 (도, 기본 20). 펼칠수록 45°까지 올라간다
   mirror?: boolean // 좌우 반전 (기본 false). 실물에서 거꾸로 보이면 켠다
@@ -22,95 +20,25 @@ export interface HologramProps {
   onTap?: () => void // 화면을 누르면 (설정 열기)
 }
 
-const FACE_COLORS = ['#5ad1ff', '#ffd25a', '#ff7aa8', '#7dff9a', '#b18cff', '#ff9f5a']
 const FOV = 35
-// 반복: 펼친 채 → 한 면씩 접기 → 접힌 채 → 한 번에 펼치기 (초)
+// 반복: 펼친 채 → 접기 (단계가 있으면 한 면씩) → 접힌 채 → 한 번에 펼치기 (초)
 const HOLD_OPEN = 1.5
-const STEP = 0.9
+const STEP = 0.9 // 면 하나 접는 시간
+const FOLD_ALL = 3 // 단계가 없는 도형(원기둥·원뿔)을 한 번에 접는 시간
 const HOLD_CLOSED = 4
 const OPEN = 1.5
 const smooth = (t: number) => t * t * (3 - 2 * t)
 const pixelRatio = () => Math.min(window.devicePixelRatio, 2) // 휴대폰은 4번 그리므로 2배까지만
 
-type Shape = { tree: FaceTree; poly: Polyhedron; order: number[]; center: THREE.Vector3; rSolid: number; rAll: number; dispose: () => void }
-
-// 1px LineLoop(buildFaceTree 가 붙인 모서리) 대신 굵은 선. 작은 피라미드에서도 보이게
-function thickEdges(tree: FaceTree, material: LineMaterial) {
-  const lines: Line2[] = []
-  for (const n of tree.nodes) {
-    for (const child of [...n.mesh.children]) {
-      if (!(child instanceof THREE.LineLoop)) continue
-      const p = (child.geometry as THREE.BufferGeometry).getAttribute('position')
-      const points: number[] = []
-      for (let i = 0; i <= p.count; i++) points.push(p.getX(i % p.count), p.getY(i % p.count), p.getZ(i % p.count))
-      const line = new Line2(new LineGeometry().setPositions(points), material)
-      n.mesh.add(line)
-      child.visible = false
-      lines.push(line)
-    }
-  }
-  return lines
-}
-
-function buildShape(scene: ShapeScene, edgeMaterial: LineMaterial): Shape | null {
-  const poly = polyhedronOf(scene)
-  if (!poly) return null
-  // 면마다 색. 바닥에 펼친 전개도는 위에서 안쪽 면이 보이므로 안쪽도 같은 색 (조금 옅게)
-  const look = (i: number, side: THREE.Side, opacity: number) =>
-    new THREE.MeshBasicMaterial({ color: FACE_COLORS[i % FACE_COLORS.length], transparent: true, opacity, side, depthWrite: false })
-  const faceMaterials = poly.faces.map((_, i) => [look(i, THREE.FrontSide, 0.35), look(i, THREE.BackSide, 0.25)])
-  const hiddenLoop = new THREE.LineBasicMaterial({ visible: false })
-  const tree = buildFaceTree(poly, [faceMaterials[0][0], faceMaterials[0][1]], hiddenLoop)
-  tree.nodes.forEach((n) => (n.mesh.material = faceMaterials[n.face]))
-  const lines = thickEdges(tree, edgeMaterial)
-
-  // 책 장면과 같은 자세: 전개도를 바닥에 눕히고, 순서가 없는 도형은 앞(+z)에서 먼 면부터 접는다
-  const front = new THREE.Vector3(0, 0.6, 1)
-  const yaw = poly.foldOrder ? 0 : facingYaw(tree, poly, front)
-  layOnFloor(tree, poly, yaw)
-  const order = poly.foldOrder ? foldOrderOf(poly) : farFirstOrder(tree, front)
-
-  // 돌리는 축 = 다 접은 입체의 가운데. 접는 동안 차지하는 범위를 미리 재서 카메라 거리를 정한다
-  applyUnfold(tree, 0)
-  tree.root.updateMatrixWorld(true)
-  const center = new THREE.Box3().expandByObject(tree.root).getCenter(new THREE.Vector3())
-  tree.root.position.x -= center.x
-  tree.root.position.z -= center.z
-  center.set(0, center.y, 0)
-  // 세로축으로 돌아도 들어가는 반지름: 수평은 축에서 가장 먼 곳, 세로는 높이의 절반
-  const radiusOf = (box: THREE.Box3) => {
-    const far = Math.max(...[box.min.x, box.max.x].flatMap((x) => [box.min.z, box.max.z].map((z) => Math.hypot(x, z))))
-    return Math.hypot(far, (box.max.y - box.min.y) / 2)
-  }
-  tree.root.updateMatrixWorld(true)
-  const rSolid = radiusOf(new THREE.Box3().expandByObject(tree.root))
-  const all = new THREE.Box3()
-  const samples = 8 * order.length
-  for (let k = 0; k <= samples; k++) {
-    applyUnfold(tree, stepUnfold(order, poly.faces.length, 1 - k / samples))
-    tree.root.updateMatrixWorld(true)
-    all.expandByObject(tree.root)
-  }
-
-  return {
-    tree,
-    poly,
-    order,
-    center,
-    rSolid,
-    rAll: radiusOf(all),
-    dispose: () => {
-      lines.forEach((l) => l.geometry.dispose())
-      faceMaterials.flat().forEach((m) => m.dispose())
-      hiddenLoop.dispose()
-      disposeFaceTree(tree)
-    },
-  }
+// 세로축으로 돌아도 들어가는 반지름: 수평은 축(원점)에서 가장 먼 곳, 세로는 높이의 절반
+function spinRadius(box: THREE.Box3) {
+  const far = Math.max(...[box.min.x, box.max.x].flatMap((x) => [box.min.z, box.max.z].map((z) => Math.hypot(x, z))))
+  return Math.hypot(far, (box.max.y - box.min.y) / 2)
 }
 
 export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = false, spin = true, fold = true, showGuide = true, onTap }: HologramProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  // 설정은 다시 만들지 않고 다음 프레임부터 반영한다 (center·mirror 는 칸을 다시 배치)
+  // 설정은 다시 만들지 않고 다음 프레임부터 반영한다 (center·mirror·showGuide 는 칸을 다시 배치)
   const options = useRef({ center, elevation, mirror, spin, fold, showGuide })
   const relayout = useRef<(() => void) | null>(null)
   const restart = useRef<(() => void) | null>(null)
@@ -130,13 +58,16 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
     container.appendChild(renderer.domElement)
 
     const world = new THREE.Scene()
-    const spinner = new THREE.Group() // 세로축으로 돈다. 원점 = 다 접은 입체의 가운데 (바닥 높이)
+    const spinner = new THREE.Group() // 세로축으로 돈다. 무대의 원점이 곧 돌리는 축
     world.add(spinner)
     const cameras = [0, 1, 2, 3].map(() => new THREE.PerspectiveCamera(FOV, 1, 0.01, 1000))
-    const edgeMaterial = new LineMaterial({ color: 0xffffff, linewidth: 3 })
 
-    const shape = buildShape(scene, edgeMaterial)
-    if (shape) spinner.add(shape.tree.root)
+    const stage = buildStage(scene, HOLOGRAM)
+    if (stage) spinner.add(stage.object)
+    const solidY = stage ? stage.solid.getCenter(new THREE.Vector3()).y : 0 // 다 접은 입체의 가운데 높이
+    const target = new THREE.Vector3()
+    const rSolid = stage ? spinRadius(stage.solid) : 1
+    const rAll = stage ? spinRadius(stage.all) : 1
 
     // 4칸 합성 장면 (화면 픽셀 좌표, 가운데 원점, y 위)
     const composite = new THREE.Scene()
@@ -187,8 +118,7 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
         camera.aspect = tw / th
         camera.updateProjectionMatrix()
       }
-      edgeMaterial.resolution.set(tw, th)
-      edgeMaterial.linewidth = Math.max(2, (L * pixelRatio()) / 220)
+      stage?.resize(tw, th)
 
       if (o.showGuide) {
         composite.add(
@@ -203,18 +133,19 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
 
     let cycleStart = performance.now()
     restart.current = () => (cycleStart = performance.now())
-    const unfoldAt = (now: number): { values: number | number[]; s: number } => {
-      if (!shape || !options.current.fold) return { values: 0, s: 0 }
-      const folding = STEP * shape.order.length
+    // 지금 펼침 값과 접는 방식
+    const unfoldAt = (now: number): { s: number; mode: 'all' | 'step' } => {
+      if (!stage || !stage.foldable || !options.current.fold) return { s: 0, mode: 'all' }
+      const stepped = stage.steps > 0
+      const folding = stepped ? STEP * stage.steps : FOLD_ALL
       const t = ((now - cycleStart) / 1000) % (HOLD_OPEN + folding + HOLD_CLOSED + OPEN)
-      if (t < HOLD_OPEN) return { values: 1, s: 1 }
+      if (t < HOLD_OPEN) return { s: 1, mode: 'all' }
       if (t < HOLD_OPEN + folding) {
-        const s = 1 - (t - HOLD_OPEN) / folding
-        return { values: stepUnfold(shape.order, shape.poly.faces.length, s), s }
+        const f = (t - HOLD_OPEN) / folding
+        return stepped ? { s: 1 - f, mode: 'step' } : { s: 1 - smooth(f), mode: 'all' }
       }
-      if (t < HOLD_OPEN + folding + HOLD_CLOSED) return { values: 0, s: 0 }
-      const s = smooth((t - HOLD_OPEN - folding - HOLD_CLOSED) / OPEN)
-      return { values: s, s }
+      if (t < HOLD_OPEN + folding + HOLD_CLOSED) return { s: 0, mode: 'all' }
+      return { s: smooth((t - HOLD_OPEN - folding - HOLD_CLOSED) / OPEN), mode: 'all' }
     }
 
     let open = 0 // 펼친 정도를 부드럽게 따라가는 값 (카메라 거리·높이)
@@ -222,18 +153,19 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
     renderer.setAnimationLoop((now) => {
       const dt = Math.min(0.1, (now - last) / 1000)
       last = now
-      if (shape) {
+      if (stage) {
         const o = options.current
-        const { values, s } = unfoldAt(now)
-        applyUnfold(shape.tree, values)
+        const { s, mode } = unfoldAt(now)
+        stage.apply(s, mode)
         if (o.spin) spinner.rotation.y += dt * 0.35
         // 다 접히면 입체 쪽으로 당겨 크게 보고, 펼칠수록 물러나며 위에서 내려다본다 (바닥에 누운 전개도가 납작하지 않게)
         open += (Math.min(1, s * 1.5) - open) * Math.min(1, dt * 3)
-        const distance = fitDistance(L, c, THREE.MathUtils.lerp(shape.rSolid, shape.rAll, open), FOV)
+        const distance = fitDistance(L, c, THREE.MathUtils.lerp(rSolid, rAll, open), FOV)
         const el = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(o.elevation, Math.max(o.elevation, 45), open))
+        // 펼칠수록 바닥(전개도가 눕는 곳)을 본다. 그래야 넓은 전개도가 칸의 넓은 가운데에 오고 좁은 안쪽 변에서 잘리지 않는다
+        target.set(0, THREE.MathUtils.lerp(solidY, 0, open), 0)
         regionList.forEach((region, k) => {
           const camera = cameras[k]
-          const target = shape.center
           camera.position.set(
             target.x + distance * Math.cos(el) * Math.sin(region.azimuth),
             target.y + distance * Math.sin(el),
@@ -257,8 +189,7 @@ export function HologramViewer({ scene, center = 0.2, elevation = 20, mirror = f
       renderer.setAnimationLoop(null)
       relayout.current = null
       restart.current = null
-      shape?.dispose()
-      edgeMaterial.dispose()
+      stage?.dispose()
       clearComposite()
       renderer.dispose()
       renderer.domElement.remove()

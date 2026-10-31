@@ -4,6 +4,7 @@
 // 화면에서는 밑면 원이 바닥에 남도록 전체를 그 원의 접선으로 돌린다(standPoint). 그래서 다 접으면 입체가 똑바로 선다
 import * as THREE from 'three'
 import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
+import { PAPER, type Theme3D } from './theme.ts'
 
 export type Point = [x: number, y: number, z: number]
 export type CurvedShape = 'cylinder' | 'cone'
@@ -150,11 +151,20 @@ export function curvedLinePoints(shape: CurvedShape, size: RoundSize, line: Line
 }
 
 // 만나는 선 색 (ui.md 색 기준): 자른 선 둘, 위 둘레와 위 원, 아래 둘레와 아래 원
-const PAIR = { seam: '#e5484d', top: '#3e63dd', bottom: '#3e63dd' } // 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
-const PLAIN = '#3c4048'
+// 색은 3D 디자인 토큰 (theme.ts curved). 두 밑면은 같은 테두리 (ui.md 공식 시각화 규칙)
 const DRAWN = '#7048e8' // 곡면 위 선 (실 감기와 같은 색)
 
-export function buildCurvedNet(shape: CurvedShape, size: RoundSize, faces: [THREE.Material, THREE.Material], lineRadius: number, drawn: Line<CylinderPoint | ConePoint>[] = [], seam = 0): CurvedNet {
+export function buildCurvedNet(
+  shape: CurvedShape,
+  size: RoundSize,
+  faces: [THREE.Material, THREE.Material],
+  lineRadius: number,
+  drawn: Line<CylinderPoint | ConePoint>[] = [],
+  seam = 0,
+  colors: Theme3D['curved'] = PAPER.curved,
+): CurvedNet {
+  const PAIR = { seam: colors.seam, top: colors.rim, bottom: colors.rim }
+  const PLAIN = colors.plain
   const { radius: r, height: h } = size
   const L = slantOf(size)
   const group = new THREE.Group()

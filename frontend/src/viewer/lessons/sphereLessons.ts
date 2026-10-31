@@ -7,6 +7,7 @@ import { clamp01, growingTube, textSprite } from './draw.ts'
 import type { LessonKind } from './data.ts'
 import type { LessonObject } from './index.ts'
 import { LENGTH_COLOR } from './formulas.ts'
+import { PAPER } from '../theme.ts'
 import { lengthText } from './lengthLabels.ts'
 import { withTerms, type LessonTerm } from './lessonTerms.ts'
 import { withEndLines } from './lengthLines.ts'
@@ -206,14 +207,14 @@ function sphereBody(r: number, kind: LessonKind): LessonObject | null {
 }
 
 // 평소 화면의 구: 전개도가 없어서 입체만. 말기 화면과 같은 모양을 돌려준다
-export function buildSphereBody(r: number, material: THREE.Material) {
+export function buildSphereBody(r: number, material: THREE.Material, ringColor = PAPER.sphereRing) {
   const group = new THREE.Group()
   const geometry = new THREE.SphereGeometry(r, SEGMENTS, 48)
   const mesh = new THREE.Mesh(geometry, material)
   mesh.position.y = r
   mesh.castShadow = true
   const ringGeometry = new THREE.BufferGeometry().setFromPoints([...Array(SEGMENTS + 1).keys()].map((i) => new THREE.Vector3(r * Math.cos((i / SEGMENTS) * 2 * Math.PI), r, r * Math.sin((i / SEGMENTS) * 2 * Math.PI))))
-  const ringMaterial = new THREE.LineBasicMaterial({ color: '#3c4048' })
+  const ringMaterial = new THREE.LineBasicMaterial({ color: ringColor })
   group.add(mesh, new THREE.Line(ringGeometry, ringMaterial))
   return {
     group,
