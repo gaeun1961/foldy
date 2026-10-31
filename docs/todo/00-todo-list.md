@@ -11,6 +11,7 @@
 
 - **TODO-39** [각기둥 겉넓이·부피 "왜 그 값인지"](39-prism-why.md) · [#115](https://github.com/gaeun1961/foldy/issues/115) — 3D: 각기둥: 옆면을 이어 큰 직사각형, 밑면은 삼각형으로 나누기, 밑면 판 쌓기
 - **TODO-40** [각뿔 겉넓이·부피 "왜 그 값인지"](40-pyramid-why.md) · [#116](https://github.com/gaeun1961/foldy/issues/116) — 3D: 각뿔: 삼각형 + 같은 삼각형으로 직사각형, 물 붓기, 정육면체를 사각뿔 3개로 나누기
+- **TODO-43** [홀로그램 모드 (서브 기능)](43-hologram-mode.md) · [#122](https://github.com/gaeun1961/foldy/issues/122) — 3D·UI: 휴대폰 화면에 도형 4방향 + 아크릴 피라미드로 홀로그램처럼 보기
 
 ## 진행 중
 
@@ -19,6 +20,7 @@ assignee가 있는 TODO. 다른 사람은 건드리지 않는다.
 | TODO | 이슈 | 담당자 |
 |---|---|---|
 | **TODO-15** [시연용 문제 선정, 데모 시나리오, 발표 자료](15-demo-presentation.md) | [#21](https://github.com/gaeun1961/foldy/issues/21) | gaeun1961 |
+| **TODO-42** [오프닝: 팝업북처럼 책이 펼쳐지고 도형이 날아올랐다가 페이지 속으로](42-opening-popup-book.md) | [#120](https://github.com/gaeun1961/foldy/issues/120) | HandoA01 |
 
 ## 1차 남은 일
 

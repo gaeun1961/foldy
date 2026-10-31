@@ -40,6 +40,10 @@ h2 {
    좁은 화면은 맨 아래 미디어 쿼리 */
 .layout { position: relative; height: 100vh; overflow: hidden; }
 .stage { position: absolute; inset: 0; overflow: hidden; background: var(--desk); }
+/* 오프닝 (ui.md "오프닝"): 도는 동안 패널을 숨기고, 끝나면 천천히 나타난다 */
+.layout > :not(.stage) { transition: opacity 0.6s, visibility 0.6s; }
+.layout.opening > :not(.stage) { opacity: 0; visibility: hidden; }
+.skip-opening { position: absolute; z-index: 2; right: 20px; bottom: 20px; min-height: 40px; padding: 0 18px; font-size: 16px; }
 .stage canvas { display: block; }
 
 .make-card, .dock {

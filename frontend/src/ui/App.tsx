@@ -17,6 +17,9 @@ import { ViewMenu } from './ViewMenu'
 import type { Speed } from './player'
 import type { ViewOptionValues } from './ViewOptions'
 
+const OPENING_SEEN = 'foldy-opening-seen' // 이 탭에서 오프닝을 봤으면 sessionStorage 에 남긴다 (새로고침은 그대로, 탭을 닫으면 지워진다)
+const OPENING_ALWAYS = true // 임시 (TODO-42 작업 중): 새로고침할 때마다 오프닝. PR 전에 이 줄과 아래 쓰는 곳을 지운다
+
 // 선 긋기 안내 문구 (ui.md "안내 문구")
 const DRAW_HINT: Record<DrawState, string> = {
   idle: '점 두 개를 눌러 선을 그어 보세요',
@@ -71,6 +74,12 @@ function variantScene(scene: ShapeScene, k: number): ShapeScene {
 export default function App() {
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
+  // 오프닝은 앱을 열 때 한 번만 (ui.md "오프닝"). 주소에 ?opening 을 붙이면 다시 본다(시연용). 움직임 줄이기 설정이면 보이지 않는다
+  const [opening, setOpening] = useState(() => OPENING_ALWAYS || new URLSearchParams(location.search).has('opening') || (!sessionStorage.getItem(OPENING_SEEN) && !matchMedia('(prefers-reduced-motion: reduce)').matches))
+  const endOpening = () => {
+    sessionStorage.setItem(OPENING_SEEN, '1')
+    setOpening(false)
+  }
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
   const [fit, setFit] = useState(NO_FIT) // 칸에 맞춘 사진 위치. 3D 책 페이지에도 같은 자리에 깐다 (TODO-36)
   const [unfold, setUnfold] = useState(1) // 펼친 전개도에서 시작해서 "접기 ▶"로 접어 본다
@@ -151,9 +160,14 @@ export default function App() {
   const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing || lesson ? null : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : curved && view.showMatchingEdges ? '같은 색 선끼리 만나요' : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
-    <div className="layout">
+    <div className={`layout${opening ? ' opening' : ''}`}>
       <main className="stage">
-        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} onPick={(k) => {
+        {opening && (
+          <button type="button" className="secondary-button skip-opening" onClick={endOpening}>
+            건너뛰기
+          </button>
+        )}
+        {!scene && <EmptyBook pageText={INTRO} contents={CONTENTS} pageNumbers={CONTENTS_PAGES} opening={opening} onOpened={endOpening} onPick={(k) => {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
               if (makeCard.current) makeCard.current.open = false // 왼쪽 쪽 메뉴를 가리지 않게 접는다
             }} />}
