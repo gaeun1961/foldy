@@ -3,6 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from pydantic import ValidationError
 
@@ -42,6 +43,15 @@ def main():
         result = json.loads((root / "out/summary.json").read_text())
         assert result[0]["status"] == "prepared"
         assert result[0]["human_approved"] is False
+        with patch(
+            "evals.judge.judge", side_effect=[RuntimeError("model_not_found"), good]
+        ) as mocked:
+            run(cases, root / "partial", True)
+            assert mocked.call_count == 2
+        partial = json.loads((root / "partial/summary.json").read_text())
+        assert partial[0]["status"] == "partial_review"
+        assert "gpt-6-sol" in partial[0]["errors"]
+        assert partial[0]["human_approved"] is False
         for invalid in (
             [row, row],
             [{**row, "id": "../outside"}],

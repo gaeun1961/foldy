@@ -14,6 +14,10 @@ python -m evals.judge manifest.json --output evals/results/review-001
 
 ## 판정
 
+심사에는 현재 `vision_prompt.py`의 계약을 함께 전달한다. 특히 겨냥도만 있는 직육면체의 `net.layout=cross`는 정상 표현이며, 전개도가 사진에 없다는 이유로 오탐 처리하지 않는다. scope는 현재 인식기의 직육면체·정육면체 범위를 기준으로 한다. 향후 지원 범위 확대 평가는 별도이며 현재 정책의 올바른 거절과 혼동하지 않는다. 계약·심사 프롬프트 해시를 실행별로 기록한다.
+
+한 모델만 먼저 실행하려면 `--only-model gpt-6-astra`처럼 지정한다. 이 결과는 partial_review이며 교차 합의가 아니다. 한 모델의 오류로 다른 독립 심사를 생략하지 않으며, 지원되지 않는 모델을 자동 대체하지 않는다.
+
 도형·치수·전개도 배치·라벨·선·범위 여부를 pass/fail/uncertain/not_applicable로 판정한다. 사진에서 확실하지 않은 정보는 uncertain이다. 종합 correct/incorrect/uncertain과 각 항목이 모두 일치해야 합의로 센다. 다르면 astra low에게 두 심사를 주어 재심한다. 재심은 자동 정답 승인이 아니며 human_review로 남긴다. 사람 승인과 실제 뷰어 렌더 검증은 별도다.
 
 출력은 입력 SHA256, 요청 모델, 실행 로그, 오류, 판정, 종류별 합의율이다. 합의율을 정탐률로 부르지 않는다. JSON schema 준수와 로컬 Pydantic 재검증을 모두 거친다. 실패·판정 불명·분모를 빠뜨리지 않는다. heldout을 규칙/퓨샷에 사용하면 그 뒤에는 heldout 성능으로 보고하지 않는다.

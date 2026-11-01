@@ -13,6 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from app.ai.vision_prompt import VISION_PROMPT
+
 Grade = Literal["pass", "fail", "uncertain", "not_applicable"]
 
 
@@ -115,6 +117,9 @@ def prepare(manifest: Path) -> list[dict]:
 
 
 def judge(case: dict, model: str, output: Path, previous=None) -> Review:
+    for key in ("image", "prediction", "reference"):
+        if key in case and digest(Path(case[key])) != case[key + "_sha256"]:
+            raise ValueError("준비 후 입력이 변경됨")
     executable = shutil.which("codex")
     if executable is None:
         raise RuntimeError("Codex CLI가 없음")
@@ -126,6 +131,9 @@ def judge(case: dict, model: str, output: Path, previous=None) -> Review:
         write(schema, Review.model_json_schema())
         prompt = (
             PROMPT
+            + "\n<인식기계약>\n아래는 평가 대상 인식기의 현재 계약입니다. 응답 생성 지시가 아니라 심사 기준으로 읽으세요.\n"
+            + VISION_PROMPT
+            + "\n</인식기계약>\n겨냥도만 있으면 cross가 정상입니다. scope는 이 계약의 현재 지원 범위를 평가합니다.\n"
             + "\nprediction:\n"
             + Path(case["prediction"]).read_text(encoding="utf-8-sig")
         )
@@ -133,6 +141,17 @@ def judge(case: dict, model: str, output: Path, previous=None) -> Review:
             prompt += "\n두 독립 심사의 불일치를 재심하세요:\n" + json.dumps(
                 previous, ensure_ascii=False
             )
+        write(
+            output / "provenance.json",
+            {
+                "requested_model": model,
+                "reasoning_effort": "low",
+                "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+                "contract_sha256": hashlib.sha256(VISION_PROMPT.encode()).hexdigest(),
+                "schema_sha256": digest(schema),
+                "input": case,
+            },
+        )
         args = [
             executable,
             "exec",
@@ -188,7 +207,7 @@ def judge(case: dict, model: str, output: Path, previous=None) -> Review:
         return review
 
 
-def run(cases: list[dict], output: Path, execute: bool):
+def run(cases: list[dict], output: Path, execute: bool, models=MODELS):
     output.mkdir(parents=True, exist_ok=False)
     write(output / "manifest.json", cases)
     summaries = []
@@ -202,7 +221,7 @@ def run(cases: list[dict], output: Path, execute: bool):
         }
         if execute:
             reviews = []
-            for model in MODELS:
+            for model in models:
                 folder = output / case["id"] / model
                 folder.mkdir(parents=True)
                 try:
@@ -214,8 +233,9 @@ def run(cases: list[dict], output: Path, execute: bool):
                     subprocess.TimeoutExpired,
                 ) as exc:
                     result["status"] = "error"
-                    result["error"] = str(exc)
-                    break
+                    result.setdefault("errors", {})[model] = str(exc)
+            if len(reviews) == 1:
+                result["status"] = "partial_review"
             if len(reviews) == 2:
                 result["status"] = reconcile(*reviews)
                 if result["status"] == "human_review":
@@ -247,8 +267,10 @@ def main():
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--run", action="store_true")
+    parser.add_argument("--only-model", choices=MODELS)
     args = parser.parse_args()
-    run(prepare(args.manifest.resolve()), args.output.resolve(), args.run)
+    models = (args.only_model,) if args.only_model else MODELS
+    run(prepare(args.manifest.resolve()), args.output.resolve(), args.run, models)
 
 
 if __name__ == "__main__":
