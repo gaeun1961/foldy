@@ -44,6 +44,9 @@ h2 {
 .layout > :not(.stage) { transition: opacity 0.6s, visibility 0.6s; }
 .layout.opening > :not(.stage) { opacity: 0; visibility: hidden; }
 .skip-opening { position: absolute; z-index: 2; right: 20px; bottom: 20px; min-height: 40px; padding: 0 18px; font-size: 16px; }
+.reset-camera-button { position: absolute; z-index: 2; left: 14px; bottom: 14px; width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.72); border: none; border-radius: 10px; cursor: pointer; color: #444; backdrop-filter: blur(4px); }
+.reset-camera-button:hover { background: rgba(255,255,255,0.92); }
+.reset-camera-button svg { width: 22px; height: 22px; }
 .stage canvas { display: block; }
 /* 읽는 중 빈 책: 결과 뷰어가 아래에서 첫 프레임을 그릴 때까지 위에 덮는다 (App holding, viewer.md onReady) */
 .stage-cover { position: absolute; inset: 0; z-index: 1; }
