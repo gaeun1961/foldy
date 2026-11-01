@@ -37,8 +37,9 @@ function clampBox(b: PhotoBox): PhotoBox {
 }
 
 // 사진의 box 부분만 원래 해상도로 잘라 JPEG 파일로
-function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
-  const [W, H] = [img.naturalWidth, img.naturalHeight]
+// pic: 고른 사진 파일을 바로 디코드한 것 (picOf). 화면의 <img> 는 새 사진이 다 뜨기 전이면 이전 사진을 그리고 있을 수 있다 (#166)
+function crop(pic: { source: CanvasImageSource; W: number; H: number }, box: PhotoBox): Promise<File> {
+  const { source: img, W, H } = pic
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(box.w * W)
   canvas.height = Math.round(box.h * H)
@@ -46,6 +47,15 @@ function crop(img: HTMLImageElement, box: PhotoBox): Promise<File> {
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(new File([b], 'crop.jpg', { type: 'image/jpeg' })) : reject(new Error('사진을 자르지 못했어요'))), 'image/jpeg', 0.92),
   )
+}
+
+async function picOf(file: File, fallback: HTMLImageElement) {
+  try {
+    const bitmap = await createImageBitmap(file)
+    return { source: bitmap as CanvasImageSource, W: bitmap.width, H: bitmap.height }
+  } catch {
+    return { source: fallback as CanvasImageSource, W: fallback.naturalWidth, H: fallback.naturalHeight } // createImageBitmap 이 없는 옛 브라우저
+  }
 }
 
 export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }: Props) {
@@ -131,8 +141,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
     setState({ kind: 'loading', since: Date.now() })
     setNow(Date.now())
     try {
-      const pic = img.current
-      const aspect = pic.naturalWidth / pic.naturalHeight
+      const pic = await picOf(photo.file, img.current)
+      const aspect = pic.W / pic.H
       const problemFile = problemPart ? await crop(pic, problemPart) : undefined
       const boxes = parts?.length ? parts : [null] // null 도 사진 전체로 (화면 갱신 중 옛 버튼이 read(null) 로 부른 적이 있다)
       const files = await Promise.all(boxes.map((b) => (b ? crop(pic, b) : Promise.resolve(photo.file))))
