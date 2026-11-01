@@ -1,0 +1,21 @@
+# 사진 인식 교차 심사 (#162)
+
+사진·모델 응답·심사 원문은 로컬에만 둔다. `backend/evals/judge.py`는 학습 데이터가 아닌 **검증 후보**를 만든다. 사람 승인 전에는 `answers.json`이나 서비스 정답 은행에 자동 반영하지 않는다.
+
+## 입력과 실행
+
+manifest는 JSON 배열이다. 각 항목은 `id`, `kind`(net/solid/flat/other), `image`(문제 사진), `prediction`(인식 결과 JSON 경로), `split`(development/heldout), 선택 `reference`(정답 참고 이미지)를 갖는다. 경로는 manifest 기준 상대 경로 또는 절대 경로다. prediction은 실제 엔진 결과여야 하며 목 응답을 실측으로 세지 않는다. 같은 원본에서 자른 문제는 같은 split에 둔다.
+
+```sh
+python -m evals.judge manifest.json --output evals/results/review-001
+```
+
+기본은 입력 검증과 해시만 기록한다. `--run`을 명시하면 로그인된 Codex CLI 사용량을 소비한다. 심사 1은 `gpt-6-sol`, 심사 2는 `gpt-6-astra` low로 순차 실행하며 서로의 답을 주지 않는다. 모델을 사용할 수 없으면 실패를 기록하고 대체하지 않는다. 각 호출은 새 임시 작업 폴더에서 입력 사진과 prediction만 받아 기존 심사와 분리한다. 모델의 도구 호출이 관찰되면 독립 심사로 인정하지 않는다.
+
+## 판정
+
+도형·치수·전개도 배치·라벨·선·범위 여부를 pass/fail/uncertain/not_applicable로 판정한다. 사진에서 확실하지 않은 정보는 uncertain이다. 종합 correct/incorrect/uncertain과 각 항목이 모두 일치해야 합의로 센다. 다르면 astra low에게 두 심사를 주어 재심한다. 재심은 자동 정답 승인이 아니며 human_review로 남긴다. 사람 승인과 실제 뷰어 렌더 검증은 별도다.
+
+출력은 입력 SHA256, 요청 모델, 실행 로그, 오류, 판정, 종류별 합의율이다. 합의율을 정탐률로 부르지 않는다. JSON schema 준수와 로컬 Pydantic 재검증을 모두 거친다. 실패·판정 불명·분모를 빠뜨리지 않는다. heldout을 규칙/퓨샷에 사용하면 그 뒤에는 heldout 성능으로 보고하지 않는다.
+
+CLI 형식: [OpenAI 공식 비대화형 실행 문서](https://learn.chatgpt.com/docs/non-interactive-mode).
