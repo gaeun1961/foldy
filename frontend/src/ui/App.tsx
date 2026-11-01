@@ -120,6 +120,7 @@ export default function App() {
   const [gallery, setGallery] = useState<{ scene: ShapeScene; place: PhotoPlace | null; unfold?: number }[] | null>(null)
   const [galleryIndex, setGalleryIndex] = useState(0)
   const [drawIn, setDrawIn] = useState(0) // 사진 인식 결과가 올 때마다 1 늘린다. 책에 펜이 그려 낸다 (viewer.md "펜으로 그려 내기")
+  const resetCameraRef = useRef<(() => void) | null>(null)
   const [photo, setPhoto] = useState<string | null>(null) // 올린 학습지 사진. 전개도 그리기 칸 밑에 깔아 따라 그린다 (TODO-35)
   // 읽은 뒤 결과 뷰어가 첫 프레임을 그릴 때까지(onReady) 읽는 중 빈 책을 위에 덮어 둔다 (viewer.md "빈 책" 읽는 중).
   // holdFrom: 읽기를 시작할 때의 drawIn. 결과가 와서 drawIn 이 바뀌었는데 뷰어가 아직 알리지 않았으면 덮는다 (실패해서 안 바뀌면 덮지 않는다)
@@ -382,7 +383,17 @@ export default function App() {
               const faces = scene.net.faces.map((f, k) => (k === i ? markFace(f, mark) : f))
               setScene({ ...scene, net: { ...scene.net, faces } } as ShapeScene) // 펼침·선은 그대로
             }}
+            resetCameraRef={resetCameraRef}
           />
+        )}
+        {scene && !hologram && !opening && (
+          <button type="button" className="reset-camera-button" aria-label="카메라 처음 구도로" onClick={() => resetCameraRef.current?.()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+              <path d="M5 3 3 5"/>
+            </svg>
+          </button>
         )}
         {status && (
           <div className={`status-badge${status.done ? ' done' : ''}${status.wrong ? ' wrong' : ''}`} role="status">

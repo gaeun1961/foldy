@@ -83,6 +83,8 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       distance = view.distance
       camera.position.copy(controls.target).addScaledVector(dir, distance)
       world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6) // 책 너머 책상만 흐리게 (도형 화면과 같게)
+      controls.minDistance = distance * 0.5
+      controls.maxDistance = distance * 2
       // 크기를 바꾸면 캔버스가 지워지고, ResizeObserver 는 rAF 뒤·화면 표시 전에 불린다. 바로 다시 그려야 줄어드는 동안(휴대폰 오프닝) 빈 캔버스가 안 보인다
       renderer.render(world, camera)
     }

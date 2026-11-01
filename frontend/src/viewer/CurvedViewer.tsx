@@ -16,7 +16,7 @@ import { PAPER } from './theme.ts'
 
 // 곡면 도형(원기둥·원뿔·구) 화면 (docs/specs/viewer.md "곡면 도형"): 같은 책 위에서 옆면을 말고 밑면 원을 접는다. 구는 전개도가 없어 입체만.
 // 공식 설명은 말아 둔 도형 대신 바로 세운 입체에 그린다. 곡면 위 선은 scene.lines 그대로 그리고, 화면에서 긋는 입력은 없다
-export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers, onReady }: ViewerProps) {
+export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, showVertexLabels = true, lesson = null, pageText = [], pageResult, pageMenu, onPageMenu, pageNumbers, onReady, resetCameraRef }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef({ unfold, showMatchingEdges, showVertexLabels, lesson })
   const applyRef = useRef<(() => void) | null>(null)
@@ -108,6 +108,8 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
       controls.target.copy(target)
       camera.position.copy(controls.target).addScaledVector(dir, distance)
       world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6) // 책 너머 책상만 흐리게
+      controls.minDistance = distance * 0.5
+      controls.maxDistance = distance * 2
     }
     // 설명마다 책 크기가 달라서 다시 만들면 빛·카메라도 다시 맞춘다
     const rebuildBook = () => {
@@ -119,6 +121,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
       resize()
     }
     rebuildBookRef.current = rebuildBook
+    if (resetCameraRef) resetCameraRef.current = resize
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()

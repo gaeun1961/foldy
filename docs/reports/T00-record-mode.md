@@ -41,3 +41,7 @@
 
 ## 참고
 - 관련 문서: docs/specs/worksheets.md H, docs/specs/api.md, 계획 https://claude.ai/artifact/CppSvJACoMhwz2adazrbMm
+
+## 시연 완료 기준 변경 (2026-11-01)
+- 사용자 요청으로 Android 실측을 완료 조건에서 제외했다. PC·모바일 Chromium 검증을 기준으로 통합한다. Android 미검증 사실은 유지한다.
+- 최신 main 통합 시 카메라 초기화 연결과 ResizeObserver 타입 수정을 함께 보존했다.
