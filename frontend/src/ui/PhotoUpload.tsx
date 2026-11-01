@@ -68,6 +68,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
   const [step, setStep] = useState<'problem' | 'shape'>('problem')
   const [shapes, setShapes] = useState<PhotoBox[]>([]) // ② 에서 "도형 더하기"로 모은 네모 (①②③…, 최대 6개)
   const [suggested, setSuggested] = useState(false) // shapes 가 ① 문제 칸에서 찾은 추천 네모인지 (worksheets.md "추천 네모")
+  const [lying, setLying] = useState(false) // 문제 칸 글 줄이 세로 (사진이 누움) → 추천 대신 "돌려 주세요"
   const img = useRef<HTMLImageElement>(null)
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   const loading = state.kind === 'loading' || state.kind === 'preparing'
@@ -93,6 +94,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
     setBox(null)
     setProblemBox(null)
     setShapes([])
+    setLying(false)
     setStep('problem')
     onPhoto(url)
     setState({ kind: 'picking' })
@@ -216,7 +218,21 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             setBox({ ...p, w: 0, h: 0 })
           }}
           onPointerMove={(e) => drag && setBox(boxOf(drag, pointAt(e)))}
-          onPointerUp={() => setDrag(null)}
+          onPointerUp={(e) => {
+            // 끌지 않고 한 번 누르면(탭·클릭) 그 자리의 도형 네모를 지운다. 겹쳐 있으면 가장 작은 것 (추천 네모가 엉뚱한 곳을 잡을 때, 휴대폰 실측)
+            const p = pointAt(e)
+            if (drag && Math.abs(p.x - drag.x) < MIN_BOX && Math.abs(p.y - drag.y) < MIN_BOX) {
+              const hit = shapes
+                .map((s, i) => ({ i, area: s.w * s.h, inside: p.x >= s.x && p.x <= s.x + s.w && p.y >= s.y && p.y <= s.y + s.h }))
+                .filter((s) => s.inside)
+                .sort((a, b) => a.area - b.area)[0]
+              if (hit) {
+                setShapes(shapes.filter((_, i) => i !== hit.i))
+                setBox(null)
+              }
+            }
+            setDrag(null)
+          }}
         >
           <img ref={img} src={photo.url} alt="올린 학습지 사진" draggable={false} />
           {state.kind === 'loading' && <div className="reading-scan" aria-hidden />}
@@ -247,9 +263,10 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
               setBox(null)
               setStep('shape')
               // 문제 칸 안 색칠된 도형을 찾아 ② 네모로 미리 깔아 둔다. 못 찾으면 빈 목록 → 지금처럼 직접 감싼다
-              const found = img.current && box ? suggestShapes(img.current, box).slice(0, MAX_ITEMS) : []
-              setShapes(found)
-              setSuggested(found.length > 0)
+              const found = img.current && box ? suggestShapes(img.current, box) : { boxes: [], sideways: false }
+              setShapes(found.boxes.slice(0, MAX_ITEMS))
+              setSuggested(found.boxes.length > 0)
+              setLying(found.sideways)
             }}
           >
             다음: 도형 고르기
@@ -333,10 +350,12 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
         {state.kind === 'picking' &&
           (step === 'problem'
             ? '① 문제 전체(문장과 그림)를 네모로 감싸 주세요'
-            : shapes.length && suggested
-              ? `② 찾은 도형 ${shapes.length}개를 감쌌어요. 맞으면 읽고, 틀리면 "네모 지우기" 뒤 직접 감싸 주세요`
+            : lying && !shapes.length
+              ? '② 사진이 옆으로 누워 있어 도형을 못 찾았어요. 아래 "돌리기"로 글자를 바로 세운 뒤 문제를 다시 감싸 주세요 (그대로 직접 감싸도 돼요)'
+              : shapes.length && suggested
+              ? `② 찾은 도형 ${shapes.length}개를 감쌌어요. 맞으면 읽고, 틀린 네모는 한 번 누르면 지워져요`
               : shapes.length
-              ? `② 도형 ${shapes.length}개를 골랐어요. 더 있으면 감싸고 "도형 더하기", 다 골랐으면 읽어요`
+              ? `② 도형 ${shapes.length}개를 골랐어요. 더 있으면 감싸고 "도형 더하기", 다 골랐으면 읽어요. 네모를 한 번 누르면 지워져요`
               : '② 이제 도형(그림)만 네모로 딱 맞게 감싸 주세요. 도형이 여러 개면 하나씩 감싸고 "도형 더하기"')}
         {state.kind === 'loading' && (
           <>

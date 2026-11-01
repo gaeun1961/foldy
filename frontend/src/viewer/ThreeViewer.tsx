@@ -6,7 +6,7 @@ import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
 import { aimLight, bookLights, bookRenderer, bookView, buildBook, liftLastFrame, DESK_COLOR, fitOf, pageTexture, readingRange, VIEW_DIR } from './bookScene.ts'
 import { ITEM_LABELS, pageSlots } from './pageSlots.ts'
-import { startPenDraw, type PenDraw } from './penDraw.ts'
+import { findTablePencil, startPenDraw, type PenDraw } from './penDraw.ts'
 import type { GridPolyhedron } from './gridNet.ts'
 import { foldOrderOf, matchingEdges, netCheck, oppositeFaces, polyhedronOf, type Vec3 } from './polyhedra.ts'
 import { buildLesson, LESSON_POSE, type LessonObject } from './lessons/index.ts'
@@ -75,6 +75,7 @@ export function ThreeViewer({
   pageNumbers,
   photo,
   drawIn,
+  penFromTable = true,
   gallery,
   galleryIndex = 0,
   onPickGallery,
@@ -96,10 +97,12 @@ export function ThreeViewer({
   const drawSceneLinesRef = useRef<((lines: ShapeScene['lines']) => void) | null>(null)
   const drawMarksRef = useRef<((scene: ShapeScene) => void) | null>(null)
   // 펜으로 그려 내기 (viewer.md "펜으로 그려 내기"): 지금 값과 마지막으로 그린 값. 다르면 도형을 만들 때 그린다
-  const drawRef = useRef<{ want?: number }>({})
+  // fromTable: 펜이 책상 색연필 자리에서 날아오는가 (penFromTable, 바뀌어도 다시 만들지 않는다)
+  const drawRef = useRef<{ want?: number; fromTable: boolean }>({ fromTable: penFromTable })
   useEffect(() => {
     drawRef.current.want = drawIn // 아래 도형 만들기 effect 보다 먼저 돈다
-  }, [drawIn])
+    drawRef.current.fromTable = penFromTable
+  }, [drawIn, penFromTable])
 
   // unfold·foldMode·보기 옵션·강조·선 긋기 모드·설명만 바뀌면 다시 만들지 않고 회전·강조·표시만 바꾼다. 아래 도형 만들기 effect 보다 먼저 돈다
   useEffect(() => {
@@ -677,6 +680,8 @@ export function ThreeViewer({
           : [{ box: flatNet, y: 0, materials: [...materials], onDrawn: hideShadow(tree.root) }],
         page: left && blankPage ? { material: (left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial, blank: blankPage, x0: book.center.x - book.page.w, z0: book.center.z - book.page.d / 2, w: book.page.w, d: book.page.d, y: book.top } : null,
         size: radius * 0.75,
+        home: findTablePencil(book.group), // 책상 위 초록 색연필에서 날아오고 돌아간다 (viewer.md "책상 색연필과 오가기")
+        fromHome: draw.fromTable,
         onDone: () => {
           lastDrawn = want
           penBusy = false
@@ -715,6 +720,7 @@ export function ThreeViewer({
       world.add(book.group)
       const left = book.leftPage()
       if (left) penDraw?.retargetPage((left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial) // 펜이 쓰는 중이면 새 쪽에도 가림
+      penDraw?.rehome(findTablePencil(book.group)) // 새 책의 책상 색연필
       aimLight(light, book)
       resize()
     }
@@ -731,10 +737,7 @@ export function ThreeViewer({
     const raycaster = new THREE.Raycaster()
     let down: { x: number; y: number } | null = null
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
-    const menuHit = () => {
-      const page = book.leftPage()
-      return page ? book.menuAt(raycaster.intersectObjects([...faceTargets, page], false)[0]) : null
-    }
+    const menuHit = () => book.menuAt(raycaster.intersectObjects([...faceTargets, ...book.menuTargets()], false)[0])
     // 여러 도형: 펼쳐 놓은 다른 도형을 누르면 그것을 고른다
     const galleryTargets = galleryNets.flatMap((g) => g.tree.nodes.map((n) => n.mesh))
     const galleryHit = (): number | null => (galleryTargets.length ? (raycaster.intersectObjects(galleryTargets, false)[0]?.object.userData.gallery ?? null) : null)

@@ -1,7 +1,9 @@
-// 책상 위 소품 (viewer.md "책 장면", TODO-45): 정다면체 주사위, 컴퍼스, 삼각자 두 개, 아날로그 시계, 필통, 지우개와 가루.
+// 책상 위 소품 (viewer.md "책 장면", TODO-45): 정다면체 주사위, 컴퍼스, 삼각자 두 개, 아날로그 시계, 필통, 지우개와 가루, 공부 타이머(#168, 누르면 차례로).
 // 이미지 파일 없이 도형과 캔버스 텍스처로만 만든다. 색은 ui.md 컨셉: 중성색 + 연한 색연필 색 (진한 색은 시계 초침의 빨강뿐)
 // 시계·컴퍼스·필통은 책 뒤(−z)에, 납작한 물건은 책 옆·앞에 둬서 도형을 가리지 않는다
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
+import { FONT } from './bookScene.ts'
 
 const INK = '#2f2a25'
 const PAPER = '#faf6ee'
@@ -223,6 +225,133 @@ function buildDie(geometry: THREE.BufferGeometry, color: string, yaw: number, ow
   return die
 }
 
+// 공부 타이머가 세는 시작점: 이 모듈을 읽은 때 = 사이트에 들어온 때. 화면이 바뀌어 책을 다시 만들어도 이어진다
+const START = performance.now()
+
+// 흐른 초 → LCD 글자. 1시간 전까지 MM:SS, 그 뒤 H:MM:SS
+export function timerText(seconds: number) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const [h, m, s] = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+}
+
+const canvasTexture = (w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  draw(canvas.getContext('2d')!)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+// 윗면 스티커: 정육면체·삼각형·별 (연한 색연필 색, 흰 테두리). 캔버스 한 장이 윗면 전체 (위쪽 = 타이머 뒤 −z)
+function stickerTexture() {
+  return canvasTexture(250, 230, (ctx) => {
+    ctx.lineJoin = 'round'
+    const sticker = (path: () => void, color: string) => {
+      ctx.beginPath()
+      path()
+      ctx.closePath()
+      ctx.lineWidth = 7
+      ctx.strokeStyle = '#ffffff'
+      ctx.stroke()
+      ctx.fillStyle = color
+      ctx.fill()
+      ctx.lineWidth = 1.5
+      ctx.strokeStyle = INK
+      ctx.stroke()
+    }
+    // 앞 왼쪽: 정육면체 (육각형 셋으로 나눈 면)
+    const [cx, cy, r] = [42, 182, 22]
+    const hex = Array.from({ length: 6 }, (_, k) => [cx + r * Math.cos(((k * 60 - 90) * Math.PI) / 180), cy + r * Math.sin(((k * 60 - 90) * Math.PI) / 180)])
+    sticker(() => hex.forEach(([x, y]) => ctx.lineTo(x, y)), PALE[1])
+    ctx.beginPath()
+    for (const k of [1, 3, 5]) {
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(hex[k][0], hex[k][1])
+    }
+    ctx.stroke()
+    // 앞 오른쪽: 삼각형
+    sticker(() => [[212, 160], [235, 200], [189, 200]].forEach(([x, y]) => ctx.lineTo(x, y)), PALE[2])
+    // 뒤 오른쪽: LCD 귀퉁이에 걸친 별
+    sticker(() => {
+      for (let k = 0; k < 10; k++) {
+        const a = ((k * 36 - 90) * Math.PI) / 180
+        const d = k % 2 ? 9 : 20
+        ctx.lineTo(222 + d * Math.cos(a), 28 + d * Math.sin(a))
+      }
+    }, PALE[3])
+  })
+}
+
+// 공부 타이머 (#168): 흰 몸통을 책상에 눕히고, 윗면에 LCD(들어온 뒤 흐른 시간)·"차례" 버튼·스티커. 누르면 차례로 (userData.menu)
+function buildTimer(u: number, own: Own) {
+  const timer = new THREE.Group()
+  const [W, D, H] = [u * 2.5, u * 2.3, u * 0.55]
+  const flat = (w: number, d: number, map: THREE.Texture, y: number, z = 0) => {
+    const mesh = new THREE.Mesh(own(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2)), own(new THREE.MeshStandardMaterial({ map, transparent: true, roughness: 0.6 })))
+    mesh.position.set(0, y, z)
+    timer.add(mesh)
+    return mesh
+  }
+  const body = new THREE.Mesh(own(new RoundedBoxGeometry(W, H, D, 4, u * 0.35)), own(new THREE.MeshStandardMaterial({ color: '#fdfcf8', roughness: 0.7 })))
+  body.castShadow = true
+  timer.add(body)
+  // LCD: 연한 파랑 판에 흐린 88:88 위로 시간. 초가 바뀔 때만 다시 그린다
+  const lcdCanvas = document.createElement('canvas')
+  lcdCanvas.width = 256
+  lcdCanvas.height = 120
+  const lcdMap = own(new THREE.CanvasTexture(lcdCanvas))
+  lcdMap.colorSpace = THREE.SRGBColorSpace
+  const ctx = lcdCanvas.getContext('2d')!
+  let shown = -1
+  const drawLcd = (seconds: number) => {
+    shown = seconds
+    const text = timerText(seconds)
+    ctx.fillStyle = '#d6d0c6' // 회색 테
+    ctx.fillRect(0, 0, 256, 120)
+    ctx.fillStyle = '#c9dbee'
+    ctx.beginPath()
+    ctx.roundRect(8, 8, 240, 104, 10)
+    ctx.fill()
+    ctx.save()
+    ctx.transform(1, 0, -0.1, 1, 6, 0) // LCD 숫자처럼 살짝 기울인다
+    ctx.font = `bold ${text.length > 5 ? 54 : 74}px ui-monospace, Menlo, monospace`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = 'rgb(47 42 37 / 8%)'
+    ctx.fillText(text.replace(/\d/g, '8'), 128, 62)
+    ctx.fillStyle = INK
+    ctx.fillText(text, 128, 62)
+    ctx.restore()
+    lcdMap.needsUpdate = true
+  }
+  const elapsed = () => Math.floor((performance.now() - START) / 1000)
+  drawLcd(elapsed())
+  const lcd = flat(u * 1.9, u * 0.9, lcdMap, H / 2 + u * 0.005, -u * 0.4)
+  lcd.onBeforeRender = () => {
+    const s = elapsed()
+    if (s !== shown) drawLcd(s)
+  }
+  // "차례" 버튼: 앱 주요 버튼과 같은 갈색에 흰 글자 (ui.md 주요 버튼 색)
+  const button = new THREE.Mesh(own(new RoundedBoxGeometry(u * 1.4, u * 0.2, u * 0.55, 3, u * 0.08)), own(new THREE.MeshStandardMaterial({ color: SOFT, roughness: 0.6 })))
+  button.position.set(0, H / 2 + u * 0.05, u * 0.6)
+  button.castShadow = true
+  timer.add(button)
+  const label = canvasTexture(256, 100, (c) => {
+    c.font = `bold 76px ${FONT}`
+    c.textAlign = 'center'
+    c.textBaseline = 'middle'
+    c.fillStyle = PAPER
+    c.fillText('◀ 차례', 128, 54)
+  })
+  flat(u * 1.3, u * 0.5, own(label), H / 2 + u * 0.155, u * 0.6)
+  flat(W, D, own(stickerTexture()), H / 2 + u * 0.01)
+  timer.traverse((o) => (o.userData.menu = 'contents'))
+  return timer
+}
+
 export function buildDeskProps(at: DeskLayout, own: Own) {
   const group = new THREE.Group()
   const u = at.pageD / 10 // 소품 크기 단위: 빈 책 쪽 세로가 약 10
@@ -266,5 +395,8 @@ export function buildDeskProps(at: DeskLayout, own: Own) {
     const onMat = Math.abs(x - at.spineX) < at.matHalfW && Math.abs(z - at.cz) < at.matHalfD
     place(buildDie(geometry, PALE[k], yaw, own), x, onMat ? at.matTop : at.deskY, z)
   })
+
+  // 책 뒤 시계 왼쪽: 공부 타이머
+  place(buildTimer(u * 1.25, own), left - u * 1.4, at.deskY, far - u * 1.7, 0.2)
   return group
 }
