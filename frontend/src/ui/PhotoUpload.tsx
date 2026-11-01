@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useOperation } from './activity'
 import type { ShapeScene } from '../shared/types'
 import { analyze, OfflineError } from './api'
+import { answerKey, findAnswer, judgeAnswers, type BankEntry } from './answerBank'
 import { ITEM_LABELS, MAX_ITEMS } from '../viewer'
 import { CornerPick } from './CornerPick'
 import { NetPreview } from './NetPreview'
@@ -63,6 +64,8 @@ async function picOf(file: File, fallback: HTMLImageElement) {
 export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }: Props) {
   const { begin } = useOperation()
   const request = useRef<AbortController | null>(null)
+  const bankCurrent = useRef<BankEntry[]>([])
+  const [savedAnswer, setSavedAnswer] = useState(false)
   useEffect(() => () => request.current?.abort(), [])
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
@@ -95,6 +98,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
 
   // 이 사진을 기준 사진으로 (고른 사진, 편 사진)
   const setBase = (file: File) => {
+    bankCurrent.current = []
+    setSavedAnswer(false)
     const url = URL.createObjectURL(file)
     setPhoto({ file, url })
     setBox(null)
@@ -155,6 +160,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
   const read = async (parts: PhotoBox[] | null, problemPart: PhotoBox | null = null) => {
     if (!photo || !img.current || request.current) return
     const controller = new AbortController()
+    bankCurrent.current = []
+    setSavedAnswer(false)
     request.current = controller
     const done = begin({ label: '취소', run: () => {
       controller.abort()
@@ -177,7 +184,12 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
       const rec = recSession()
       const sendPhoto = RECORD && !!rec && !rec.photoSent
       setVerdict(null)
+      const keys = await Promise.all(files.map((f) => RECORD ? answerKey(f, problemFile) : Promise.resolve(null)))
+      if (controller.signal.aborted) return
+      let hits = 0
       const scenes = await Promise.all(files.map(async (f, i) => {
+        const saved = findAnswer(keys[i])
+        if (saved) { hits++; return saved }
         const result = await analyze(f, i === 0 ? problemFile : undefined, json ? { json, photo: i === 0 && sendPhoto ? photo.file : undefined } : undefined, controller.signal)
         if (RECORD && i === 0 && rec && sendPhoto) rec.photoSent = true
         return result
@@ -191,6 +203,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
         return { scene: withProblem, place: where && { box: where, aspect } }
       })
       const [first, ...more] = found
+      bankCurrent.current = found.flatMap((item, i) => keys[i] ? [{ key: keys[i]!, scene: item.scene }] : [])
+      setSavedAnswer(hits > 0)
       if (more.length && onShapes) onShapes(found)
       else onScene(first.scene, first.place)
       setShapes([])
@@ -426,12 +440,17 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
         )}
       </p>
       {state.kind === 'done' && state.scene.problem && <p className="upload-problem">문제: {state.scene.problem}</p>}
+      {state.kind === 'done' && savedAnswer && <p className="upload-problem">저장된 답을 사용했어요.</p>}
       {state.kind === 'done' && <NetPreview scene={state.scene} />}
       {RECORD && state.kind === 'done' && (
         // 기록 모드(개발·실측 빌드만): 학생이 결과를 사진과 비교해 맞음·틀림 (#160, worksheets.md H)
         <div className="toggle-row" role="group" aria-label="기록: 인식 결과가 맞나요">
           {(['right', 'wrong'] as const).map((v) => (
-            <button key={v} type="button" aria-pressed={verdict === v} onClick={() => (setVerdict(v), recordEvent('verdict', { value: v }))}>
+            <button key={v} type="button" aria-pressed={verdict === v} onClick={() => {
+              setVerdict(v)
+              judgeAnswers(bankCurrent.current, v === 'right')
+              recordEvent('verdict', { value: v, savedAnswer })
+            }}>
               {v === 'right' ? '맞음' : '틀림'}
             </button>
           ))}
