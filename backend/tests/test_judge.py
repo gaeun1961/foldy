@@ -1,5 +1,6 @@
 """심사 일관성·자료 분리·입력 경로 검증. 실제 모델을 호출하지 않는다."""
 
+import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -7,7 +8,17 @@ from unittest.mock import patch
 
 from pydantic import ValidationError
 
-from evals.judge import Review, prepare, reconcile, run
+from app.ai.vision_prompt import VISION_PROMPT
+from evals.judge import (
+    Review,
+    digest,
+    make_prompt,
+    prepare,
+    reconcile,
+    reuse_review,
+    run,
+    write,
+)
 
 
 def main():
@@ -50,8 +61,54 @@ def main():
             assert mocked.call_count == 2
         partial = json.loads((root / "partial/summary.json").read_text())
         assert partial[0]["status"] == "partial_review"
-        assert "gpt-6-sol" in partial[0]["errors"]
+        assert "reviewer-1" in partial[0]["errors"]
         assert partial[0]["human_approved"] is False
+        with patch("evals.judge.judge", side_effect=[good, good]) as mocked:
+            run(cases, root / "pair", True)
+            assert mocked.call_args_list[0].args[1] == "gpt-6-astra"
+            assert mocked.call_args_list[1].args[1] == "gpt-6-astra"
+            assert mocked.call_args_list[0].args[2] != mocked.call_args_list[1].args[2]
+        original = root / "saved/A/gpt-6-astra"
+        original.mkdir(parents=True)
+        schema = root / "schema.json"
+        write(schema, Review.model_json_schema())
+        provenance = {
+            "requested_model": "gpt-6-astra",
+            "reasoning_effort": "low",
+            "prompt_sha256": hashlib.sha256(make_prompt(cases[0]).encode()).hexdigest(),
+            "contract_sha256": hashlib.sha256(VISION_PROMPT.encode()).hexdigest(),
+            "schema_sha256": digest(schema),
+            "input": cases[0],
+        }
+        write(original / "provenance.json", provenance)
+        write(original / "review.json", good.model_dump())
+        (original / "events.jsonl").write_text(
+            '{"type":"turn.completed"}\n', encoding="utf-8"
+        )
+        (original / "stderr.txt").write_text("", encoding="utf-8")
+        target = root / "reused"
+        target.mkdir()
+        assert reuse_review(cases[0], root / "saved", target) == good
+        provenance["prompt_sha256"] = "changed"
+        write(original / "provenance.json", provenance)
+        try:
+            reuse_review(cases[0], root / "saved", target)
+            raise AssertionError("변경된 프롬프트 재사용")
+        except ValueError:
+            pass
+        provenance["prompt_sha256"] = hashlib.sha256(
+            make_prompt(cases[0]).encode()
+        ).hexdigest()
+        write(original / "provenance.json", provenance)
+        (original / "events.jsonl").write_text(
+            '{"type":"turn.completed"}\n{"item":{"type":"command_execution"}}\n',
+            encoding="utf-8",
+        )
+        try:
+            reuse_review(cases[0], root / "saved", target)
+            raise AssertionError("도구 사용 심사 재사용")
+        except ValueError:
+            pass
         for invalid in (
             [row, row],
             [{**row, "id": "../outside"}],
