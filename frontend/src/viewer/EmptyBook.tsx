@@ -17,6 +17,7 @@ interface Props {
   onOpened?: () => void // 오프닝이 끝났거나 건너뛰었을 때
   onLastTurn?: () => void // 오프닝의 속표지가 넘어가기 시작할 때 (카메라가 원래 각도로 올라가기 시작한다)
   reading?: string // 읽는 중인 학습지 사진 주소: 오른쪽 쪽에 깔고 펜이 그 위를 계속 칠한다 (viewer.md "빈 책" 읽는 중)
+  triggerPick?: { k: number; id: number } // 바깥에서 k번째 줄을 누른 것처럼 페이지 넘기기를 시작한다 (사진 인식 결과 등)
 }
 
 export type BookSpread = { text: string[]; pageNumbers?: [number, number]; menu?: BookMenuItem[] }
@@ -27,13 +28,15 @@ const VIEW = VIEW_DIR.clone().normalize() // 도형 화면이 보는 방향. 차
 // 전개도 대신 페이지 크기를 정할 기본 범위 (가로 6 × 세로 6, y = 0)
 const NET = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(6, 0, 6))
 
-export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, onLastTurn, reading }: Props) {
+export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, onLastTurn, reading, triggerPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const pickRef = useRef(onPick)
   const pageOfRef = useRef(pageOf)
   const openingRef = useRef(opening)
   const openedRef = useRef(onOpened)
   const lastTurnRef = useRef(onLastTurn)
+  const triggerPickRef = useRef<{ k: number; id: number } | null>(null)
+  const triggerPickLastId = useRef<number | null>(null)
   useEffect(() => {
     pickRef.current = onPick
     pageOfRef.current = pageOf
@@ -41,6 +44,12 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     openedRef.current = onOpened
     lastTurnRef.current = onLastTurn
   }, [onPick, pageOf, opening, onOpened, onLastTurn])
+  useEffect(() => {
+    if (triggerPick && triggerPick.id !== triggerPickLastId.current) {
+      triggerPickLastId.current = triggerPick.id
+      triggerPickRef.current = triggerPick
+    }
+  }, [triggerPick])
   const key = JSON.stringify({ pageText, contents, pageNumbers, reading })
 
   useEffect(() => {
@@ -152,6 +161,16 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     renderer.setAnimationLoop((now) => {
       const dt = last < 0 ? 0 : Math.min(now - last, 1000 / 30) / 1000
       last = now
+      // 바깥에서 요청한 페이지 넘기기 (사진 인식 결과 등): intro·turn 이 없을 때만
+      if (triggerPickRef.current && !turn && !intro) {
+        const { k } = triggerPickRef.current
+        triggerPickRef.current = null
+        if (k >= 0 && k < contents.length && contents[k].page !== null) {
+          const first = Math.max(0, k + 1 - MAX_SHEETS)
+          turn = { k, t: 0, show: buildPageTurn(book, size, Array.from({ length: k + 1 - first }, (_, j) => pageOfRef.current?.(first + j) ?? { text: [] })), from: camera.position.clone().sub(controls.target).normalize() }
+          controls.enabled = false
+        }
+      }
       if (turn && turn.t < turn.show.seconds) {
         turn.t += dt
         turn.show.update(turn.t)
