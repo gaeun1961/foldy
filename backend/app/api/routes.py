@@ -84,6 +84,19 @@ def _save(trace, image, content_type, problem, result, record, photo) -> None:
         logger.warning("기록 모드 쓰기 실패: %s", e)
 
 
+@router.post("/record", status_code=204)
+def record_event(body: dict) -> None:
+    """기록 모드(개발 전용, api.md): 결과를 본 뒤 학생이 한 일. {session, event, ...}. 꺼져 있으면 무시한다."""
+    session = body.get("session")
+    if not rec.enabled() or not isinstance(session, str):
+        return
+    values = {k: v for k, v in body.items() if k != "session"}
+    try:
+        rec.add_event(session, values)
+    except Exception as e:  # noqa: BLE001 — 기록이 실패해도 서버는 그대로
+        logger.warning("기록 모드 쓰기 실패: %s", e)
+
+
 class ChatRequest(BaseModel):
     message: str
     scene: ShapeScene

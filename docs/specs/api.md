@@ -8,6 +8,7 @@ backend 기본 주소는 `http://localhost:8000`이고(휴대폰에서 열 때�
 |---|---|---|---|
 | GET | `/health` | - | `{ "status": "ok" }` |
 | POST | `/analyze` | multipart `file` (이미지만, 아니면 400), 선택 `problem` (문제 칸 사진, 아래 "문제 칸") | `ShapeScene`. Gemini가 학습지 사진을 읽는다(프롬프트 `vision_prompt.py`). 실패하면 422·503 `{ "detail": string }` (아래 "/analyze 에러") |
+| POST | `/record` | `{ "session": string, "event": string, ... }` (기록 모드, 개발 전용) | 204. `VISION_RECORD=1` 일 때만 그 묶음 `session.json` 의 `events` 에 시각과 함께 쌓는다. 꺼져 있거나 `session` 이 없으면 아무것도 안 한다 (아래 "기록 모드", #160) |
 | POST | `/chat` | `{ "message": string, "scene": ShapeScene }` | `{ "reply": string, "view": ChatView \| null }` (아래 "화면 조작"). Gemini가 도형을 보고 힌트를 준다. LLM 호출이 실패하거나 20초를 넘기면 502 `{ "detail": string }`. `LLM_API_KEY`가 없으면 고정 문장, `view`는 `null` |
 
 ## `/analyze` 에러

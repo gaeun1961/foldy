@@ -10,7 +10,6 @@ backend `.env` 의 VISION_RECORD=1 일 때만 켜진다. /analyze 읽기 한 번
 import hashlib
 import json
 import os
-import re
 import threading
 import time
 from contextvars import ContextVar
@@ -53,16 +52,21 @@ def event(trace: dict | None, **values) -> None:
         )
 
 
-def _safe(text: str) -> str:
-    return re.sub(r"[^0-9A-Za-z_-]", "", text)[:12] or "x"
-
-
 def _folder(session: str | None) -> Path:
     with _lock:
         key = session or f"one-{time.time_ns()}"
         if key not in _folders:
-            stamp = time.strftime("%Y-%m-%d_%H%M%S")
-            _folders[key] = ROOT / f"{stamp}_{_safe(key)[:6]}"
+            path = ROOT / f"session-{hashlib.sha256(key.encode()).hexdigest()}"
+            if session and not path.exists():
+                for old in sorted(ROOT.glob("*/session.json")):
+                    try:
+                        info = json.loads(old.read_text(encoding="utf-8"))
+                    except (OSError, ValueError):
+                        continue
+                    if isinstance(info, dict) and info.get("session") == session:
+                        path = old.parent
+                        break
+            _folders[key] = path
             if len(_folders) > 500:  # 오래 켜 둔 서버에서 끝없이 늘지 않게
                 _folders.pop(next(iter(_folders)))
         return _folders[key]
@@ -141,3 +145,22 @@ def write(
         )
         if photo and not any(folder.glob("photo.*")):
             (folder / f"photo{_ext(photo_type)}").write_bytes(photo)
+
+
+def add_event(session: str, values: dict) -> None:
+    """결과를 본 뒤 학생이 한 일(맞음·틀림·직접 고치기, #160)을 그 묶음 session.json 의 events 에 쌓는다."""
+    folder = _folder(session)
+    with _lock:
+        folder.mkdir(parents=True, exist_ok=True)
+        session_file = folder / "session.json"
+        merged = (
+            json.loads(session_file.read_text(encoding="utf-8"))
+            if session_file.exists()
+            else {"session": session}
+        )
+        merged.setdefault("events", []).append(
+            {"time": time.strftime("%Y-%m-%d %H:%M:%S"), **values}
+        )
+        session_file.write_text(
+            json.dumps(merged, ensure_ascii=False, indent=1), encoding="utf-8"
+        )

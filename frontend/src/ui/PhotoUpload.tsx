@@ -6,6 +6,7 @@ import { CornerPick } from './CornerPick'
 import { NetPreview } from './NetPreview'
 import { TOUCH } from './device'
 import { prepPhoto, rotatePhoto } from './photoPrep'
+import { RECORD, readRecord, recordEvent, session as recSession, startSession } from './recordLog'
 import { suggestShapes } from './suggestBoxes'
 import { WorksheetShelf } from './WorksheetShelf'
 import { defaultName, deleteWorksheet, getWorksheet, listWorksheets, renameWorksheet, saveWorksheet, type WorksheetItem } from './worksheetStore'
@@ -68,6 +69,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
   const [step, setStep] = useState<'problem' | 'shape'>('problem')
   const [shapes, setShapes] = useState<PhotoBox[]>([]) // ② 에서 "도형 더하기"로 모은 네모 (①②③…, 최대 6개)
   const [suggested, setSuggested] = useState(false) // shapes 가 ① 문제 칸에서 찾은 추천 네모인지 (worksheets.md "추천 네모")
+  const [verdict, setVerdict] = useState<'right' | 'wrong' | null>(null) // 기록 모드: 결과에 누른 [맞음][틀림]
   const [lying, setLying] = useState(false) // 문제 칸 글 줄이 세로 (사진이 누움) → 추천 대신 "돌려 주세요"
   const img = useRef<HTMLImageElement>(null)
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
@@ -96,6 +98,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
     setShapes([])
     setLying(false)
     setStep('problem')
+    startSession() // 기록 모드: 기준 사진마다 새 묶음 (#160)
+    setVerdict(null)
     onPhoto(url)
     setState({ kind: 'picking' })
   }
@@ -146,7 +150,16 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
       const problemFile = problemPart ? await crop(pic, problemPart) : undefined
       const boxes = parts?.length ? parts : [null] // null 도 사진 전체로 (화면 갱신 중 옛 버튼이 read(null) 로 부른 적이 있다)
       const files = await Promise.all(boxes.map((b) => (b ? crop(pic, b) : Promise.resolve(photo.file))))
-      const scenes = await Promise.all(files.map((f, i) => analyze(f, i === 0 ? problemFile : undefined)))
+      // 기록 모드: 읽은 네모·학생이 한 일을 record 로, 원본 사진은 묶음마다 처음 한 번 (#160)
+      const json = readRecord(boxes, problemPart)
+      const rec = recSession()
+      const sendPhoto = RECORD && !!rec && !rec.photoSent
+      setVerdict(null)
+      const scenes = await Promise.all(files.map(async (f, i) => {
+        const result = await analyze(f, i === 0 ? problemFile : undefined, json ? { json, photo: i === 0 && sendPhoto ? photo.file : undefined } : undefined)
+        if (RECORD && i === 0 && rec && sendPhoto) rec.photoSent = true
+        return result
+      }))
       const problem = scenes[0].problem
       const found = scenes.map((scene, i) => {
         const withProblem = problem && !scene.problem ? ({ ...scene, problem } as ShapeScene) : scene
@@ -227,6 +240,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
                 .filter((s) => s.inside)
                 .sort((a, b) => a.area - b.area)[0]
               if (hit) {
+                recSession()?.removed.push(shapes[hit.i])
                 setShapes(shapes.filter((_, i) => i !== hit.i))
                 setBox(null)
               }
@@ -265,6 +279,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
               // 문제 칸 안 색칠된 도형을 찾아 ② 네모로 미리 깔아 둔다. 못 찾으면 빈 목록 → 지금처럼 직접 감싼다
               const found = img.current && box ? suggestShapes(img.current, box) : { boxes: [], sideways: false }
               setShapes(found.boxes.slice(0, MAX_ITEMS))
+              const rec = recSession()
+              if (rec) Object.assign(rec, { suggested: found.boxes.slice(0, MAX_ITEMS), sideways: found.sideways, removed: [], added: 0 })
               setSuggested(found.boxes.length > 0)
               setLying(found.sideways)
             }}
@@ -295,6 +311,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             disabled={loading || !usable || shapes.length >= MAX_ITEMS - 1}
             onClick={() => {
               setShapes([...shapes, box!])
+              const rec = recSession()
+              if (rec) rec.added++
               setBox(null)
               setSuggested(false)
             }}
@@ -307,6 +325,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
               className="secondary-button"
               disabled={loading}
               onClick={() => {
+                const rec = recSession()
+                if (rec) rec.removed.push(...shapes)
                 setShapes([])
                 setSuggested(false)
               }}
@@ -380,6 +400,16 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
       </p>
       {state.kind === 'done' && state.scene.problem && <p className="upload-problem">문제: {state.scene.problem}</p>}
       {state.kind === 'done' && <NetPreview scene={state.scene} />}
+      {RECORD && state.kind === 'done' && (
+        // 기록 모드(개발·실측 빌드만): 학생이 결과를 사진과 비교해 맞음·틀림 (#160, worksheets.md H)
+        <div className="toggle-row" role="group" aria-label="기록: 인식 결과가 맞나요">
+          {(['right', 'wrong'] as const).map((v) => (
+            <button key={v} type="button" aria-pressed={verdict === v} onClick={() => (setVerdict(v), recordEvent('verdict', { value: v }))}>
+              {v === 'right' ? '맞음' : '틀림'}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

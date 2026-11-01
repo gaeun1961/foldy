@@ -737,7 +737,7 @@ export function ThreeViewer({
     }
     rebuildBookRef.current = rebuildBook
     if (resetCameraRef) resetCameraRef.current = () => resize(true)
-    const observer = new ResizeObserver(resize)
+    const observer = new ResizeObserver(() => resize())
     observer.observe(container)
     resize()
 
