@@ -1,6 +1,6 @@
 // 문제 칸 안 추천 네모 검사 (worksheets.md "추천 네모"). 실행: frontend 폴더에서 `npm test`
 // 실제 학습지 두 장(29번 겨냥도+전개도, 3-2 계단형)으로 값을 맞췄다. 여기서는 같은 모양을 그려 본다
-import { findShapeBoxes } from './suggestBoxes.ts'
+import { findShapeBoxes, sideways } from './suggestBoxes.ts'
 import type { Pixels } from './perspective.ts'
 
 const check = (ok: boolean, msg: string) => {
@@ -28,7 +28,8 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
 {
   const [W, H] = [480, 330]
   const s = sheet(W, H, (x) => 150 + Math.round((50 * x) / W))
-  for (let line = 0; line < 3; line++) for (let x = 40; x < 440; x += 14) s.fill(x, 20 + line * 30, 8, 2, [40, 40, 40]) // 글자
+  for (let line = 0; line < 3; line++) for (let x = 40 + line * 5; x < 440; x += 14) s.fill(x, 20 + line * 30, 8, 2, [40, 40, 40]) // 글자 (줄마다 어긋남, 실제 글처럼)
+  for (let x = 205; x < 440; x += 14) s.fill(x, 140, 8, 2, [40, 40, 40]) // 전개도 바로 위 글 줄 (넓혀도 넘지 않아야)
   s.fill(60, 200, 90, 70, [104, 96, 85]) // 겨냥도
   s.fill(220, 210, 170, 40, [110, 104, 92]) // 전개도 가로 띠
   s.fill(310, 160, 50, 160, [120, 112, 100]) // 세로 띠
@@ -43,8 +44,19 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(inside(px(boxes[0]), 60, 200, 90, 70), `① 겨냥도를 감싼다: ${JSON.stringify(px(boxes[0]))}`)
   check(inside(px(boxes[1]), 220, 160, 210, 160), `② 전개도를 옅은 날개까지 감싼다: ${JSON.stringify(px(boxes[1]))}`)
   check(px(boxes[0]).x + px(boxes[0]).w <= px(boxes[1]).x + 1e-6, '넓힌 네모가 옆 도형으로 넘어가지 않는다')
-  check(px(boxes[1]).y > 100, `② 가 글자 줄까지 커지지 않는다: ${JSON.stringify(px(boxes[1]))}`)
+  check(px(boxes[1]).y > 141, `② 가 바로 위 글 줄까지 커지지 않는다: ${JSON.stringify(px(boxes[1]))}`)
   check(ms < 500, `빠르다: ${ms.toFixed(0)}ms`)
+  check(!sideways(s), '글 줄이 가로면 바로 선 사진')
+
+  // 같은 학습지를 옆으로 눕힌 사진 (돌리기 없이 문제 칸을 그림): 누운 것을 알아챈다 → 추천 대신 "돌려 주세요"
+  // (누운 글 줄·손글씨는 도형과 픽셀로 못 가려, 휴대폰 실측에서 글 줄을 도형으로 잡았다)
+  const lying = { data: new Uint8ClampedArray(s.data.length), width: H, height: W }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) lying.data.set(s.data.subarray((y * W + x) * 4, (y * W + x) * 4 + 4), (x * H + y) * 4)
+  check(sideways(lying), '글 줄이 세로면 누운 사진')
+
+  // 어두운 휴대폰 사진 (같은 그림을 밝기 60%로): 밝기 값이 종이에 대한 비율이라 그대로 찾는다
+  const dim = { data: s.data.map((v, i) => (i % 4 === 3 ? v : Math.round(v * 0.6))), width: W, height: H }
+  check(findShapeBoxes(dim).length === 2, `어두운 사진도 도형 둘: ${JSON.stringify(findShapeBoxes(dim))}`)
 }
 
 // 문제 칸을 넉넉히 그린 경우: 오른쪽 가장자리 책 그림자 띠(위에서 아래까지), 오른쪽 아래 흐린 그림자 얼룩, 전개도 바로 위 문제 글 줄
@@ -67,6 +79,18 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(boxes[0].y * H > 131, `넓혀도 위 글 줄까지 올라가지 않는다: 위 ${(boxes[0].y * H).toFixed(0)}`)
 }
 
+// 문제 칸을 꼭 맞게 그려 전개도가 오른쪽·아래 가장자리에 같이 닿아도 도형이다 (29번 회귀, #155)
+{
+  const [W, H] = [400, 300]
+  const s = sheet(W, H, () => 200)
+  for (let x = 30; x < 370; x += 13) s.fill(x, 20, 8, 2, [40, 40, 40]) // 문제 글
+  s.fill(40, 170, 90, 70, [104, 96, 85]) // 겨냥도
+  s.fill(220, 160, 180, 50, [120, 112, 100]) // 전개도 가로 띠 (오른쪽 끝까지)
+  s.fill(290, 110, 50, 190, [120, 112, 100]) // 세로 띠 (아래 끝까지)
+  const boxes = findShapeBoxes(s)
+  check(boxes.length === 2, `오른쪽·아래에 닿은 전개도도 찾는다: ${JSON.stringify(boxes)}`)
+}
+
 // 색칠 없는 학습지(선만) → 추천 없음 (학생이 직접 감싼다)
 {
   const s = sheet(300, 200, () => 210)
@@ -84,4 +108,4 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(boxes[0].y < boxes[4].y && boxes[0].x < boxes[1].x, '위 줄 왼쪽부터')
 }
 
-console.log('ok: 추천 네모 (겨냥도·전개도 둘, 옅은 날개, 옆 도형 안 넘김, 책 그림자 띠·흐린 얼룩·위 가장자리 그림 빼기, 글 줄 앞에서 멈춤, 선만이면 없음, 여섯까지)')
+console.log('ok: 추천 네모 (누운 사진 알아채기·어두운 사진·두 가장자리에 닿은 전개도, 겨냥도·전개도 둘, 옅은 날개, 옆 도형 안 넘김, 책 그림자 띠·흐린 얼룩·위 가장자리 그림 빼기, 글 줄 앞에서 멈춤, 선만이면 없음, 여섯까지)')

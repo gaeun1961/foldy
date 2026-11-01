@@ -267,6 +267,103 @@ for _ in range(50):
     threading.Event().wait(0.02)
 assert len(agy._pool["m"]) == 2 and len(spawned) == 3, (agy._pool, spawned)
 
+# 기록 모드 (worksheets.md H, #159): 켜졌을 때만 evals/cases/ 에 읽기 한 번을 폴더 하나로. 꺼지면 아무것도 안 쓴다
+import tempfile
+from pathlib import Path
+
+from app.ai import record as rec
+
+vision.read_problem = lambda image, content_type: (
+    "문제 글"
+)  # 문제 글을 읽어야 기억한다 (아래 cache)
+cases = Path(tempfile.mkdtemp())
+rec.ROOT = cases
+
+
+def wait_files(pattern: str, count: int):
+    for _ in range(100):
+        found = sorted(cases.glob(pattern))
+        if len(found) >= count:
+            return found
+        threading.Event().wait(0.02)
+    raise AssertionError(f"기록이 안 생겼다: {pattern} {sorted(cases.rglob('*'))}")
+
+
+fake(MOCK_SCENE)
+assert post(b"photo-rec-off").status_code == 200
+threading.Event().wait(0.1)
+assert not any(cases.iterdir()), "꺼져 있으면 쓰지 않는다"
+
+os.environ["VISION_RECORD"] = "1"
+fake(MOCK_SCENE)
+r = client.post(
+    "/analyze",
+    files={
+        "file": ("photo.jpg", b"photo-rec-1", "image/jpeg"),
+        "problem": ("q.jpg", b"q-rec", "image/jpeg"),
+        "photo": ("whole.jpg", b"whole-photo", "image/jpeg"),
+    },
+    data={"record": json.dumps({"session": "s1abc", "suggested": [[0, 0, 1, 1]]})},
+)
+assert r.status_code == 200
+(meta_path,) = wait_files("*/read-1/meta.json", 1)
+read = meta_path.parent
+meta = json.loads(meta_path.read_text(encoding="utf-8"))
+assert meta["source"] == "api" and meta["seconds"] >= 0 and meta["problem_sha256"], meta
+assert (read / "shape.jpg").read_bytes() == b"photo-rec-1"
+assert (read / "problem.jpg").read_bytes() == b"q-rec"
+assert (
+    json.loads((read / "result.json").read_text(encoding="utf-8"))["shape"] == "cuboid"
+)
+session = json.loads((read.parent / "session.json").read_text(encoding="utf-8"))
+assert (
+    session["session"] == "s1abc"
+    and session["suggested"] == [[0, 0, 1, 1]]
+    and session["reads"] == ["read-1"]
+)
+assert (read.parent / "photo.jpg").read_bytes() == b"whole-photo"
+
+# 같은 묶음의 두 번째 읽기는 같은 폴더 read-2. 같은 사진(바이트)이면 출처는 기억(cache)
+fake()
+r = client.post(
+    "/analyze",
+    files={
+        "file": ("photo.jpg", b"photo-rec-1", "image/jpeg"),
+        "problem": ("q.jpg", b"q-rec", "image/jpeg"),
+    },
+    data={"record": json.dumps({"session": "s1abc"})},
+)
+assert r.status_code == 200 and calls == []
+(meta2,) = wait_files("*/read-2/meta.json", 1)
+assert json.loads(meta2.read_text(encoding="utf-8"))["source"] == "cache"
+assert meta2.parent.parent == read.parent
+
+# 실패도 남긴다 (422·503), record 가 깨져 있어도 쓴다
+fake(VisionError("ShapeScene 아님", unavailable=False))
+r = client.post(
+    "/analyze",
+    files={"file": ("photo.jpg", b"photo-rec-bad", "image/jpeg")},
+    data={"record": "{깨짐"},
+)
+assert r.status_code == 422
+results = [
+    json.loads(p.read_text(encoding="utf-8"))
+    for p in cases.glob("*/read-*/result.json")
+]
+for _ in range(100):
+    results = [
+        json.loads(p.read_text(encoding="utf-8"))
+        for p in cases.glob("*/read-*/result.json")
+    ]
+    if any(x.get("status") == 422 for x in results):
+        break
+    threading.Event().wait(0.02)
+assert any(
+    x.get("status") == 422 and "ShapeScene" in x["error"] and x["kind"] == "VisionError"
+    for x in results
+), results
+del os.environ["VISION_RECORD"]
+
 print(
-    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, agy 미리 띄워 두기·늦으면 하나 더, 문제 칸, 입체도형 문제가 아님)"
+    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, agy 미리 띄워 두기·늦으면 하나 더, 문제 칸, 입체도형 문제가 아님, 기록 모드)"
 )

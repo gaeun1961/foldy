@@ -477,7 +477,10 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     group.add(pencil)
   })
   // 책상 위 소품: 주사위·컴퍼스·삼각자·시계·필통·지우개 (deskProps.ts)
-  group.add(buildDeskProps({ spineX, cz, pageD, bookHalfW: pageW + coverMargin, bookHalfD: pageD / 2 + coverMargin, matHalfW: halfW, matHalfD: halfD, matTop, deskY: matTop - matT, pencilX }, own))
+  const props = buildDeskProps({ spineX, cz, pageD, bookHalfW: pageW + coverMargin, bookHalfD: pageD / 2 + coverMargin, matHalfW: halfW, matHalfD: halfD, matTop, deskY: matTop - matT, pencilX }, own)
+  group.add(props)
+  const pressable: THREE.Object3D[] = [] // 메뉴처럼 누르는 소품 (공부 타이머 → 'contents')
+  props.traverse((o) => o.userData.menu && pressable.push(o))
   const wood = own(woodTexture())
   // 나뭇결 크기도 쪽에 맞춘다 (빈 책 쪽 가로 7.8 에서 결 한 장이 18): 책 크기가 화면마다 달라도 결 굵기가 같아 보인다
   const grain = pageW * 2.3
@@ -505,8 +508,11 @@ export function buildBook(net: THREE.Box3, size: number, pageText: string[], con
     },
     pages: () => (rightPage ? [rightPage] : []),
     leftPage: () => leftPage,
-    // 광선이 맞힌 곳이 왼쪽 쪽 메뉴의 어느 줄인가 (고를 수 있는 줄만). 아니면 null
-    menuAt: (hit: THREE.Intersection | undefined) => {
+    // 메뉴로 누를 수 있는 것: 왼쪽 쪽과 공부 타이머 (도형 화면이 광선을 쏠 대상)
+    menuTargets: () => [...(leftPage ? [leftPage] : []), ...pressable],
+    // 광선이 맞힌 곳이 왼쪽 쪽 메뉴의 어느 줄인가 (고를 수 있는 줄만), 또는 공부 타이머('contents'). 아니면 null
+    menuAt: (hit: THREE.Intersection | undefined): string | null => {
+      if (hit?.object.userData.menu) return hit.object.userData.menu
       if (!hit || hit.object !== leftPage || hit.face?.materialIndex !== 2 || !hit.uv) return null
       const v = 1 - hit.uv.y
       return menuRows.find((r) => r.enabled && v >= r.top && v <= r.bottom)?.id ?? null

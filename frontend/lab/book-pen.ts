@@ -9,7 +9,7 @@ import { buildBook, DESK_COLOR, pageTexture, VIEW_DIR } from '../src/viewer/book
 import { applyUnfold, buildFaceTree, layOnFloor } from '../src/viewer/faceTree.ts'
 import { netVariant } from '../src/viewer/gridNet.ts'
 import { pageSlots } from '../src/viewer/pageSlots.ts'
-import { startPenDraw, type PenDraw, type PenFloor } from '../src/viewer/penDraw.ts'
+import { findTablePencil, startPenDraw, type PenDraw, type PenFloor } from '../src/viewer/penDraw.ts'
 import { polyhedronOf } from '../src/viewer/polyhedra.ts'
 import { PAPER } from '../src/viewer/theme.ts'
 
@@ -124,6 +124,7 @@ function build() {
     floors,
     page: left ? { material: (left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial, blank, x0: book.center.x - book.page.w, z0: book.center.z - book.page.d / 2, w: book.page.w, d: book.page.d, y: book.top } : null,
     size: size * 0.5,
+    home: findTablePencil(book.group), // 책상 초록 색연필에서 날아오고 돌아간다
     pace: state.slow ? 5 : 1,
     onDone: () => {},
   })

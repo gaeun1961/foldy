@@ -177,8 +177,18 @@ export default function App() {
   const explain = scene && viewerLesson ? lessonHint(viewerLesson, scene) : null // 공식 설명은 왼쪽 쪽에만 (멈췄을 때)
   const makeCard = useRef<HTMLDetailsElement>(null)
   const pageMenu = scene ? pageMenuOf(scene, lesson, variant, unfold) : []
+  // 차례로: 도형을 내리고 빈 책으로 (사진·사진 위치는 그대로, ui.md 화면 배치 6번). 아래 바 "차례"와 책상 위 공부 타이머
+  const goContents = () => {
+    setScene(null)
+    setGallery(null)
+    setLesson(null)
+    setMarking(false)
+    setDrawLines(false)
+    setFacePick(null)
+  }
   const pickMenu = (id: string) => {
     if (!scene) return
+    if (id === 'contents') return goContents()
     // 구 단면 비교의 "⅓ 왜?": 같은 반지름·높이의 원뿔 부피 끝(원판 쌓기)으로
     if (id === CONE_THIRD_LINK && scene.shape === 'sphere') {
       loadScene(crossScene('cone', { radius: scene.size.radius, height: scene.size.radius }))
@@ -324,6 +334,7 @@ export default function App() {
             pageNumbers={pageNumbersOf(scene)}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             drawIn={drawIn || undefined}
+            penFromTable={holdFrom === null} // 읽는 중 빈 책에서 이미 펜이 책 위에 있었으면 그 자리에서 바로 (viewer.md "책상 색연필과 오가기")
             onReady={() => setHoldFrom(null)}
             gallery={gallery && gallery.length > 1 ? gallery.map((g) => g.scene) : undefined}
             galleryIndex={galleryIndex}
@@ -476,15 +487,7 @@ export default function App() {
               <button
                 type="button"
                 className="contents-button"
-                onClick={() => {
-                  // 차례로: 도형을 내리고 빈 책으로 (사진·사진 위치는 그대로, ui.md 화면 배치 6번)
-                  setScene(null)
-                  setGallery(null)
-                  setLesson(null)
-                  setMarking(false)
-                  setDrawLines(false)
-                  setFacePick(null)
-                }}
+                onClick={goContents}
               >
                 차례
               </button>
