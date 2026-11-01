@@ -153,10 +153,13 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
       // 기록 모드: 읽은 네모·학생이 한 일을 record 로, 원본 사진은 묶음마다 처음 한 번 (#160)
       const json = readRecord(boxes, problemPart)
       const rec = recSession()
-      const sendPhoto = !!rec && !rec.photoSent
-      if (rec) rec.photoSent = true
+      const sendPhoto = RECORD && !!rec && !rec.photoSent
       setVerdict(null)
-      const scenes = await Promise.all(files.map((f, i) => analyze(f, i === 0 ? problemFile : undefined, json ? { json, photo: i === 0 && sendPhoto ? photo.file : undefined } : undefined)))
+      const scenes = await Promise.all(files.map(async (f, i) => {
+        const result = await analyze(f, i === 0 ? problemFile : undefined, json ? { json, photo: i === 0 && sendPhoto ? photo.file : undefined } : undefined)
+        if (RECORD && i === 0 && rec && sendPhoto) rec.photoSent = true
+        return result
+      }))
       const problem = scenes[0].problem
       const found = scenes.map((scene, i) => {
         const withProblem = problem && !scene.problem ? ({ ...scene, problem } as ShapeScene) : scene
@@ -322,6 +325,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
               className="secondary-button"
               disabled={loading}
               onClick={() => {
+                const rec = recSession()
+                if (rec) rec.removed.push(...shapes)
                 setShapes([])
                 setSuggested(false)
               }}

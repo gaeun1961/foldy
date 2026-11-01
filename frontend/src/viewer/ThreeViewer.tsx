@@ -702,16 +702,24 @@ export function ThreeViewer({
 
     // 카메라는 늘 책(readingRange)만 담는다: 차례·접기·설명 어디서든 책이 화면에서 같은 자리·크기로 보인다 (viewer.md "카메라").
     // 화면 비율이 바뀌거나 설명으로 책을 다시 만들면 다시 맞춘다. 보는 방향은 유지
-    const resize = () => {
+    let snapTo: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null
+    const resize = (smooth = false) => {
       const { clientWidth: w, clientHeight: h } = container
       renderer.setSize(w, h)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       const dir = camera.position.clone().sub(controls.target).normalize()
       const view = bookView(fitOf(readingRange(book)), camera)
-      controls.target.copy(view.target)
-      camera.position.copy(controls.target).addScaledVector(dir, view.distance)
+      const newTarget = view.target
+      const newPos = newTarget.clone().addScaledVector(dir, view.distance)
       world.fog = new THREE.Fog(DESK_COLOR, view.distance * 2, view.distance * 6) // 책 너머 책상만 흐리게
+      if (smooth) {
+        snapTo = { pos: newPos, target: newTarget }
+      } else {
+        controls.target.copy(newTarget)
+        camera.position.copy(newPos)
+        snapTo = null
+      }
     }
     rebuildBook = () => {
       world.remove(book.group)
@@ -722,10 +730,10 @@ export function ThreeViewer({
       if (left) penDraw?.retargetPage((left.material as THREE.Material[])[2] as THREE.MeshStandardMaterial) // 펜이 쓰는 중이면 새 쪽에도 가림
       penDraw?.rehome(findTablePencil(book.group)) // 새 책의 책상 색연필
       aimLight(light, book)
-      resize()
+      resize(true)
     }
     rebuildBookRef.current = rebuildBook
-    const observer = new ResizeObserver(resize)
+    const observer = new ResizeObserver(() => resize())
     observer.observe(container)
     resize()
 
@@ -736,11 +744,8 @@ export function ThreeViewer({
     const pairTargets = pairEdges.flat().map((m) => m.children[0])
     const raycaster = new THREE.Raycaster()
     let down: { x: number; y: number } | null = null
-    const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
-    const menuHit = () => {
-      const page = book.leftPage()
-      return page ? book.menuAt(raycaster.intersectObjects([...faceTargets, page], false)[0]) : null
-    }
+    const onDown = (e: PointerEvent) => { snapTo = null; down = { x: e.clientX, y: e.clientY } }
+    const menuHit = () => book.menuAt(raycaster.intersectObjects([...faceTargets, ...book.menuTargets()], false)[0])
     // 여러 도형: 펼쳐 놓은 다른 도형을 누르면 그것을 고른다
     const galleryTargets = galleryNets.flatMap((g) => g.tree.nodes.map((n) => n.mesh))
     const galleryHit = (): number | null => (galleryTargets.length ? (raycaster.intersectObjects(galleryTargets, false)[0]?.object.userData.gallery ?? null) : null)
@@ -836,8 +841,22 @@ export function ThreeViewer({
     renderer.domElement.addEventListener('pointermove', onMove)
 
     let told = false // 첫 프레임을 그렸다고 알렸는가 (onReady, 다시 만들 때마다 한 번)
+    let lastT = performance.now()
     renderer.setAnimationLoop(() => {
-      penDraw?.update(performance.now())
+      const now = performance.now()
+      const dt = Math.min((now - lastT) / 1000, 0.1)
+      lastT = now
+      if (snapTo) {
+        const k = 1 - Math.exp(-8 * dt)
+        camera.position.lerp(snapTo.pos, k)
+        controls.target.lerp(snapTo.target, k)
+        if (camera.position.distanceTo(snapTo.pos) < 0.001) {
+          camera.position.copy(snapTo.pos)
+          controls.target.copy(snapTo.target)
+          snapTo = null
+        }
+      }
+      penDraw?.update(now)
       controls.update()
       renderer.render(world, camera)
       liftLastFrame()

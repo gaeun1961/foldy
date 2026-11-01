@@ -124,6 +124,10 @@ export default function App() {
   // 읽은 뒤 결과 뷰어가 첫 프레임을 그릴 때까지(onReady) 읽는 중 빈 책을 위에 덮어 둔다 (viewer.md "빈 책" 읽는 중).
   // holdFrom: 읽기를 시작할 때의 drawIn. 결과가 와서 drawIn 이 바뀌었는데 뷰어가 아직 알리지 않았으면 덮는다 (실패해서 안 바뀌면 덮지 않는다)
   const [holdFrom, setHoldFrom] = useState<number | null>(null)
+  // 사진 인식 결과를 EmptyBook 페이지 넘기기 애니메이션으로 연결 (이슈 #171)
+  const [emptyBookTrigger, setEmptyBookTrigger] = useState<{ k: number; id: number } | null>(null)
+  const emptyBookSerial = useRef(0)
+  const photoAnalysisResult = useRef<Found | null>(null)
   const holding = holdFrom !== null && drawIn !== holdFrom && !reading
   const readingNow = (reading || holding) && !!photo && !hologram // 3D 에 사진 깐 빈 책 (읽는 중, 결과 뷰어 준비 중)
   // 사진이 있으면 직접 만들기를 접어 둔다. 고치기를 누르거나 인식이 실패하면 그 사진에서만 펼친다 (worksheets.md, 수동 경로는 늘 한 번에 닿는다)
@@ -178,8 +182,20 @@ export default function App() {
   const explain = scene && viewerLesson ? lessonHint(viewerLesson, scene) : null // 공식 설명은 왼쪽 쪽에만 (멈췄을 때)
   const makeCard = useRef<HTMLDetailsElement>(null)
   const pageMenu = scene ? pageMenuOf(scene, lesson, variant, unfold) : []
+  // 차례로: 도형을 내리고 빈 책으로 (사진·사진 위치는 그대로, ui.md 화면 배치 6번). 아래 바 "차례"와 책상 위 공부 타이머
+  const goContents = () => {
+    setScene(null)
+    setGallery(null)
+    setLesson(null)
+    setMarking(false)
+    setDrawLines(false)
+    setFacePick(null)
+    setEmptyBookTrigger(null)
+    photoAnalysisResult.current = null
+  }
   const pickMenu = (id: string) => {
     if (!scene) return
+    if (id === 'contents') return goContents()
     // 구 단면 비교의 "⅓ 왜?": 같은 반지름·높이의 원뿔 부피 끝(원판 쌓기)으로
     if (id === CONE_THIRD_LINK && scene.shape === 'sphere') {
       loadScene(crossScene('cone', { radius: scene.size.radius, height: scene.size.radius }))
@@ -247,6 +263,16 @@ export default function App() {
     const keep = list.length > 1 ? (flat.length ? flat : [list[0]]) : list
     const dropped = list.filter((x) => !keep.includes(x))
     setLeftOut(dropped.length ? `함께 놓을 수 없어서 뺀 도형: ${dropped.map((d) => shapeName(d.scene)).join(', ')}. 따로 감싸서 읽어 주세요` : null)
+    // EmptyBook 이 보이는 상태(도형 없음)이면 페이지 넘기기 애니메이션으로 해당 도형으로 이동 (이슈 #171)
+    if (!sceneNow.current) {
+      const k = SHAPES.findIndex((s) => s.shape === keep[0].scene.shape)
+      if (k >= 0) {
+        photoAnalysisResult.current = keep
+        emptyBookSerial.current++
+        setEmptyBookTrigger({ k, id: emptyBookSerial.current })
+        return
+      }
+    }
     setGallery(keep.length > 1 ? keep : null)
     setGalleryIndex(0)
     showShape(keep[0].scene, keep[0].place)
@@ -304,10 +330,21 @@ export default function App() {
               const hint = first && lessonHint({ ...first, pi: piMode }, next)
               return { text: pageTextOf(next, first, hint, false), pageNumbers: pageNumbersOf(next), menu: pageMenuOf(next, first, next.net.layout === 'cross' ? 0 : null, 1) }
             }} onPick={(k) => {
+              // 사진 인식 결과로 시작한 페이지 넘기기면 인식한 장면을 그대로 쓴다 (이슈 #171)
+              if (photoAnalysisResult.current) {
+                const keep = photoAnalysisResult.current
+                photoAnalysisResult.current = null
+                setEmptyBookTrigger(null)
+                setGallery(keep.length > 1 ? keep : null)
+                setGalleryIndex(0)
+                showShape(keep[0].scene, keep[0].place)
+                if (makeCard.current) makeCard.current.open = false
+                return
+              }
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
-            }} />}
+            }} triggerPick={emptyBookTrigger ?? undefined} />}
         {scene && !hologram && !(reading && photo) && (
           <Viewer
             scene={scene}
@@ -478,15 +515,7 @@ export default function App() {
               <button
                 type="button"
                 className="contents-button"
-                onClick={() => {
-                  // 차례로: 도형을 내리고 빈 책으로 (사진·사진 위치는 그대로, ui.md 화면 배치 6번)
-                  setScene(null)
-                  setGallery(null)
-                  setLesson(null)
-                  setMarking(false)
-                  setDrawLines(false)
-                  setFacePick(null)
-                }}
+                onClick={goContents}
               >
                 차례
               </button>

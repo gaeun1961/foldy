@@ -385,6 +385,38 @@ assert [e["event"] for e in events] == ["verdict", "manual"] and events[0][
 assert (
     client.post("/record", json={"event": "verdict"}).status_code == 204
 )  # 묶음 id 없으면 무시
+# 같은 시각에 ID 앞 6자가 같은 두 사진도 기록이 섞이지 않는다.
+for sid, value in [("same-prefix-a", "right"), ("same-prefix-b", "wrong")]:
+    rec.add_event(sid, {"event": "verdict", "value": value})
+paths = {
+    json.loads(p.read_text(encoding="utf-8")).get("session"): p
+    for p in cases.glob("*/session.json")
+}
+assert paths["same-prefix-a"] != paths["same-prefix-b"]
+assert (
+    json.loads(paths["same-prefix-a"].read_text(encoding="utf-8"))["events"][0]["value"]
+    == "right"
+)
+# 서버 재시작/캐시 퇴출 뒤에도 전체 ID로 기존 폴더를 찾는다.
+rec._folders.clear()
+rec.add_event("same-prefix-a", {"event": "manual"})
+assert (
+    len(json.loads(paths["same-prefix-a"].read_text(encoding="utf-8"))["events"]) == 2
+)
+old = cases / "2026-10-31_210000_legacy"
+old.mkdir()
+(old / "session.json").write_text(
+    json.dumps({"session": "legacy-id", "reads": ["read-1"]}), encoding="utf-8"
+)
+rec.add_event("legacy-id", {"event": "manual"})
+assert json.loads((old / "session.json").read_text(encoding="utf-8"))["reads"] == [
+    "read-1"
+]
+assert (
+    json.loads((old / "session.json").read_text(encoding="utf-8"))["events"][0]["event"]
+    == "manual"
+)
+
 del os.environ["VISION_RECORD"]
 before = sorted(cases.rglob("*"))
 assert (

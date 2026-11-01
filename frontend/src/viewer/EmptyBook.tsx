@@ -17,6 +17,7 @@ interface Props {
   onOpened?: () => void // 오프닝이 끝났거나 건너뛰었을 때
   onLastTurn?: () => void // 오프닝의 속표지가 넘어가기 시작할 때 (카메라가 원래 각도로 올라가기 시작한다)
   reading?: string // 읽는 중인 학습지 사진 주소: 오른쪽 쪽에 깔고 펜이 그 위를 계속 칠한다 (viewer.md "빈 책" 읽는 중)
+  triggerPick?: { k: number; id: number } // 바깥에서 k번째 줄을 누른 것처럼 페이지 넘기기를 시작한다 (사진 인식 결과 등)
 }
 
 export type BookSpread = { text: string[]; pageNumbers?: [number, number]; menu?: BookMenuItem[] }
@@ -27,7 +28,7 @@ const VIEW = VIEW_DIR.clone().normalize() // 도형 화면이 보는 방향. 차
 // 전개도 대신 페이지 크기를 정할 기본 범위 (가로 6 × 세로 6, y = 0)
 const NET = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(6, 0, 6))
 
-export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, onLastTurn, reading }: Props) {
+export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, onLastTurn, reading, triggerPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const pickRef = useRef(onPick)
   const pageOfRef = useRef(pageOf)
@@ -41,11 +42,12 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     openedRef.current = onOpened
     lastTurnRef.current = onLastTurn
   }, [onPick, pageOf, opening, onOpened, onLastTurn])
-  const key = JSON.stringify({ pageText, contents, pageNumbers, reading })
+  // triggerPick.id 를 key 에 넣어서 바뀔 때마다 ThreeJS 씬을 새로 열고 바로 페이지 넘기기를 시작한다
+  const key = JSON.stringify({ pageText, contents, pageNumbers, reading, triggerPickId: triggerPick?.id })
 
   useEffect(() => {
     const container = containerRef.current!
-    const { pageText, contents, pageNumbers, reading } = JSON.parse(key) as Props
+    const { pageText, contents, pageNumbers, reading } = JSON.parse(key) as Props & { triggerPickId?: number }
     const renderer = bookRenderer()
     container.appendChild(renderer.domElement)
 
@@ -81,6 +83,8 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       distance = view.distance
       camera.position.copy(controls.target).addScaledVector(dir, distance)
       world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6) // 책 너머 책상만 흐리게 (도형 화면과 같게)
+      // 크기를 바꾸면 캔버스가 지워지고, ResizeObserver 는 rAF 뒤·화면 표시 전에 불린다. 바로 다시 그려야 줄어드는 동안(휴대폰 오프닝) 빈 캔버스가 안 보인다
+      renderer.render(world, camera)
     }
     const observer = new ResizeObserver(resize)
     observer.observe(container)
@@ -141,12 +145,19 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       })
     }
 
+    // triggerPick 이 있으면 씬을 열자마자 해당 줄로 페이지 넘기기를 시작한다 (사진 인식 결과 등)
+    if (triggerPick && triggerPick.k >= 0 && triggerPick.k < contents.length && contents[triggerPick.k].page !== null) {
+      const k = triggerPick.k
+      const first = Math.max(0, k + 1 - MAX_SHEETS)
+      turn = { k, t: 0, show: buildPageTurn(book, size, Array.from({ length: k + 1 - first }, (_, j) => pageOfRef.current?.(first + j) ?? { text: [] })), from: camera.position.clone().sub(controls.target).normalize() }
+    }
+
     // 시간은 프레임마다 더한다(한 번에 최대 1/30초). 첫 프레임이 늦거나 멈칫해도 단계를 건너뛰지 않는다
     let t = 0
     let last = -1
     let picked: number | null = null
     let lastTurn = false
-    controls.enabled = !intro
+    controls.enabled = !intro && !turn
     renderer.setAnimationLoop((now) => {
       const dt = last < 0 ? 0 : Math.min(now - last, 1000 / 30) / 1000
       last = now

@@ -147,13 +147,12 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     apply()
     applyRef.current = apply
 
-    // 왼쪽 쪽 메뉴 누르기: 끌어서 돌린 것은 클릭이 아니다. 앞에 도형이 있으면 메뉴를 누른 것이 아니다
+    // 왼쪽 쪽 메뉴·공부 타이머 누르기: 끌어서 돌린 것은 클릭이 아니다. 앞에 도형이 있으면 메뉴를 누른 것이 아니다
     const raycaster = new THREE.Raycaster()
     const menuAt = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
-      const left = book.leftPage()
-      return left ? book.menuAt(raycaster.intersectObjects([...(lessonObject ? [lessonObject.group] : [net.group]), left], true).find((h) => (h.object as THREE.Mesh).isMesh && !(h.object as THREE.InstancedMesh).isInstancedMesh)) : null
+      return book.menuAt(raycaster.intersectObjects([...(lessonObject ? [lessonObject.group] : [net.group]), ...book.menuTargets()], true).find((h) => (h.object as THREE.Mesh).isMesh && !(h.object as THREE.InstancedMesh).isInstancedMesh))
     }
     let down: { x: number; y: number } | null = null
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
