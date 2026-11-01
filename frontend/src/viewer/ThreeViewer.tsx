@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types.ts'
 import { applyUnfold, buildFaceTree, disposeFaceTree, facePoints, facingYaw, farFirstOrder, layOnFloor, placeLines, stepUnfold, surfaceRoutes, uniqueRoutes } from './faceTree.ts'
-import { aimLight, bookLights, bookView, buildBook, DESK_COLOR, fitOf, pageTexture, readingRange, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookRenderer, bookView, buildBook, liftLastFrame, DESK_COLOR, fitOf, pageTexture, readingRange, VIEW_DIR } from './bookScene.ts'
 import { ITEM_LABELS, pageSlots } from './pageSlots.ts'
 import { startPenDraw, type PenDraw } from './penDraw.ts'
 import type { GridPolyhedron } from './gridNet.ts'
@@ -137,10 +137,8 @@ export function ThreeViewer({
     if (!poly) return // 곡면 도형·아직 데이터가 없는 도형
     const container = containerRef.current!
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    const renderer = bookRenderer()
     renderer.localClippingEnabled = true // 학습지 사진을 책 페이지 안으로 자른다
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.shadowMap.enabled = true // 기본 PCF. 가장자리는 light.shadow.radius 로 흐리게
     container.appendChild(renderer.domElement)
 
     const world = new THREE.Scene()
@@ -733,10 +731,7 @@ export function ThreeViewer({
     const raycaster = new THREE.Raycaster()
     let down: { x: number; y: number } | null = null
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
-    const menuHit = () => {
-      const page = book.leftPage()
-      return page ? book.menuAt(raycaster.intersectObjects([...faceTargets, page], false)[0]) : null
-    }
+    const menuHit = () => book.menuAt(raycaster.intersectObjects([...faceTargets, ...book.menuTargets()], false)[0])
     // 여러 도형: 펼쳐 놓은 다른 도형을 누르면 그것을 고른다
     const galleryTargets = galleryNets.flatMap((g) => g.tree.nodes.map((n) => n.mesh))
     const galleryHit = (): number | null => (galleryTargets.length ? (raycaster.intersectObjects(galleryTargets, false)[0]?.object.userData.gallery ?? null) : null)
@@ -836,6 +831,7 @@ export function ThreeViewer({
       penDraw?.update(performance.now())
       controls.update()
       renderer.render(world, camera)
+      liftLastFrame()
       if (!told) {
         told = true
         callbacksRef.current.onReady?.()
@@ -884,6 +880,7 @@ export function ThreeViewer({
       photoMesh?.material.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
+      renderer.forceContextLoss()
       container.removeChild(renderer.domElement)
     }
   }, [shapeKey]) // scene 은 sceneRef 로 읽는다. lines 만 바뀌면 다시 만들지 않는다
