@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from pathlib import Path
 
 import httpx
@@ -25,7 +26,7 @@ from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
-from app.ai import agy
+from app.ai import agy, record
 from app.ai.schema import ShapeScene
 from app.ai.vision_prompt import VISION_PROMPT
 
@@ -60,6 +61,27 @@ class VisionError(Exception):
         self.unavailable = unavailable
 
 
+class NotSolidError(VisionError):
+    """고른 문제가 입체도형(직육면체·정육면체) 전개도·겨냥도 문제가 아님 (모델이 {"notSolid": true} 로 답함, #163) → 422."""
+
+    def __init__(self, message: str = "입체도형 문제가 아님"):
+        super().__init__(message, unavailable=False)
+
+
+def to_scene(text: str) -> ShapeScene:
+    """모델 답 JSON → ShapeScene. {"notSolid": true} 면 NotSolidError, 모양이 틀리면 VisionError(422)."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        data = None
+    if isinstance(data, dict) and data.get("notSolid") is True:
+        raise NotSolidError()
+    try:
+        return ShapeScene.model_validate_json(text)
+    except ValidationError as e:
+        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+
+
 def recognize(image: bytes, content_type: str, model: str = MODEL) -> ShapeScene:
     key = os.environ.get("LLM_API_KEY")
     if not key:
@@ -82,10 +104,7 @@ def recognize(image: bytes, content_type: str, model: str = MODEL) -> ShapeScene
     # 시간 초과는 genai 가 httpx 예외 그대로 올린다
     except (genai.errors.APIError, httpx.TimeoutException) as e:
         raise VisionError(f"{type(e).__name__}: {e}") from e
-    try:
-        return ShapeScene.model_validate_json(text)
-    except ValidationError as e:
-        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+    return to_scene(text)
 
 
 _remembered: dict[
@@ -102,12 +121,7 @@ def cli_scene(stdout: str) -> ShapeScene:
         text = json.loads(stdout)["response"]
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         raise VisionError(f"Gemini CLI 출력이 이상하다: {stdout[:200]}") from e
-    try:
-        return ShapeScene.model_validate_json(
-            text[text.find("{") : text.rfind("}") + 1]
-        )
-    except ValidationError as e:
-        raise VisionError(f"ShapeScene 아님: {e}", unavailable=False) from e
+    return to_scene(text[text.find("{") : text.rfind("}") + 1])
 
 
 def recognize_cli(image: bytes, content_type: str) -> ShapeScene:
@@ -158,11 +172,11 @@ def _run_agy(
 
 
 def warm_up() -> None:
-    """VISION_ENGINE=agy 면 backend 시작 때 agy 를 미리 띄워 둔다 (도형 2, 문제 글 1. 하나에 약 170MB).
-    도형이 셋이면 셋째는 그때 띄운다."""
+    """VISION_ENGINE=agy 면 backend 시작 때 agy 를 미리 띄워 둔다 (도형 3, 문제 글 1. 하나에 약 170MB).
+    도형 셋을 동시에 읽거나 두 개 읽다 25초 넘겨 하나 더 보낼 때도 새로 띄우는 5.5초가 없게 (#156)."""
     if os.environ.get("VISION_ENGINE") != "agy":
         return
-    agy.warm(os.environ.get("VISION_AGY_MODEL") or AGY_MODEL, 2)
+    agy.warm(os.environ.get("VISION_AGY_MODEL") or AGY_MODEL, 3)
     agy.warm(os.environ.get("VISION_AGY_TEXT_MODEL") or AGY_TEXT_MODEL, 1)
 
 
@@ -203,9 +217,12 @@ def read_problem(image: bytes, content_type: str) -> str | None:
                 os.environ.get("VISION_AGY_TEXT_MODEL") or AGY_TEXT_MODEL,
                 _agy_text_lock,
             )
-            return _clean_text(json.loads(out).get("response", ""))
+            text = _clean_text(json.loads(out).get("response", ""))
+            record.note(problem_source="agy", problem_ok=bool(text))
+            return text
         key = os.environ.get("LLM_API_KEY")
         if not key:
+            record.note(problem_source="none", problem_ok=False)
             return None
         client = genai.Client(
             api_key=key, http_options=types.HttpOptions(timeout=TIMEOUT_MS)
@@ -217,9 +234,12 @@ def read_problem(image: bytes, content_type: str) -> str | None:
                 system_instruction=TEXT_PROMPT.replace("{name}", "사진")
             ),
         )
-        return _clean_text(response.text or "")
+        text = _clean_text(response.text or "")
+        record.note(problem_source="api", problem_ok=bool(text))
+        return text
     except Exception as e:  # noqa: BLE001 — 문제 글은 덤이라 어떤 오류든 도형 결과를 버리지 않는다 (코드 검토)
         logger.warning("문제 글 읽기 실패: %s", e)
+        record.note(problem_ok=False, problem_error=str(e)[:300])
         return None
 
 
@@ -242,12 +262,16 @@ def analyze_image(
     key = hashlib.sha256(image + (problem or b"")).hexdigest()
     with _remember_lock:
         if key in _remembered:
+            record.note(
+                source="cache"
+            )  # 같은 사진(바이트까지 같음)을 기억에서 (기록 모드)
             return _remembered[key]
     if problem is None:
         return _analyze_shape(image, content_type, key)
     pool = ThreadPoolExecutor(max_workers=1)
     try:
-        text = pool.submit(read_problem, problem, content_type)
+        # 기록판(contextvar)을 이 스레드에도 넘긴다 (기록 모드)
+        text = pool.submit(copy_context().run, read_problem, problem, content_type)
         scene = _analyze_shape(image, content_type, None)
         problem_text = text.result()
     finally:
@@ -263,16 +287,19 @@ def analyze_image(
 
 def _analyze_shape(image: bytes, content_type: str, key: str | None) -> ShapeScene:
     if os.environ.get("VISION_ENGINE") == "agy":
+        record.note(source="agy", model=os.environ.get("VISION_AGY_MODEL") or AGY_MODEL)
         scene = recognize_agy(image, content_type)
         if key:
             _remember(key, scene)
         return scene
     try:
+        record.note(source="api", model=MODEL)
         scene = _recognize_api(image, content_type)
     except VisionError as e:
         # API 를 지금 못 쓰면(한도·과부하·키 없음) VISION_CLI=1 일 때만 Gemini CLI 로 한 번 더
         if not (e.unavailable and os.environ.get("VISION_CLI") == "1"):
             raise
+        record.note(source="cli", api_error=str(e)[:300])
         scene = recognize_cli(image, content_type)
     if key:
         _remember(key, scene)

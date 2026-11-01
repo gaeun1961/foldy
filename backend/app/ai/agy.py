@@ -10,7 +10,9 @@ stream-json 입력은 글자만 받아 사진은 `@파일` 로 붙인다 (에이
 명령 실행은 허락하지 않는다 (--sandbox, 권한 건너뛰기 없음).
 """
 
+import itertools
 import json
+import logging
 import mimetypes
 import queue
 import shutil
@@ -20,11 +22,18 @@ import threading
 import time
 from pathlib import Path
 
+from app.ai import record
+
 TIMEOUT_S = 300
 HEDGE_S = 25  # 평소 15~20초. 이보다 늦으면 하나 더
 IDLE_S = (
     600  # 이보다 오래 논 대기 프로세스는 버리고 새로 (로그인·설정이 바뀌었을 수 있어)
 )
+
+
+# 요청마다 시간 기록 (#156): 차례 기다림, 대기 프로세스를 썼는지, 그때 새로 뜨는 중인 수, 답까지. uvicorn 로그에 같이 나온다
+log = logging.getLogger("uvicorn.error")
+_seq = itertools.count(1)
 
 
 class AgyError(Exception):
@@ -117,7 +126,8 @@ def _fill(model: str) -> None:
             pass
 
 
-def _take(model: str) -> _Proc:
+def _take(model: str) -> tuple[_Proc, bool]:
+    """(프로세스, 대기 중이던 것인지)"""
     with _pool_lock:
         procs = _pool.setdefault(model, [])
         ready = None
@@ -128,14 +138,19 @@ def _take(model: str) -> _Proc:
                 break
             p.kill()
     threading.Thread(target=_fill, args=(model,), daemon=True).start()
-    return ready or _Proc(model)
+    return (ready, True) if ready else (_Proc(model), False)
 
 
 def run(
     image: bytes, content_type: str, ask: str, model: str, lock: threading.Semaphore
 ) -> str:
     """lock: 동시에 도는 수 (차례를 기다리는 동안은 HEDGE_S 를 세지 않는다). 하나 더 보낸 것은 lock 밖."""
+    rid, asked = next(_seq), time.monotonic()
+    trace = (
+        record.current()
+    )  # 기록 모드: 하나 더 보낸 스레드에서도 같은 기록판에 적는다
     with lock:
+        queued = time.monotonic() - asked
         results: queue.Queue = queue.Queue()
         started: list[_Proc] = []
         guard = threading.Lock()
@@ -143,19 +158,48 @@ def run(
             threading.Event()
         )  # 답이 정해졌다. 그 뒤에 꺼낸 프로세스는 묻지 않고 끈다
 
-        def attempt() -> None:
+        def attempt(label: str) -> None:
             try:
-                p = _take(model)
+                s = time.monotonic()
+                p, warm = _take(model)
                 with guard:
                     if over.is_set():
                         p.kill()  # 늦게 꺼냈다 (하나 더 보내는 중에 첫 답이 왔다)
                         return
                     started.append(p)
-                results.put((True, p.ask(image, content_type, ask)))
+                answer = p.ask(image, content_type, ask)
+                log.info(
+                    "agy #%d %s %s 답 %.1f초 (대기 프로세스 %s, 시작 %.1f초 뒤)",
+                    rid,
+                    model,
+                    label,
+                    time.monotonic() - s,
+                    "씀" if warm else "없어 새로 띄움",
+                    s - asked,
+                )
+                record.event(
+                    trace,
+                    kind="agy",
+                    id=rid,
+                    model=model,
+                    attempt=label,
+                    seconds=round(time.monotonic() - s, 2),
+                    warm=warm,
+                    started_after=round(s - asked, 2),
+                )
+                results.put((True, answer))
             except AgyError as e:
+                record.event(
+                    trace,
+                    kind="agy_error",
+                    id=rid,
+                    model=model,
+                    attempt=label,
+                    error=str(e)[:300],
+                )
                 results.put((False, e))
 
-        threading.Thread(target=attempt, daemon=True).start()
+        threading.Thread(target=attempt, args=("처음",), daemon=True).start()
         sent, failed = 1, []
         deadline = time.monotonic() + TIMEOUT_S + 10
         try:
@@ -165,11 +209,30 @@ def run(
                     ok, value = results.get(timeout=max(wait, 0.1))
                 except queue.Empty:
                     if sent == 1:
-                        threading.Thread(target=attempt, daemon=True).start()
+                        threading.Thread(
+                            target=attempt, args=("하나 더",), daemon=True
+                        ).start()
                         sent = 2
                         continue
                     raise AgyError("Antigravity CLI 시간 초과") from None
                 if ok:
+                    record.event(
+                        trace,
+                        kind="agy_done",
+                        id=rid,
+                        model=model,
+                        seconds=round(time.monotonic() - asked, 2),
+                        queued=round(queued, 2),
+                        hedged=sent > 1,
+                    )
+                    log.info(
+                        "agy #%d %s 끝 %.1f초 (차례 기다림 %.1f초, 하나 더 %s)",
+                        rid,
+                        model,
+                        time.monotonic() - asked,
+                        queued,
+                        "보냄" if sent > 1 else "안 보냄",
+                    )
                     return value
                 failed.append(value)
                 if len(failed) == sent:
