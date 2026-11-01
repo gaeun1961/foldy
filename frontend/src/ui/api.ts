@@ -18,12 +18,14 @@ export interface ChatAnswer {
 }
 
 // 실패하면 backend 의 안내 문구(detail)를 담은 Error 를 던진다
-export async function chat(message: string, scene: ShapeScene): Promise<ChatAnswer> {
+export async function chat(message: string, scene: ShapeScene, signal?: AbortSignal): Promise<ChatAnswer> {
   const res = await fetch(`${API_URL}/chat`, {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, scene }),
   }).catch((e) => {
+    if (signal?.aborted) throw e
     console.error('backend 연결 실패', API_URL, e) // 개발자용. 학생에게는 아래 문구
     throw new OfflineError('지금은 대답할 수 없어요. 접기와 선 긋기로 먼저 살펴봐요')
   })
@@ -35,7 +37,7 @@ export async function chat(message: string, scene: ShapeScene): Promise<ChatAnsw
 // 학습지 사진 → ShapeScene (api.md /analyze). 실패하면 backend 의 안내 문구(detail)를 담은 Error 를 던진다
 // problem: 문제 칸 사진 (선택, 2단계 네모). 오면 backend 가 글자만 따로 동시에 읽어 problem 을 채운다
 // record: 기록 모드(개발 전용, recordLog.ts)의 record JSON 과 원본 사진(묶음마다 처음 한 번). backend 가 꺼져 있으면 무시한다
-export async function analyze(photo: File, problem?: File, record?: { json: string; photo?: File }): Promise<ShapeScene> {
+export async function analyze(photo: File, problem?: File, record?: { json: string; photo?: File }, signal?: AbortSignal): Promise<ShapeScene> {
   const form = new FormData()
   form.append('file', photo)
   if (problem) form.append('problem', problem)
@@ -43,7 +45,8 @@ export async function analyze(photo: File, problem?: File, record?: { json: stri
     form.append('record', record.json)
     if (record.photo) form.append('photo', record.photo)
   }
-  const res = await fetch(`${API_URL}/analyze`, { method: 'POST', body: form }).catch((e) => {
+  const res = await fetch(`${API_URL}/analyze`, { method: 'POST', body: form, signal }).catch((e) => {
+    if (signal?.aborted) throw e
     console.error('backend 연결 실패', API_URL, e) // 개발자용. 학생에게는 아래 문구
     throw new OfflineError('사진을 따라 전개도를 그려 보세요')
   })

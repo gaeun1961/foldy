@@ -196,7 +196,7 @@ function blendPose(pen: THREE.Object3D, from: Pose, to: THREE.Vector3, k: number
   pen.scale.setScalar(from.scale + (1 - from.scale) * k)
 }
 
-export type PenDraw = { pen: THREE.Group; update: (now: number) => void; retargetPage: (material: THREE.MeshStandardMaterial) => void; rehome: (pencil: THREE.Object3D | null) => void; dispose: () => void }
+export type PenDraw = { pen: THREE.Group; skip: () => void; update: (now: number) => void; retargetPage: (material: THREE.MeshStandardMaterial) => void; rehome: (pencil: THREE.Object3D | null) => void; dispose: () => void }
 
 // 그릴 판 하나: frame(판 좌표계, 없으면 월드) 안의 전개도 범위 box(x·z), 판 높이 y, 가릴 재질. 판마다 재질이 따로여야 한다(가림 그림이 판마다 다름)
 // onDrawn: 그 판을 다 칠했을 때 (그림자처럼 가림 셰이더가 안 걸리는 것을 그때 켠다)
@@ -380,6 +380,7 @@ export function startPenDraw(opts: {
   }
   return {
     pen,
+    skip: () => { finish(); park() },
     update,
     retargetPage,
     rehome,

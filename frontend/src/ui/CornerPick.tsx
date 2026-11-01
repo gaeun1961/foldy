@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useOperation } from './activity'
 import { flatSize, warp, type Pt } from './perspective'
 import { canvasToFile, MAX_SIDE } from './photoPrep'
 
@@ -18,6 +19,7 @@ const START: Pt[] = [
 ]
 
 export function CornerPick({ url, onDone, onCancel }: Props) {
+  const { begin } = useOperation()
   const [corners, setCorners] = useState<Pt[]>(START)
   const [active, setActive] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
@@ -33,6 +35,7 @@ export function CornerPick({ url, onDone, onCancel }: Props) {
   const flatten = async () => {
     const el = img.current
     if (!el) return
+    const done = begin()
     setBusy(true)
     setFailed(false)
     await new Promise((r) => setTimeout(r, 0)) // "펴는 중…"을 먼저 그리고 계산
@@ -55,7 +58,7 @@ export function CornerPick({ url, onDone, onCancel }: Props) {
       // 네 점이 한 줄에 있거나(homography) 그림을 못 만들면 멈추지 않고 다시 맞추게 (코드 검토)
       setFailed(true)
       setBusy(false)
-    }
+    } finally { done() }
   }
 
   return (

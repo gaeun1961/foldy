@@ -8,6 +8,7 @@ import { findTablePencil, startPenSketch } from './penDraw.ts'
 // 빈 책 (docs/specs/viewer.md "빈 책"): 도형이 없을 때 같은 책 장면을 도형 없이 그린다.
 // 왼쪽 쪽은 pageText, 오른쪽 쪽은 차례(contents, 줄 끝에 쪽 번호). 쪽 번호가 있는 줄을 누르면 차례 쪽이 넘어간 뒤 onPick(번호)
 interface Props {
+  onActivity?: (finish: (() => void) | null) => void
   pageText: string[]
   contents: BookContent[]
   pageNumbers?: [number, number] // 차례 쪽 번호
@@ -28,7 +29,9 @@ const VIEW = VIEW_DIR.clone().normalize() // 도형 화면이 보는 방향. 차
 // 전개도 대신 페이지 크기를 정할 기본 범위 (가로 6 × 세로 6, y = 0)
 const NET = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(6, 0, 6))
 
-export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, onLastTurn, reading, triggerPick }: Props) {
+export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, opening = false, onOpened, onLastTurn, reading, triggerPick, onActivity }: Props) {
+  const activityRef = useRef(onActivity)
+  useEffect(() => { activityRef.current = onActivity }, [onActivity])
   const containerRef = useRef<HTMLDivElement>(null)
   const pickRef = useRef(onPick)
   const pageOfRef = useRef(pageOf)
@@ -43,11 +46,11 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     lastTurnRef.current = onLastTurn
   }, [onPick, pageOf, opening, onOpened, onLastTurn])
   // triggerPick.id 를 key 에 넣어서 바뀔 때마다 ThreeJS 씬을 새로 열고 바로 페이지 넘기기를 시작한다
-  const key = JSON.stringify({ pageText, contents, pageNumbers, reading, triggerPickId: triggerPick?.id })
+  const key = JSON.stringify({ pageText, contents, pageNumbers, reading, triggerPick })
 
   useEffect(() => {
     const container = containerRef.current!
-    const { pageText, contents, pageNumbers, reading } = JSON.parse(key) as Props & { triggerPickId?: number }
+    const { pageText, contents, pageNumbers, reading, triggerPick } = JSON.parse(key) as Props
     const renderer = bookRenderer()
     container.appendChild(renderer.domElement)
 
@@ -103,6 +106,8 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
     // 고른 줄: 앞 도형들의 쪽을 한 장씩 넘겨 그 도형에 닿는다(k번째 줄이면 k + 1장). 넘어가는 동안 돌리기를 끄고, 다 넘어가면 onPick
     let turn: { k: number; t: number; show: ReturnType<typeof buildPageTurn>; from: THREE.Vector3 } | null = null
+    let skipTurn = false
+    const lockTurn = () => activityRef.current?.(() => { skipTurn = true })
     const onUp = (e: PointerEvent) => {
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
       const k = rowAt(e)
@@ -111,6 +116,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       const first = Math.max(0, k + 1 - MAX_SHEETS)
       turn = { k, t: 0, show: buildPageTurn(book, size, Array.from({ length: k + 1 - first }, (_, j) => pageOfRef.current?.(first + j) ?? { text: [] })), from: camera.position.clone().sub(controls.target).normalize() }
       controls.enabled = false
+      lockTurn()
       renderer.domElement.style.cursor = ''
     }
     const onMove = (e: PointerEvent) => (renderer.domElement.style.cursor = rowAt(e) === null ? '' : 'pointer')
@@ -158,11 +164,12 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     let picked: number | null = null
     let lastTurn = false
     controls.enabled = !intro && !turn
+    if (turn) lockTurn()
     renderer.setAnimationLoop((now) => {
       const dt = last < 0 ? 0 : Math.min(now - last, 1000 / 30) / 1000
       last = now
       if (turn && turn.t < turn.show.seconds) {
-        turn.t += dt
+        turn.t = skipTurn ? turn.show.seconds : turn.t + dt
         turn.show.update(turn.t)
         const p = Math.min(1, turn.t / turn.show.seconds)
         const dir = turn.from.clone().lerp(VIEW, p * p * (3 - 2 * p)).normalize()
@@ -199,11 +206,13 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       if (picked !== null) {
         keepLastFrame(renderer.domElement)
         pickRef.current(picked)
+        activityRef.current?.(null)
         picked = null
       }
     })
 
     return () => {
+      activityRef.current?.(null)
       renderer.setAnimationLoop(null)
       observer.disconnect()
       renderer.domElement.removeEventListener('pointerdown', onDown)

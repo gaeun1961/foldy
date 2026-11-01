@@ -639,3 +639,7 @@ h2 {
 
 /* 실측용 계측기 (?perf, PerfMeter.tsx, #142) */
 .perf-meter { position: fixed; z-index: 50; top: 8px; right: 8px; padding: 6px 10px; border-radius: 10px; background: rgb(31 36 48 / 75%); color: #fff; font: 12px/1.4 ui-monospace, monospace; pointer-events: none; }
+/* 동작 중에는 현재 동작의 버튼 하나만 허용한다 (#167). */
+.activity-shield { position: fixed; inset: 0; z-index: 10000; touch-action: none; }
+.activity-shield button { position: absolute; right: 20px; bottom: max(20px, env(safe-area-inset-bottom)); min-height: 44px; padding: 0 22px; touch-action: none; }
+.activity-content[inert] .dock, .activity-content[inert] .make-card, .activity-content[inert] .chat-panel, .activity-content[inert] .chat-fab { visibility: hidden; }

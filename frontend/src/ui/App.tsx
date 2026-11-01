@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useActivity, useOperation } from './activity'
+import { ActivityLayer } from './ActivityLayer'
 import { PerfMeter } from './PerfMeter'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import { canLayTogether, CONE_THIRD_LINK, EmptyBook, foldStepCount, LESSON_LABEL, LESSON_POSE, lessonGrade, lessonHint, lessonNote, lessonStepCount, lessonSummary, lessonTabs, NET_VARIANTS, netCheck, netVariant, hologramSupported, Viewer, type DrawState, type FacePick, type Lesson, type LessonKind, type PageMenuItem, type PiMode } from '../viewer'
@@ -104,6 +106,19 @@ function pageMenuOf(scene: ShapeScene, lesson: Lesson | null, variant: number | 
 const PERF = new URLSearchParams(location.search).has('perf') // 실측용 계측기 (PerfMeter, #142)
 
 export default function App() {
+  const activity = useActivity()
+  const { begin: beginOpening } = useOperation()
+  const { begin: beginTurn, end: endTurn } = useOperation()
+  const { begin: beginPen, end: endPen } = useOperation()
+  const { begin: beginHolding } = useOperation()
+  const onTurnActivity = useCallback((finish: (() => void) | null) => {
+    if (finish) beginTurn({ label: '건너뛰기', run: finish })
+    else endTurn()
+  }, [beginTurn, endTurn])
+  const onPenActivity = useCallback((finish: (() => void) | null) => {
+    if (finish) beginPen({ label: '건너뛰기', run: finish })
+    else endPen()
+  }, [beginPen, endPen])
   // 도형은 사진 인식(/analyze)이나 수동 입력으로만 생긴다. 그 전에는 null. 선 긋기로 lines 가 늘어난다
   const [scene, setScene] = useState<ShapeScene | null>(null)
   // 오프닝은 앱을 열 때 한 번만 (ui.md "오프닝"). 주소에 ?opening 을 붙이면 다시 본다(시연용). 움직임 줄이기 설정이면 보이지 않는다
@@ -129,6 +144,8 @@ export default function App() {
   const emptyBookSerial = useRef(0)
   const photoAnalysisResult = useRef<Found | null>(null)
   const holding = holdFrom !== null && drawIn !== holdFrom && !reading
+  useEffect(() => opening ? beginOpening({ label: '건너뛰기', run: endOpening }) : undefined, [opening, beginOpening])
+  useEffect(() => holding ? beginHolding() : undefined, [holding, beginHolding])
   const readingNow = (reading || holding) && !!photo && !hologram // 3D 에 사진 깐 빈 책 (읽는 중, 결과 뷰어 준비 중)
   // 사진이 있으면 직접 만들기를 접어 둔다. 고치기를 누르거나 인식이 실패하면 그 사진에서만 펼친다 (worksheets.md, 수동 경로는 늘 한 번에 닿는다)
   const [manualFor, setManualFor] = useState<string | null>(null)
@@ -310,13 +327,8 @@ export default function App() {
   const hint = !scene ? '학습지 사진을 올리거나 직접 만들어 보세요' : playing || lesson ? null : revolution ? '왼쪽 쪽에서 회전체를 골라 돌려 보세요' : sphere ? '왼쪽 쪽에서 겉넓이나 부피를 골라 보세요' : drawLines ? DRAW_HINT[drawState] : marking && canMark ? markHint(mark) : facePick ? facePickHint(facePick) : curved && view.showMatchingEdges ? '같은 색 선끼리 만나요' : view.showMatchingEdges && steps > 0 ? '같은 색 모서리끼리 만나요. 면을 누르면 마주 보는 면을 알려 줘요' : null
 
   return (
-    <div className={`layout${opening ? ' opening' : ''}${opening && lastTurn ? ' last-turn' : ''}`}>
+    <><div className="activity-content" inert={!!activity} aria-busy={!!activity}><div className={`layout${opening ? ' opening' : ''}${opening && lastTurn ? ' last-turn' : ''}`}>
       <main className="stage">
-        {opening && (
-          <button type="button" className="secondary-button skip-opening" onClick={endOpening}>
-            건너뛰기
-          </button>
-        )}
         {/* 사진을 읽는 동안은 빈 책 오른쪽 쪽에 사진을 깔고 펜이 칠한다 (ui.md 화면 배치 2번, viewer.md "빈 책" 읽는 중) */}
         {readingNow && (
           <div className="stage-cover">
@@ -344,9 +356,10 @@ export default function App() {
               loadScene(crossScene(SHAPES[k].shape, { ...SHAPES[k].size }))
               // 왼쪽 쪽 메뉴를 가리지 않게 접는다. 각기둥·각뿔·회전체는 밑면 모양, 평면도형을 카드에서 고르는 것을 바로 알게 펼쳐 둔다
               if (makeCard.current) makeCard.current.open = 'sides' in SHAPES[k].size || 'figure' in SHAPES[k].size
-            }} triggerPick={emptyBookTrigger ?? undefined} />}
+            }} triggerPick={emptyBookTrigger ?? undefined} onActivity={onTurnActivity} />}
         {scene && !hologram && !(reading && photo) && (
           <Viewer
+            onActivity={onPenActivity}
             scene={scene}
             unfold={unfold}
             foldMode={foldMode}
@@ -604,6 +617,6 @@ export default function App() {
           if (foldPercent !== null) setFoldTarget({ unfold: unfoldOf(foldPercent) })
         }}
       />
-    </div>
+    </div></div><ActivityLayer /></>
   )
 }

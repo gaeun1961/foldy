@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useOperation } from './activity'
 import type { ShapeScene } from '../shared/types'
 import { LESSON_LABEL, lessonStepCount, RELATION_COLORS, SIMILAR_SCALES, STAIR_LAYERS, type Lesson } from '../viewer'
 import { StepDots } from './FoldControls'
@@ -17,10 +18,12 @@ interface Props {
 }
 
 export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed }: Props) {
+  const { begin, end } = useOperation()
   const cancel = useRef(() => {})
   const stop = () => {
     cancel.current()
     onPlayingChange(false)
+    end()
   }
   useEffect(() => () => cancel.current(), [])
   useEffect(stop, [lesson?.kind]) // eslint-disable-line react-hooks/exhaustive-deps -- 왼쪽 쪽 메뉴에서 공식을 바꾸면 멈춘다
@@ -37,12 +40,14 @@ export function LessonControls({ scene, lesson, onChange, onPlayingChange, speed
     const list = oneStep ? targets.slice(0, 1) : targets
     if (list.length === 0) return
     onPlayingChange(true)
+    begin({ label: '멈추기', run: stop })
     const { stepMs, pauseMs } = SPEEDS[speed]
     // 겉넓이(재기·칠하기·식)와 뿔 물 붓기는 한 단계에 할 일이 많아서 두 배 천천히
     // 개수는 하나씩 세어야 해서 더 천천히 (모서리 30개까지)
     const slow = lesson.kind.startsWith('revolve') || lesson.kind === 'section' ? 3 : lesson.kind === 'counts' ? 6 : lesson.kind === 'surface-area' || lesson.kind === 'thread' || (lesson.kind === 'volume' && (scene.shape === 'cone' || scene.shape === 'pyramid' || scene.shape === 'sphere')) ? 2 : 1
     cancel.current = animate(progress, list, stepMs * steps * slow, pauseMs * 3, set, () => {
       onPlayingChange(false)
+      end()
     })
   }
 
