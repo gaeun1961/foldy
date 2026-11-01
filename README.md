@@ -79,6 +79,37 @@ API 비용 없이 팀원끼리 시험할 때만 씁니다. 각자 자기 컴퓨�
 
 학생이 쓰는 배포 서버에서는 켜지 않습니다 (개인 계정 사용량). 자세한 것은 [docs/specs/worksheets.md](docs/specs/worksheets.md).
 
+## 배포
+
+프론트: [Vercel](https://vercel.com) · 백엔드: [Render](https://render.com)
+
+### 백엔드 (Render) 먼저
+
+1. Render 대시보드 → **New Blueprint** → 이 저장소 연결
+   - `render.yaml`을 자동으로 읽어 `foldy-backend` 서비스를 만든다
+2. Environment 탭에서 환경 변수 두 개를 설정한다:
+   - `LLM_API_KEY` = Gemini API 키 ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+   - `CORS_ORIGINS` = 나중에 Vercel에서 받을 주소 (처음엔 비워도 됨, 이후 업데이트)
+3. 배포 완료 후 서비스 URL을 메모한다 (예: `https://foldy-backend.onrender.com`)
+
+> Render 무료 플랜은 15분 비활성 시 슬립된다. 행사 전에 한 번 미리 접속해 깨워 둔다.
+
+### 프론트엔드 (Vercel)
+
+1. [vercel.com](https://vercel.com) → **Add New Project** → 이 저장소 연결
+2. **Root Directory**를 `frontend`로 설정 (Framework: Vite 자동 감지)
+3. Environment Variables에 추가:
+   - `VITE_API_URL` = 위 Render 서비스 URL (예: `https://foldy-backend.onrender.com`)
+4. Deploy
+
+### 배포 후 CORS 업데이트
+
+Vercel 배포 완료 후 받은 URL(예: `https://foldy.vercel.app`)을 Render의 `CORS_ORIGINS` 환경 변수에 넣고 재배포한다.
+
+배포 주소: (배포 후 여기에 기입)
+
+---
+
 ## 일하는 방식
 
 1. [docs/todo/00-todo-list.md](docs/todo/00-todo-list.md) 맨 위 "지금 시작 가능"에서 하나 고른다
