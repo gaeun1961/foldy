@@ -16,17 +16,17 @@
 | 단계 | 작업 | 내용 | 선행 | 고치는 곳 | 확인 지점 (사용자) |
 |---|---|---|---|---|---|
 | **P0 정리** | 모바일 PR | `feature/mobile-web`(M1~M5) push·PR. 원격 main(#123)을 `feature/worksheets`에 합치기 | 사용자 결정 | - | PR 확인 |
-| **P1 사진 놓기** ✅ | W5 사진 돌리기 | 네모 단계 "돌리기 ↻ 90°", 돌린 사진이 기준 사진 ([B2](../todo/B2-photo-overlay-rotated.md) 해결) | 없음 | `PhotoUpload.tsx`, `photoPrep.ts` | ① 3-2를 돌려 읽으면 칸 밑 사진과 전개도가 같은 방향 |
+| **P1 사진 놓기** ✅ | W5 사진 돌리기 | 네모 단계 "돌리기 ↻ 90°", 돌린 사진이 기준 사진 (B2 해결) | 없음 | `PhotoUpload.tsx`, `photoPrep.ts` | ① 3-2를 돌려 읽으면 칸 밑 사진과 전개도가 같은 방향 |
 | | W4 대기·비교 화면 | 읽는 중 표시와 지난 초, 결과가 오면 사진과 인식한 전개도를 나란히 (틀린 인식을 사람이 알아채게, W0 3-2 low 사례) | W5 | `PhotoUpload.tsx`, `index.css` | ① 같이 |
 | **P2 계약 묶음** ✅ (팀 합의 전) | W7 문제 글 + W8 사진 자동 맞춤 | ShapeScene 선택 항목 `problem?: string`(인쇄된 문제 문장), `photoBox?: {x,y,w,h}`(사진에서 전개도가 있는 곳, 0~1). **`[계약]` 이슈 하나로 팀 합의 → shape-scene.md → types.ts·schema.py·프롬프트 한 PR**. 문제 글은 책 왼쪽 쪽(`pageText`) 제목 아래, 챗봇 프롬프트에도. "사진 전체 읽기"도 `photoBox`로 칸 밑 사진을 자동으로 맞춘다(`fitToBox` 재사용) | 팀 합의 | backend `ai/`, `shared/types.ts`, `App.tsx` 몇 줄 | ② 29번·3-2: 왼쪽 쪽에 문제 글, 사진과 전개도가 저절로 겹침 |
 | **P3 보관함** ✅ | W3 | 기기 안 저장(문제 글·맞춤 포함), 다시 열기·이름·지우기 | P2 (저장할 모양이 정해진 뒤) | `worksheetStore.ts`·`WorksheetShelf.tsx` 새로, `PhotoUpload.tsx` | ③ 저장했다 다시 열기 |
 | **P4 홀로그램 사진** ✅ | W6 (인계) | 면마다 사진 UV → `buildStage(scene, theme, { photo })`, 홀로그램은 반전·어두운 곳 투명 | #122 머지, P1·P2 (사진이 전개도와 겹쳐야 면에 맞게 입혀짐) | `viewer/stage.ts` 사진 경로, `HologramMode` prop 한 줄, `App.tsx` 한 줄 | ④ 홀로그램에서 자기 학습지가 접힘 |
 | **언제든** | W2 모델 비교 | `vision_eval --engine agy --model …` (계정 사용량) | W1 (끝남) | backend `evals/` | 숫자 표 |
-| **넘김** | [B1](../todo/B1-viewer-wheel-zoom.md) | 3D 휠 거리 제한 | - | `viewer/` (프론트 담당) | - |
+| **넘김** | B1 | 3D 휠 거리 제한 | - | `viewer/` (프론트 담당) | - |
 
 **진행 (2026-10-31)**: P0 원격 main 합침(#123). P1 끝 — 돌리기는 ↺·↻ 두 버튼(3-2는 ↺ 한 번), 읽는 동안 빛·지난 초, 인식한 전개도 그림(`ui/NetPreview.tsx`). 3-2를 돌려 읽으니 계단형·면 글자 맞음(약 1분). 남은 것: 모든 면이 인쇄 색이면 `fill`로 읽음(프롬프트, W2), 전체 읽기 사진 맞춤은 W8
 
-P2 끝 (팀 합의 전 구현) — 3-2: ↺ 돌린 뒤 전체 읽기(약 70초) → 왼쪽 쪽에 문제 글, `photoBox`로 칸 밑·책 페이지 사진이 전개도와 정확히 겹침, `fill` 없음(프롬프트 고침). 남은 것: 사진을 키우면 3D가 뿌예짐 → [B3](../todo/B3-viewer-fog-with-photo.md)
+P2 끝 (팀 합의 전 구현) — 3-2: ↺ 돌린 뒤 전체 읽기(약 70초) → 왼쪽 쪽에 문제 글, `photoBox`로 칸 밑·책 페이지 사진이 전개도와 정확히 겹침, `fill` 없음(프롬프트 고침). 남은 것: 사진을 키우면 3D가 뿌예짐 → B3
 
 P3 끝 — 읽기 성공 시 자동 저장, 새로고침 뒤 "내 학습지"에서 열면 `/analyze` 0번으로 같은 3D·문제 글·사진 위치. 이름 바꾸기·지우기는 화면 안에서(브라우저 확인창 없음)
 
@@ -100,7 +100,7 @@ P4 끝 (#130, #122 머지 뒤) — `buildStage(scene, theme, { photo })`, `Holog
 | W2 | eval 에서 엔진·모델 고르기 (`--engine agy --model …`) | backend `evals/` | W1 | 반나절 |
 | W3 | 내 학습지 보관함 (기기 안 저장, 다시 열기, 지우기) | frontend `ui/` | mobile 브랜치 머지 | 하루 |
 | W4 | 인식 대기 화면 (사진 위 "읽는 중", 걸린 시간) | frontend `ui/` | W3 | 반나절 |
-| W5 | 사진 돌리기 ↻ 90° (버그 [B2](../todo/B2-photo-overlay-rotated.md) 해결) | frontend `ui/` | 없음 | 반나절 |
+| W5 | 사진 돌리기 ↻ 90° (버그 B2 해결) | frontend `ui/` | 없음 | 반나절 |
 | W6 | (인계, 2026-10-31) 학습지 사진을 홀로그램 면에 입혀 접기. 홀로그램 브랜치 `feature/122-hologram-mode`(#122) 머지 뒤. 메모: `git show feature/122-hologram-mode:docs/proposals/hologram/photo-handoff.md`. `stage.ts` 사진 경로 + prop 한 줄로 좁히고 `HologramMode`·`HologramViewer`·`holoLayout`, ShapeScene·ViewerProps는 고치지 않는다 | frontend `viewer/` | #122 머지 | 하루 |
 
 - **W0 결과 (2026-10-31)**: 사진은 프롬프트 앞 `@photo.jpg`로 붙인다(붙이지 않으면 에이전트가 명령으로 열려다 거부된다). 출력은 `{"status","response":"```json …```","usage"}`라 기존 `cli_scene`으로 읽힌다
