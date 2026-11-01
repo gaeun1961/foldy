@@ -201,6 +201,17 @@ P4 끝 (#130, #122 머지 뒤) — `buildStage(scene, theme, { photo })`, `Holog
 
 ---
 
+## H. 기록 모드 (개발 모드 전용, #159·#160·#161)
+
+읽기 한 번을 `backend/evals/cases/` 에 폴더 하나로 남긴다. "찾았어요"인데 결과가 엉뚱하거나 느릴 때 무엇이 들어왔고 어디서 나왔는지 보려고, 그리고 실패를 모아 증류(#161)하려고. 계획 전체: https://claude.ai/artifact/CppSvJACoMhwz2adazrbMm
+
+- 켜기: backend `.env` 에 `VISION_RECORD=1`. 배포 서버에서는 켜지 않는다. 꺼져 있으면 아무것도 쓰지 않고 `/analyze` 의 `record`·`photo` 필드도 무시한다
+- 학생 대기 시간에 들어가지 않게 응답을 돌려준 뒤 쓴다 (FastAPI BackgroundTasks)
+- 폴더: `evals/cases/{날짜_시각}_{묶음 id 앞 6자}/` — `session.json`(frontend 가 보낸 record 를 합침), `photo.jpg`(원본, 처음 한 번), `read-{n}/`(`shape.jpg`, `problem.jpg`, `result.json`, `meta.json`)
+- `meta.json`: `source`(cache·agy·api·cli), 엔진·모델, 걸린 초, 도형·문제 글 각각의 agy 시간(`#번호`, 차례 기다림, 대기 프로세스를 썼는지, 하나 더 보냈는지), 받은 사진의 sha256, 문제 글을 어디서 읽었는지
+- `result.json`: ShapeScene, 실패면 `{"error": ..., "status": 422|503, "kind": 에러 종류}` (`NotSolidError` 면 입체도형 문제가 아님, #163)
+- 사진은 저작권·학생 사진이라 git 에 올리지 않는다 (`.gitignore`). 증류 결과 표(숫자)만 리포트로 옮긴다
+
 ## G. 변경 지도
 
 | 파일 | W1 | W2 | W3 | W4 | 팀원 작업과 겹침 (10/28 이후 커밋 수) |
