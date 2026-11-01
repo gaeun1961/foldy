@@ -8,7 +8,12 @@ export function ActivityLayer() {
     const block = (event: Event) => {
       if (!activities.snapshot()) return
       const target = event.target
-      if (target instanceof Element && target.closest('[data-activity-action]')) return
+      if (target instanceof Element && target.closest('[data-activity-action]')) {
+        // 종료 버튼 위에서도 휠·핀치·확대 단축키는 허용하지 않는다.
+        if (['click', 'pointerdown', 'pointerup', 'pointermove'].includes(event.type)) return
+        if (event.type === 'touchstart' && (event as TouchEvent).touches.length === 1) return
+        if (event instanceof KeyboardEvent && ['Enter', ' '].includes(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) return
+      }
       event.preventDefault()
       event.stopImmediatePropagation()
     }

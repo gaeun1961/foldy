@@ -19,6 +19,7 @@
 - Chromium PC 1280px·터치 390px: 오프닝 건너뛰기, 접기 시작 100/800/1800ms의 모든 버튼·입력·캔버스에 click/pointerdown/wheel/keydown 주입, 멈춘 값 유지, 설명 멈춤, 인식 취소 후 늦은 결과 무시, 페이지·펜 건너뛰기, 챗봇 취소, 재생 중 화면 크기 변경을 검사했다.
 - 개발 서버 실행 및 화면 확인. 가짜 인식 응답과 합성 이미지로 LLM 호출 없이 검사했다.
 - 로컬 시험 스크립트: D:/_개발/foldy-test-plan/interaction-test.mjs. 결과: interaction-results.json.
+- 추가 경계 검사: 종료 버튼 위 wheel/Ctrl+wheel, 두 손가락 touchstart, touchmove, Ctrl+확대 키도 차단하고 Enter 종료는 허용한다. activity-button-test.mjs와 activity-button-results.json으로 확인했다.
 - Android 에뮬레이터는 자동 승인 검토의 Chrome 실행 거절로 미검증. 전체 O1~O14×I1~I34 조합을 모두 실행했다고 주장하지 않는다.
 
 ## 의존성
