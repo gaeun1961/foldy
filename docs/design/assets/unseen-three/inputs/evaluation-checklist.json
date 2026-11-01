@@ -1,0 +1,68 @@
+{
+  "status": "agent_visual_review_before_inference_not_human_approved",
+  "selection_rule": "bank50 main50 및 reference2에 없는 원문 문제. 같은 출판사/PDF의 다른 문제이므로 새 출처 일반화 평가는 아님.",
+  "excluded_bank_manifest": "D:/가천대학교/26-2/해커톤/_테스트 학습지/퓨샷/7. bank50/manifest.json",
+  "coordinate_system": "원본 2480x3505 픽셀. crop은 x,y,width,height. net_cells는 화면 좌상단 원점, 열/행 증가 방향은 오른쪽/아래. 회전/평행이동 동형은 별도 허용 검토.",
+  "checks": [
+    {
+      "id": "U01",
+      "source": "R14_p004-q18",
+      "original_path": "D:/가천대학교/26-2/해커톤/_테스트 학습지/국내학습지_우선검토/문제이미지/R14_p004.png",
+      "problem_crop": [260,1740,960,1060],
+      "shape_crop": [600,2020,380,280],
+      "target": "18번의 유일한 직육면체 입체 그림",
+      "expected": {
+        "shape": "cuboid",
+        "kind": "solid",
+        "printed_dimensions_cm": [9,4,6],
+        "dimension_semantics": "앞면 가로9, 깊이4, 높이6. 축 이름 치환은 동등성 검토.",
+        "face_colors": "앞면 파란색",
+        "vertex_labels": [],
+        "custom_face_lines": [],
+        "net_cells": null
+      },
+      "do_not": "문제의 둘레 답을 도형 치수로 사용하지 않기. 점선 숨은 모서리를 사용자 선분으로 추가하지 않기."
+    },
+    {
+      "id": "U02",
+      "source": "R15_p004-q17",
+      "original_path": "D:/가천대학교/26-2/해커톤/_테스트 학습지/국내학습지_우선검토/문제이미지/R15_p004.png",
+      "problem_crop": [260,340,960,880],
+      "shape_crop": [750,700,430,330],
+      "target": "17번 오른쪽 전개도. 왼쪽 직육면체는 치수와 밑면을 제공하는 문맥 참고이며 두 번째 출력 대상이 아님.",
+      "expected": {
+        "shape": "cuboid",
+        "kind": "net",
+        "context_printed_dimensions_cm": [5,7,8],
+        "dimensions_note": "전개도 자체는 ㄱ/ㄴ 미지수 표시, 수치5·7·8은 왼쪽 입체에 인쇄됨. shape-only 입력은 수치 미확인 처리가 정당하며 문맥 입력과 혼동 금지.",
+        "net_cells": [[3,0],[0,1],[1,1],[2,1],[3,1],[0,2]],
+        "face_colors": "왼쪽 아래 부착 면 초록색; 문맥 입체의 밑면과 대응",
+        "vertex_labels": [],
+        "dimension_markers": ["ㄱ", "ㄴ"],
+        "custom_face_lines": []
+      },
+      "do_not": "길이 표시 괄호 ㄱ/ㄴ을 꼭짓점으로 인식하지 않기. 문항 정답을 추측해 추가하지 않기. 기본 십자형 net으로 치환하지 않기."
+    },
+    {
+      "id": "U03",
+      "source": "R15_p004-q19",
+      "original_path": "D:/가천대학교/26-2/해커톤/_테스트 학습지/국내학습지_우선검토/문제이미지/R15_p004.png",
+      "problem_crop": [1280,340,960,880],
+      "shape_crop": [1780,770,440,350],
+      "target": "19번 오른쪽 분홍색 계단형 전개도. 왼쪽 빨간 선이 있는 정육면체는 문제 맥락 참고.",
+      "expected": {
+        "shape": "cube_or_equal_dimension_cuboid",
+        "kind": "net",
+        "printed_dimensions_cm": [],
+        "dimensions_note": "치수 없음. 정규화 변 길이는 허용하되 실제 측정값처럼 주장하지 않기.",
+        "net_cells": [[2,0],[1,1],[2,1],[3,1],[0,2],[1,2]],
+        "face_colors": "전개도 여섯 면 연분홍",
+        "vertex_labels": {"ㄱ":[2,0],"ㄹ":[3,0],"ㄴ":[2,1],"ㄷ":[3,1]},
+        "custom_face_lines": []
+      },
+      "do_not": "문항은 전개도에 빨간 선을 그리라는 문제. 정답 선을 전개도에 채워넣지 않기. 왼쪽 입체의 빨간 대각선을 오른쪽 입력의 인쇄선으로 오인하지 않기."
+    }
+  ],
+  "teacher_scene": "미작성. 순서/면ID/축 매핑 및 한글 꼭짓점 위치의 엄밀한 계약 검증 없이 임의 정답 JSON을 만들지 않음.",
+  "metrics": "3건의 도형 종류, 인쇄 치수, 배치, 라벨/색/선 보존을 분리 판정. exact JSON 일치로 점수화하지 않음. 응답시간은 API 호출 실측만 사용."
+}

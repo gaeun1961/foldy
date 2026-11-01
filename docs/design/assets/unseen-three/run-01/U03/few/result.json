@@ -1,0 +1,147 @@
+{
+  "id": "U03",
+  "condition": "few",
+  "requested_model": "gemini-3.5-flash-lite",
+  "example_count": 3,
+  "example_ids": [
+    "D02",
+    "D01",
+    "H03"
+  ],
+  "query_teacher_in_prompt": false,
+  "visual_evaluation_status": "pending",
+  "expected_checklist": "inputs/evaluation-checklist.json",
+  "schema_valid": true,
+  "image_hashes": {
+    "shape": "acd0a4179b850e42cfb7cf60d94a94f575f727043616c8ede111a92a1609f085",
+    "problem": "15db7ca9fdfbfba996b999467226a5d6bd870acc449d0bef4c584078b3a5aab7"
+  },
+  "started_at": "2026-11-01T04:54:09.815190+00:00",
+  "seconds": 2.537,
+  "usage": {
+    "cache_tokens_details": null,
+    "cached_content_token_count": null,
+    "candidates_token_count": 453,
+    "candidates_tokens_details": null,
+    "prompt_token_count": 11165,
+    "prompt_tokens_details": [
+      {
+        "modality": "IMAGE",
+        "token_count": 5467
+      },
+      {
+        "modality": "TEXT",
+        "token_count": 5698
+      }
+    ],
+    "thoughts_token_count": null,
+    "tool_use_prompt_token_count": null,
+    "tool_use_prompt_tokens_details": null,
+    "total_token_count": 11618,
+    "traffic_type": null
+  },
+  "resolved_model": "gemini-3.5-flash-lite",
+  "output": {
+    "kind": "net",
+    "decision": "scene",
+    "dimension_source": "normalized",
+    "assumptions": [
+      "정육면체 전개도, 정규화된 모서리 크기 1 사용"
+    ],
+    "scene": {
+      "shape": "cube",
+      "size": {
+        "edge": 1.0
+      },
+      "vertexLabels": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [],
+      "net": {
+        "layout": "grid",
+        "faces": [
+          {
+            "x": 1.0,
+            "y": 0.0,
+            "w": 1.0,
+            "h": 1.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 0.0,
+            "y": 1.0,
+            "w": 1.0,
+            "h": 1.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 1.0,
+            "y": 1.0,
+            "w": 1.0,
+            "h": 1.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 2.0,
+            "y": 1.0,
+            "w": 1.0,
+            "h": 1.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 0.0,
+            "y": 2.0,
+            "w": 1.0,
+            "h": 1.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 1.0,
+            "y": 2.0,
+            "w": 1.0,
+            "h": 1.0,
+            "text": null,
+            "fill": null
+          }
+        ],
+        "cornerLabels": [
+          {
+            "x": 1.0,
+            "y": 0.0,
+            "text": "ㄱ"
+          },
+          {
+            "x": 2.0,
+            "y": 0.0,
+            "text": "ㄹ"
+          },
+          {
+            "x": 1.0,
+            "y": 1.0,
+            "text": "ㄴ"
+          },
+          {
+            "x": 2.0,
+            "y": 1.0,
+            "text": "ㄷ"
+          }
+        ],
+        "lines": []
+      }
+    }
+  },
+  "status": "response",
+  "teacher_scene_exact_match": null
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "U01",
+    "condition": "zero",
+    "errors": [],
+    "canvas": true
+  },
+  {
+    "id": "U01",
+    "condition": "few",
+    "errors": [],
+    "canvas": true
+  },
+  {
+    "id": "U02",
+    "condition": "zero",
+    "errors": [],
+    "canvas": true
+  },
+  {
+    "id": "U02",
+    "condition": "few",
+    "errors": [],
+    "canvas": true
+  },
+  {
+    "id": "U03",
+    "condition": "zero",
+    "errors": [],
+    "canvas": true
+  },
+  {
+    "id": "U03",
+    "condition": "few",
+    "errors": [],
+    "canvas": true
+  }
+]

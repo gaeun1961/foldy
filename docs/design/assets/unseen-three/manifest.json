@@ -1,0 +1,39 @@
+{
+  "examples": [
+    {
+      "id": "D02",
+      "shape": "D:/가천대학교/26-2/해커톤/_테스트 학습지/퓨샷/1. fewshot/D02/shape.jpg",
+      "teacher_path": "D:/가천대학교/26-2/해커톤/_테스트 학습지/퓨샷/7. bank50/runs/seen-one/D02/teacher.json"
+    },
+    {
+      "id": "D01",
+      "shape": "D:/가천대학교/26-2/해커톤/_테스트 학습지/퓨샷/1. fewshot/D01/shape.jpg",
+      "teacher_path": "D:/가천대학교/26-2/해커톤/_테스트 학습지/퓨샷/7. bank50/runs/seen-one/D01/teacher.json"
+    },
+    {
+      "id": "H03",
+      "shape": "D:/가천대학교/26-2/해커톤/_테스트 학습지/퓨샷/1. fewshot/H03/shape.jpg",
+      "teacher_path": "D:/가천대학교/26-2/해커톤/_테스트 학습지/퓨샷/7. bank50/runs/seen-one/H03/teacher.json"
+    }
+  ],
+  "queries": [
+    {
+      "id": "U01",
+      "shape": "inputs/U01-shape.png",
+      "problem": "inputs/U01-problem.png",
+      "expected_checklist": "inputs/evaluation-checklist.json"
+    },
+    {
+      "id": "U02",
+      "shape": "inputs/U02-shape.png",
+      "problem": "inputs/U02-problem.png",
+      "expected_checklist": "inputs/evaluation-checklist.json"
+    },
+    {
+      "id": "U03",
+      "shape": "inputs/U03-shape.png",
+      "problem": "inputs/U03-problem.png",
+      "expected_checklist": "inputs/evaluation-checklist.json"
+    }
+  ]
+}

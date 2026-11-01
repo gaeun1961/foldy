@@ -1,0 +1,76 @@
+{
+  "id": "U01",
+  "condition": "few",
+  "requested_model": "gemini-3.5-flash-lite",
+  "example_count": 3,
+  "example_ids": [
+    "D02",
+    "D01",
+    "H03"
+  ],
+  "query_teacher_in_prompt": false,
+  "visual_evaluation_status": "pending",
+  "expected_checklist": "inputs/evaluation-checklist.json",
+  "schema_valid": true,
+  "image_hashes": {
+    "shape": "e3b688aa1976419dddf0dbf772de6b6b53c75cbddf05b1b3cff66ebc24fd0721",
+    "problem": "a2956b16400f483b0bc49afdb780b4ee2e7cf10b00aae6154d924634475e0340"
+  },
+  "started_at": "2026-11-01T04:54:08.393445+00:00",
+  "seconds": 2.688,
+  "usage": {
+    "cache_tokens_details": null,
+    "cached_content_token_count": null,
+    "candidates_token_count": 109,
+    "candidates_tokens_details": null,
+    "prompt_token_count": 11153,
+    "prompt_tokens_details": [
+      {
+        "modality": "IMAGE",
+        "token_count": 5455
+      },
+      {
+        "modality": "TEXT",
+        "token_count": 5698
+      }
+    ],
+    "thoughts_token_count": null,
+    "tool_use_prompt_token_count": null,
+    "tool_use_prompt_tokens_details": null,
+    "total_token_count": 11262,
+    "traffic_type": null
+  },
+  "resolved_model": "gemini-3.5-flash-lite",
+  "output": {
+    "kind": "solid",
+    "decision": "scene",
+    "dimension_source": "printed",
+    "assumptions": [
+      "9×4×6 인쇄 치수 일치."
+    ],
+    "scene": {
+      "vertexLabels": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "shape": "cuboid",
+      "size": {
+        "width": 9.0,
+        "depth": 4.0,
+        "height": 6.0
+      },
+      "lines": [],
+      "net": {
+        "layout": "cross"
+      }
+    }
+  },
+  "status": "response",
+  "teacher_scene_exact_match": null
+}

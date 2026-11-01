@@ -1,0 +1,28 @@
+{
+  "mode": "unseen_query_fixed_examples",
+  "model": "gemini-3.5-flash-lite",
+  "conditions": [
+    "zero",
+    "few"
+  ],
+  "workers": 3,
+  "requests": 6,
+  "timeout_ms": 45000,
+  "sdk_attempts": 1,
+  "temperature": 0,
+  "example_ids": [
+    "D02",
+    "D01",
+    "H03"
+  ],
+  "query_ids": [
+    "U01",
+    "U02",
+    "U03"
+  ],
+  "query_teacher_in_prompt": false,
+  "manual_crop": true,
+  "system_sha256": "1c8dce1df8835cee2c84cea3a8a53366d699cd5e9f6a4100937585e85170486e",
+  "manifest_sha256": "f949b79b95dc5c0fe5856d18ed54ee65438895b3dac1b3c83859e5bfd22d8371",
+  "note": "수동 크롭 3문제 탐색 실험. 자동 CV/일반화 성능/증류 학습의 검증 아님. 원본 bank50 실험과 달리 두 조건에 공통 JSON Schema 추가."
+}

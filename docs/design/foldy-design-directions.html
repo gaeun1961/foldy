@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Foldy 디자인 방향 3안</title>
+  <style>
+    :root {
+      --bg: #f1f0eb;
+      --ink: #201f1b;
+      --muted: #706f68;
+      --line: rgba(32,31,27,.14);
+      --paper: #fffef9;
+      --purple: #7259e6;
+      --max: 1560px;
+      font-family: "Pretendard Variable", Pretendard, "Noto Sans KR", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; overflow-x: hidden; background: radial-gradient(circle at 15% 0%, #fff 0, transparent 34rem), var(--bg); }
+    button, a { font: inherit; }
+    a { color: inherit; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
+      padding: 14px max(24px, calc((100vw - var(--max)) / 2)); border-bottom: 1px solid var(--line);
+      background: rgba(245,244,239,.86); backdrop-filter: blur(18px);
+    }
+    .brand { display: flex; gap: 12px; align-items: center; font-weight: 850; letter-spacing: -.04em; }
+    .brand-mark { display:grid; place-items:center; width: 34px; height: 34px; border-radius: 11px; color:#fff; background:#23221f; transform: rotate(-4deg); }
+    .topnav { display:flex; gap:6px; }
+    .topnav a { padding: 9px 13px; border-radius:999px; text-decoration:none; color:var(--muted); font-size:13px; font-weight:700; }
+    .topnav a:hover { background:#fff; color:var(--ink); }
+    main { max-width: var(--max); margin: 0 auto; padding: 64px 24px 120px; }
+    .hero { display:grid; grid-template-columns: 1.4fr .6fr; gap: 48px; align-items:end; min-height: 420px; padding: 50px 0 72px; }
+    .eyebrow { margin:0 0 16px; color:var(--purple); font-size:13px; font-weight:850; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { max-width:980px; margin:0; font-size:clamp(48px,7vw,108px); line-height:.94; letter-spacing:-.075em; }
+    .hero-copy { margin:0 0 8px; font-size:17px; line-height:1.75; color:var(--muted); word-break:keep-all; }
+    .scope-note { grid-column:1/-1; display:flex; gap:12px; align-items:flex-start; max-width:980px; margin-top:8px; padding:16px 18px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.56); font-size:14px; line-height:1.65; }
+    .scope-note b { white-space:nowrap; }
+    .section-head { display:grid; grid-template-columns: 150px 1fr; gap:24px; align-items:start; margin: 70px 0 28px; }
+    .section-number { font: 700 12px/1 ui-monospace, monospace; color:var(--muted); }
+    h2 { margin:0; font-size:clamp(34px,4vw,62px); line-height:1; letter-spacing:-.055em; }
+    .section-lead { max-width:780px; margin:18px 0 0; color:var(--muted); line-height:1.75; word-break:keep-all; }
+    .decision-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .decision-card { position:relative; min-height:260px; padding:24px; border:1px solid var(--line); border-radius:24px; background:rgba(255,255,255,.64); overflow:hidden; }
+    .decision-card::after { content:""; position:absolute; width:180px; height:180px; border-radius:50%; right:-70px; bottom:-95px; background:var(--swatch); opacity:.25; }
+    .decision-card small { color:var(--muted); font-weight:750; }
+    .decision-card h3 { margin:42px 0 10px; font-size:27px; letter-spacing:-.045em; }
+    .decision-card p { max-width:30ch; margin:0; color:var(--muted); line-height:1.65; font-size:14px; }
+    .decision-card strong { display:block; margin-top:22px; font-size:13px; }
+    .concept { --c-ink:#2f2a25; --c-bg:#faf6ee; --c-card:#fffdf8; --c-accent:#5c5249; --c-soft:#e9e2d3; --c-pop:#e96b5b; margin-top:110px; scroll-margin-top:80px; }
+    .concept.lab { --c-ink:#101a28; --c-bg:#eef7f4; --c-card:#fbfffd; --c-accent:#176b5b; --c-soft:#cde8df; --c-pop:#ff6a3d; }
+    .concept.editorial { --c-ink:#18151e; --c-bg:#f4f0ff; --c-card:#fff; --c-accent:#6f46d9; --c-soft:#ded1ff; --c-pop:#ffcf3f; }
+    .concept-title { display:grid; grid-template-columns: minmax(0,1fr) 360px; gap:40px; align-items:end; margin-bottom:28px; }
+    .concept-title .label { display:inline-flex; align-items:center; gap:9px; color:var(--c-accent); font-weight:850; font-size:13px; }
+    .concept-title .dot { width:10px; height:10px; border-radius:50%; background:var(--c-pop); }
+    .concept-title h2 { margin-top:10px; color:var(--c-ink); }
+    .concept-title p { margin:0; color:var(--muted); line-height:1.7; word-break:keep-all; }
+    .frames { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .frame-wrap { min-width:0; }
+    .frame-meta { display:flex; justify-content:space-between; gap:12px; padding:0 5px 10px; color:var(--muted); font-size:12px; }
+    .frame {
+      position:relative; aspect-ratio: 16/10; min-height:420px; border-radius:22px; overflow:hidden; color:var(--c-ink); background:var(--c-bg);
+      border:1px solid rgba(20,20,20,.12); box-shadow:0 24px 60px rgba(29,25,20,.13);
+    }
+    .frame * { box-sizing:border-box; }
+    .app-top { position:absolute; z-index:4; left:0; right:0; top:0; display:flex; align-items:center; justify-content:space-between; height:48px; padding:0 18px; border-bottom:1px solid color-mix(in srgb, var(--c-ink) 12%, transparent); background:color-mix(in srgb, var(--c-bg) 90%, transparent); backdrop-filter:blur(12px); }
+    .app-logo { display:flex; align-items:center; gap:7px; font-weight:900; letter-spacing:-.04em; }
+    .mini-mark { display:grid; place-items:center; width:24px; height:24px; border-radius:8px; color:white; background:var(--c-accent); font-size:11px; }
+    .top-actions { display:flex; gap:6px; }
+    .chip { display:inline-flex; align-items:center; justify-content:center; min-height:27px; padding:0 10px; border:1px solid color-mix(in srgb, var(--c-ink) 14%, transparent); border-radius:999px; background:var(--c-card); font-size:10px; font-weight:750; }
+    .chip.active { color:#fff; border-color:var(--c-accent); background:var(--c-accent); }
+    .scene { position:absolute; inset:48px 0 0; overflow:hidden; }
+    .scene::before { content:""; position:absolute; inset:0; opacity:.5; background-image:linear-gradient(color-mix(in srgb,var(--c-ink) 8%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--c-ink) 8%,transparent) 1px,transparent 1px); background-size:28px 28px; transform:perspective(400px) rotateX(58deg) scale(1.6); transform-origin:center 70%; }
+    .paper-stage { position:absolute; left:18%; top:25%; width:64%; height:52%; border-radius:45% 45% 8% 8% / 14% 14% 7% 7%; background:#fffef8; box-shadow:0 22px 38px rgba(44,36,25,.18); transform:perspective(600px) rotateX(54deg); }
+    .net { position:absolute; z-index:2; left:50%; top:48%; width:138px; height:120px; transform:translate(-50%,-50%) rotate(-6deg); filter:drop-shadow(0 10px 10px rgba(30,30,20,.12)); }
+    .face { position:absolute; width:42px; height:42px; border:2px solid var(--c-accent); background:#fff; }
+    .face:nth-child(1){left:48px;top:40px}.face:nth-child(2){left:6px;top:40px}.face:nth-child(3){left:90px;top:40px}.face:nth-child(4){left:48px;top:-2px}.face:nth-child(5){left:48px;top:82px}.face:nth-child(6){left:90px;top:82px}
+    .face:nth-child(2),.face:nth-child(5){background:color-mix(in srgb,var(--c-soft) 68%,white)}
+    .shape3d { position:absolute; z-index:2; left:50%; top:49%; width:108px; height:108px; transform:translate(-50%,-50%) rotate(30deg) skewY(-6deg); }
+    .shape3d span { position:absolute; inset:14px; border:2px solid var(--c-accent); background:color-mix(in srgb,var(--c-soft) 62%,white); box-shadow:inset -18px -12px 0 color-mix(in srgb,var(--c-accent) 15%,transparent); }
+    .shape3d span::before,.shape3d span::after { content:""; position:absolute; width:66%; height:66%; border:2px solid var(--c-accent); background:color-mix(in srgb,var(--c-pop) 26%,white); }
+    .shape3d span::before { left:-32%; top:-30%; transform:skewY(38deg); }
+    .shape3d span::after { right:-30%; top:-18%; transform:skewY(-38deg); }
+    .float-card { position:absolute; z-index:5; width:30%; min-width:135px; padding:14px; border:1px solid color-mix(in srgb,var(--c-ink) 12%,transparent); border-radius:16px; background:color-mix(in srgb,var(--c-card) 92%,transparent); box-shadow:0 16px 32px rgba(30,25,20,.13); backdrop-filter:blur(10px); }
+    .float-card.left { left:14px; top:66px; }
+    .float-card.right { right:14px; top:66px; }
+    .float-card h4 { margin:0 0 8px; font-size:12px; }
+    .float-card p { margin:0; font-size:9px; line-height:1.55; color:color-mix(in srgb,var(--c-ink) 65%,transparent); }
+    .upload-zone { display:grid; place-items:center; min-height:110px; margin-top:10px; border:1.5px dashed color-mix(in srgb,var(--c-accent) 50%,transparent); border-radius:12px; background:color-mix(in srgb,var(--c-soft) 25%,transparent); text-align:center; }
+    .upload-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; color:#fff; background:var(--c-accent); }
+    .mini-options { display:grid; gap:6px; margin-top:10px; }
+    .mini-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 8px; border-radius:9px; background:color-mix(in srgb,var(--c-soft) 34%,transparent); font-size:9px; }
+    .dock { position:absolute; z-index:5; left:50%; bottom:14px; width:min(72%,380px); transform:translateX(-50%); padding:11px 13px; border:1px solid color-mix(in srgb,var(--c-ink) 12%,transparent); border-radius:17px; background:color-mix(in srgb,var(--c-card) 93%,transparent); box-shadow:0 15px 35px rgba(30,25,20,.14); backdrop-filter:blur(12px); }
+    .dock-copy { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; font-size:9px; font-weight:750; }
+    .progress { height:6px; border-radius:999px; background:var(--c-soft); overflow:hidden; }
+    .progress i { display:block; width:43%; height:100%; border-radius:inherit; background:var(--c-accent); }
+    .dock-actions { display:grid; grid-template-columns:1fr 1.25fr; gap:7px; margin-top:9px; }
+    .mini-button { display:grid; place-items:center; min-height:28px; border-radius:9px; background:var(--c-soft); font-size:9px; font-weight:850; }
+    .mini-button.primary { color:#fff; background:var(--c-accent); }
+    .status { position:absolute; z-index:5; top:62px; left:50%; transform:translateX(-50%); padding:7px 11px; border-radius:999px; color:var(--c-accent); background:var(--c-card); box-shadow:0 8px 20px rgba(30,25,20,.1); font-size:9px; font-weight:850; white-space:nowrap; }
+    .lesson-page { position:absolute; inset:48px 0 0; display:grid; grid-template-columns:42% 58%; }
+    .lesson-copy { z-index:2; padding:30px 24px; background:var(--c-card); }
+    .lesson-step { color:var(--c-accent); font-size:9px; font-weight:900; letter-spacing:.12em; }
+    .lesson-copy h3 { margin:14px 0 10px; font-size:clamp(18px,2vw,30px); line-height:1.08; letter-spacing:-.05em; }
+    .lesson-copy > p { margin:0; color:color-mix(in srgb,var(--c-ink) 64%,transparent); font-size:10px; line-height:1.65; }
+    .formula { margin-top:22px; padding:14px; border-radius:13px; background:var(--c-soft); }
+    .formula small { display:block; margin-bottom:6px; font-size:8px; }
+    .formula strong { font-size:15px; letter-spacing:-.03em; }
+    .lesson-visual { position:relative; overflow:hidden; background:var(--c-bg); }
+    .lesson-visual::after { content:""; position:absolute; width:180px; height:180px; border:46px solid color-mix(in srgb,var(--c-pop) 40%,transparent); border-radius:50%; right:-70px; top:-70px; }
+    .lesson-visual .shape3d { width:150px; height:150px; }
+    .question { position:absolute; z-index:4; left:18px; right:18px; bottom:18px; padding:13px; border-radius:13px; background:var(--c-card); box-shadow:0 14px 30px rgba(30,25,20,.13); font-size:10px; font-weight:800; }
+    .token-grid { display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:12px; margin-top:18px; }
+    .token-card { min-height:154px; padding:20px; border-radius:20px; color:var(--c-ink); background:var(--c-bg); border:1px solid color-mix(in srgb,var(--c-ink) 12%,transparent); }
+    .token-card h4 { margin:0 0 14px; font-size:13px; }
+    .swatches { display:flex; gap:7px; }
+    .swatches i { flex:1; height:54px; border-radius:12px; background:var(--sw); border:1px solid rgba(0,0,0,.08); }
+    .token-list { display:grid; gap:8px; margin:0; font:11px/1.5 ui-monospace,monospace; color:color-mix(in srgb,var(--c-ink) 72%,transparent); }
+    .why { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px; }
+    .why article { padding:20px; border:1px solid color-mix(in srgb,var(--c-ink) 12%,transparent); border-radius:20px; background:color-mix(in srgb,var(--c-card) 78%,transparent); }
+    .why b { display:block; margin-bottom:8px; font-size:13px; }
+    .why p { margin:0; color:color-mix(in srgb,var(--c-ink) 64%,transparent); font-size:12px; line-height:1.65; }
+    .recommend { margin:110px 0 40px; padding:clamp(28px,5vw,72px); border-radius:36px; color:#f8f7f2; background:#1f201d; }
+    .recommend-grid { display:grid; grid-template-columns:1.1fr .9fr; gap:60px; align-items:start; }
+    .recommend h2 { max-width:700px; }
+    .recommend p { color:#bbbdb4; line-height:1.75; }
+    .score { display:grid; gap:8px; }
+    .score-row { display:grid; grid-template-columns:88px 1fr 34px; gap:10px; align-items:center; font-size:12px; }
+    .score-bar { height:8px; border-radius:99px; background:#343632; overflow:hidden; }
+    .score-bar i { display:block; height:100%; width:var(--w); background:#e4d96f; border-radius:inherit; }
+    .source-list { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:20px; }
+    .source { display:block; padding:16px 18px; border:1px solid var(--line); border-radius:17px; background:rgba(255,255,255,.62); text-decoration:none; }
+    .source:hover { background:#fff; }
+    .source small { display:block; margin-bottom:6px; color:var(--muted); }
+    .source b { font-size:14px; }
+    .source p { margin:7px 0 0; color:var(--muted); font-size:12px; line-height:1.55; }
+    .method { margin-top:28px; color:var(--muted); font-size:12px; line-height:1.7; }
+    .use-note { margin-top:16px; padding:18px; border-left:4px solid var(--purple); background:#fff; font-size:13px; line-height:1.7; }
+    @media (max-width:1100px) {
+      .frames { grid-template-columns:1fr; }
+      .frame { min-height:600px; }
+      .decision-grid,.why,.token-grid { grid-template-columns:1fr; }
+      .concept-title,.recommend-grid,.hero { grid-template-columns:1fr; }
+      .hero { min-height:0; }
+      .scope-note { grid-column:auto; }
+    }
+    @media (max-width:700px) {
+      .topbar { padding:12px 14px; }
+      .topnav { display:none; }
+      main { padding-inline:14px; }
+      .hero { padding-top:28px; gap:24px; }
+      h1 { font-size:50px; }
+      h2 { font-size:34px; word-break:normal; }
+      .hero-copy,.section-lead,.concept-title p { word-break:normal; }
+      .scope-note { display:block; }
+      .scope-note b { display:block; margin-bottom:6px; }
+      .section-head { grid-template-columns:1fr; }
+      .frame { min-height:400px; }
+      .source-list { grid-template-columns:1fr; }
+      .float-card { width:35%; }
+      .lesson-copy { padding:20px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">F</span> Foldy design directions</div>
+    <nav class="topnav" aria-label="디자인 안 바로가기">
+      <a href="#paper">A 종이 공작실</a><a href="#lab">B 호기심 실험실</a><a href="#editorial">C 비주얼 클래스</a><a href="#sources">출처</a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Design exploration · 2026.10.31</p>
+        <h1>보여 주고,<br>고르고,<br>바로 만들기.</h1>
+      </div>
+      <p class="hero-copy">Foldy의 정체성은 “사진 한 장이 손으로 만지는 3D 교구가 되는 순간”입니다. 세 안은 같은 기능과 같은 3개 화면을 서로 다른 감성으로 표현해, 팀원이 옆에서 바로 비교하고 선택할 수 있게 만들었습니다.</p>
+      <div class="scope-note"><b>범위 안내</b><span>이 문서는 디자인 탐색용이며 현재 서비스 코드·UI 스펙·TODO-15 발표 자료를 변경하지 않습니다. 최종안 선택 뒤 <code>docs/specs/ui.md</code>와 실제 토큰을 함께 갱신하는 것이 다음 단계입니다.</span></div>
+    </section>
+
+    <section>
+      <div class="section-head"><span class="section-number">00 / QUICK PICK</span><div><h2>먼저, 셋 중 어떤 인상인가요?</h2><p class="section-lead">기능 차이가 아니라 “학생에게 어떤 첫인상을 줄지”를 고르는 단계입니다. 각 카드의 한 문장만 읽어도 회의가 시작되도록 구성했습니다.</p></div></div>
+      <div class="decision-grid">
+        <article class="decision-card" style="--swatch:#c9a983"><small>A · 현재 자산을 가장 잘 살림</small><h3>종이 공작실</h3><p>책상 위 펼친 책과 색연필, 손으로 눌러 보는 클레이 버튼. 따뜻하고 친근한 교구처럼.</p><strong>추천: 데모 안정성 · 브랜드 연속성</strong></article>
+        <article class="decision-card" style="--swatch:#39b79e"><small>B · 학습 효율이 가장 선명함</small><h3>호기심 실험실</h3><p>3D 도형이 주인공인 넓은 캔버스와 단정한 실험 패널. 관찰하고 발견하는 과학 도구처럼.</p><strong>추천: 장시간 사용 · 수업 현장</strong></article>
+        <article class="decision-card" style="--swatch:#8e6ceb"><small>C · 발표에서 가장 눈에 띔</small><h3>비주얼 클래스</h3><p>큰 문장, 강한 대비, 한 화면 한 메시지. 어려운 개념을 짧고 기억나게 설명하는 에디토리얼 화면.</p><strong>추천: 메이커톤 발표 · 스토리텔링</strong></article>
+      </div>
+      <h3 style="margin:48px 0 8px;font-size:24px;letter-spacing:-.04em">현재 Foldy에서 이미 꺼내 쓸 수 있는 토큰</h3>
+      <p class="section-lead" style="margin-top:0">문서의 희망값이 아니라 실제 <code>frontend/src/index.css</code>에서 추출한 기준값입니다. A안은 이 토큰을 정리해서 쓰고, B·C안은 구조를 유지한 채 팔레트와 위계만 바꿉니다.</p>
+      <div class="decision-grid" style="margin-top:18px">
+        <article class="decision-card" style="--swatch:#faf6ee;min-height:220px"><small>COLOR</small><h3 style="margin-top:28px">종이와 잉크</h3><p><code>#FAF6EE</code> 종이 · <code>#2F2A25</code> 잉크 · <code>#6B645A</code> 보조 글자 · <code>#5C5249</code> 주요 행동 · <code>#C9A983</code> 책상</p></article>
+        <article class="decision-card" style="--swatch:#e9e2d3;min-height:220px"><small>SHAPE &amp; DEPTH</small><h3 style="margin-top:28px">클레이 물성</h3><p>카드 <code>24px</code> · 도구 <code>14–18px</code> · pill <code>999px</code> · 왼쪽 위 하이라이트와 오른쪽 아래 두께·음영</p></article>
+        <article class="decision-card" style="--swatch:#5c5249;min-height:220px"><small>TYPE &amp; CONTROL</small><h3 style="margin-top:28px">읽고 누르기</h3><p>Pretendard 한 패밀리 · 본문 잉크색 · 현재 버튼 높이 <code>40–44px</code> · 실제 제품 목표는 터치 영역 최소 <code>44px</code></p></article>
+      </div>
+    </section>
+
+    <section class="concept paper" id="paper">
+      <div class="concept-title"><div><span class="label"><i class="dot"></i>A / WARM TACTILE</span><h2>종이 공작실</h2></div><p>현재 Foldy의 책상·책·종이·클레이 토큰을 정돈한 진화형. “새로 디자인”하는 부담이 가장 작고, 지금 만들어 둔 3D 장면과 자연스럽게 이어집니다.</p></div>
+      <div class="frames">
+        <div class="frame-wrap"><div class="frame-meta"><span>01 시작하기</span><span>사진 → 도형</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>foldy</div><div class="top-actions"><span class="chip">내 학습지</span><span class="chip">도움말</span></div></div><div class="scene"><div class="paper-stage"></div><div class="net"><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i></div></div><aside class="float-card left"><h4>어떤 도형을 펼쳐 볼까요?</h4><p>학습지 사진을 올리면 전개도를 찾아 책 위에 놓아 드려요.</p><div class="upload-zone"><div><span class="upload-icon">↑</span><p>사진 올리기</p></div></div><div class="mini-options"><div class="mini-row">직접 도형 고르기 <b>›</b></div><div class="mini-row">전개도 그리기 <b>›</b></div></div></aside><span class="status">책상 위에서 도형을 만나 보세요</span></div></div>
+        <div class="frame-wrap"><div class="frame-meta"><span>02 탐색하기</span><span>접고 · 돌리고 · 선 긋기</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>foldy</div><div class="top-actions"><span class="chip active">직육면체</span><span class="chip">차례</span></div></div><div class="scene"><div class="paper-stage"></div><div class="shape3d"><span></span></div></div><aside class="float-card left"><h4>직육면체 만들기</h4><p>가로 4 · 세로 3 · 높이 2</p><div class="mini-options"><div class="mini-row">부피 알아보기 <b>›</b></div><div class="mini-row">겉넓이 알아보기 <b>›</b></div><div class="mini-row">대각선 비교하기 <b>›</b></div></div></aside><span class="status">43% · 마주 보는 두 면이 일어났어요</span><div class="dock"><div class="dock-copy"><span>천천히 접어 보세요</span><b>43%</b></div><div class="progress"><i></i></div><div class="dock-actions"><span class="mini-button">◀ 펼치기</span><span class="mini-button primary">접기 ▶</span></div></div></div></div>
+        <div class="frame-wrap"><div class="frame-meta"><span>03 이해하기</span><span>질문 → 시각적 답</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>foldy</div><div class="top-actions"><span class="chip active">부피</span><span class="chip">3 / 4 단계</span></div></div><div class="lesson-page"><div class="lesson-copy"><span class="lesson-step">STEP 03 · 층을 쌓아요</span><h3>한 층에 12개,<br>모두 몇 개일까요?</h3><p>가로 4개와 세로 3개를 먼저 세어 봐요. 같은 층이 높이만큼 쌓입니다.</p><div class="formula"><small>지금까지 찾은 수</small><strong>4 × 3 × 2 = 24개</strong></div></div><div class="lesson-visual"><div class="shape3d"><span></span></div><div class="question">다음 층도 같은 개수일까요? 직접 돌려 확인해 보세요.</div></div></div></div></div>
+      </div>
+      <div class="token-grid"><div class="token-card"><h4>색 토큰</h4><div class="swatches"><i style="--sw:#faf6ee"></i><i style="--sw:#2f2a25"></i><i style="--sw:#5c5249"></i><i style="--sw:#e9e2d3"></i><i style="--sw:#e96b5b"></i></div></div><div class="token-card"><h4>형태 토큰</h4><div class="token-list"><span>radius/card 24px</span><span>radius/control 14px</span><span>shadow/raised 6px 10px 16px / 14%</span><span>stroke 1px warm-gray</span></div></div><div class="token-card"><h4>글자 토큰</h4><div class="token-list"><span>display 700 · -5%</span><span>title 700 · -3%</span><span>body 400 · 165%</span><span>label 800 · 12%</span></div></div></div>
+      <div class="why"><article><b>가져온 것</b><p>현재 `index.css`의 종이색·잉크색·클레이 음영과 Every Joule의 “책에서 장면이 일어나는” 공간감.</p></article><article><b>바꿀 것</b><p>한 화면의 버튼 수를 줄이고, 왼쪽은 만들기·책 위는 조작·아래는 진행이라는 세 영역만 유지합니다.</p></article><article><b>주의점</b><p>과도한 입체 그림자는 저사양 기기에서 흐려 보일 수 있어 카드 2개와 주요 버튼에만 제한합니다.</p></article></div>
+    </section>
+
+    <section class="concept lab" id="lab">
+      <div class="concept-title"><div><span class="label"><i class="dot"></i>B / CURIOUS LAB</span><h2>호기심 실험실</h2></div><p>Brilliant·GeoGebra류의 “직접 만져서 답을 찾는” 학습 흐름을 Foldy답게 재구성한 안. 장식보다 상태·조작·피드백을 선명하게 보여 줍니다.</p></div>
+      <div class="frames">
+        <div class="frame-wrap"><div class="frame-meta"><span>01 시작하기</span><span>한 가지 행동만</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>FOLDY LAB</div><div class="top-actions"><span class="chip">학습 기록</span><span class="chip">교사용</span></div></div><div class="scene"><div class="net"><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i></div></div><aside class="float-card left"><span class="lesson-step">NEW EXPERIMENT</span><h4>종이 속 도형을<br>꺼내 볼까요?</h4><p>사진을 올리면 3D로 바꾸고, 어떻게 접히는지 함께 실험합니다.</p><div class="upload-zone"><div><span class="upload-icon">＋</span><p>학습지 불러오기</p></div></div></aside><aside class="float-card right"><h4>3분 실험</h4><p>사진이 없어도 바로 시작할 수 있어요.</p><div class="mini-options"><div class="mini-row">정육면체 접기 <b>03:00</b></div><div class="mini-row">가장 짧은 길 찾기 <b>04:00</b></div></div></aside></div></div>
+        <div class="frame-wrap"><div class="frame-meta"><span>02 탐색하기</span><span>관찰 → 조작 → 피드백</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>FOLDY LAB</div><div class="top-actions"><span class="chip">관찰</span><span class="chip active">조작</span><span class="chip">정리</span></div></div><div class="scene"><div class="shape3d"><span></span></div></div><aside class="float-card left"><span class="lesson-step">YOUR CONTROLS</span><h4>전개도 접기</h4><p>슬라이더를 움직이며 어느 모서리가 만나는지 예상해 보세요.</p><div class="mini-options"><div class="mini-row">면 번호 <b>켜짐</b></div><div class="mini-row">맞닿는 선 <b>켜짐</b></div><div class="mini-row">가려진 선 <b>점선</b></div></div></aside><span class="status">좋아요! 빨간 모서리 두 개가 만나고 있어요</span><div class="dock"><div class="dock-copy"><span>접기 실험</span><b>43%</b></div><div class="progress"><i></i></div><div class="dock-actions"><span class="mini-button">처음으로</span><span class="mini-button primary">한 단계 접기</span></div></div></div></div>
+        <div class="frame-wrap"><div class="frame-meta"><span>03 이해하기</span><span>먼저 예상, 나중에 공식</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>FOLDY LAB</div><div class="top-actions"><span class="chip active">겉넓이</span><span class="chip">2 / 5</span></div></div><div class="lesson-page"><div class="lesson-copy"><span class="lesson-step">HYPOTHESIS</span><h3>같은 크기의 면은<br>몇 쌍일까요?</h3><p>공식을 보기 전에 도형을 돌려 같은 면끼리 짝지어 보세요.</p><div class="formula"><small>내 예상</small><strong>□ 쌍</strong></div></div><div class="lesson-visual"><div class="shape3d"><span></span></div><div class="question">색이 같은 면끼리 짝입니다. 숨어 있는 면도 찾아볼까요?</div></div></div></div></div>
+      </div>
+      <div class="token-grid"><div class="token-card"><h4>색 토큰</h4><div class="swatches"><i style="--sw:#eef7f4"></i><i style="--sw:#101a28"></i><i style="--sw:#176b5b"></i><i style="--sw:#cde8df"></i><i style="--sw:#ff6a3d"></i></div></div><div class="token-card"><h4>형태 토큰</h4><div class="token-list"><span>radius/card 18px</span><span>radius/control 10px</span><span>shadow/floating 0 16px 32px / 13%</span><span>grid 28px · 8% ink</span></div></div><div class="token-card"><h4>글자 토큰</h4><div class="token-list"><span>display 750 · -5%</span><span>title 700 · -3%</span><span>body 450 · 165%</span><span>label 850 · uppercase</span></div></div></div>
+      <div class="why"><article><b>가져온 것</b><p>GeoGebra의 넓은 조작 캔버스, Brilliant의 짧은 질문과 즉각 피드백, PhET의 관찰 가능한 상태 변화.</p></article><article><b>바꿀 것</b><p>“설정 메뉴”를 “내 실험 도구”로 바꾸고, 공식보다 예상 질문을 먼저 보여 학습 행동을 유도합니다.</p></article><article><b>주의점</b><p>차갑고 어려운 도구처럼 보이지 않도록 민트 바탕과 짧은 격려 문장을 유지해야 합니다.</p></article></div>
+    </section>
+
+    <section class="concept editorial" id="editorial">
+      <div class="concept-title"><div><span class="label"><i class="dot"></i>C / VISUAL STORY</span><h2>비주얼 클래스</h2></div><p>페이퍼로지식 “한 화면 한 메시지, 큰 대비, 시선의 순서”를 UI에 적용한 발표 친화형. 시연 화면이 그대로 슬라이드처럼 읽힙니다.</p></div>
+      <div class="frames">
+        <div class="frame-wrap"><div class="frame-meta"><span>01 시작하기</span><span>문제보다 변화 먼저</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>foldy</div><div class="top-actions"><span class="chip active">START</span></div></div><div class="lesson-page"><div class="lesson-copy"><span class="lesson-step">PAPER → 3D</span><h3>평면을 보면,<br>입체가 보이게.</h3><p>학습지 사진 한 장으로 접고, 돌리고, 질문하며 이해해요.</p><div class="dock-actions" style="margin-top:24px"><span class="mini-button primary">사진으로 시작</span><span class="mini-button">도형 고르기</span></div></div><div class="lesson-visual"><div class="net" style="left:38%;top:52%"><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i><i class="face"></i></div><div class="shape3d" style="left:72%;top:48%"><span></span></div><div class="question">사진 속 전개도가 눈앞에서 접히기 시작합니다.</div></div></div></div></div>
+        <div class="frame-wrap"><div class="frame-meta"><span>02 탐색하기</span><span>숫자 하나, 행동 하나</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>foldy</div><div class="top-actions"><span class="chip">직육면체</span><span class="chip active">43%</span></div></div><div class="scene"><div class="shape3d"><span></span></div></div><aside class="float-card left"><span class="lesson-step">01 / FOLD</span><h4>어느 선이<br>만날까요?</h4><p>먼저 예상하고, 한 단계씩 접어 확인해 보세요.</p><div class="mini-options"><div class="mini-row">A 빨강 <b>선택</b></div><div class="mini-row">B 파랑 <b>선택</b></div></div></aside><div class="dock"><div class="dock-copy"><span>전개도 접기</span><b>43%</b></div><div class="progress"><i></i></div><div class="dock-actions"><span class="mini-button">뒤로</span><span class="mini-button primary">확인하기</span></div></div></div></div>
+        <div class="frame-wrap"><div class="frame-meta"><span>03 이해하기</span><span>결론을 크게</span></div><div class="frame"><div class="app-top"><div class="app-logo"><span class="mini-mark">F</span>foldy</div><div class="top-actions"><span class="chip active">ANSWER</span><span class="chip">다시 보기</span></div></div><div class="lesson-page"><div class="lesson-copy"><span class="lesson-step">DISCOVERED</span><h3>부피는<br><span style="color:var(--c-accent)">24 cm³</span></h3><p>한 층에 12개가 있고, 같은 층이 2번 쌓였습니다.</p><div class="formula"><small>가로 × 세로 × 높이</small><strong>4 × 3 × 2 = 24</strong></div></div><div class="lesson-visual"><div class="shape3d"><span></span></div><div class="question">정답보다 먼저 “왜 그런지”를 움직임으로 확인했어요.</div></div></div></div></div>
+      </div>
+      <div class="token-grid"><div class="token-card"><h4>색 토큰</h4><div class="swatches"><i style="--sw:#f4f0ff"></i><i style="--sw:#18151e"></i><i style="--sw:#6f46d9"></i><i style="--sw:#ded1ff"></i><i style="--sw:#ffcf3f"></i></div></div><div class="token-card"><h4>형태 토큰</h4><div class="token-list"><span>radius/card 20px</span><span>radius/control 999px</span><span>shadow/key 0 24px 60px / 13%</span><span>layout 42 : 58 split</span></div></div><div class="token-card"><h4>글자 토큰</h4><div class="token-list"><span>display 800 · -7%</span><span>title 750 · -5%</span><span>body 450 · 165%</span><span>label 900 · 12%</span></div></div></div>
+      <div class="why"><article><b>가져온 것</b><p>페이퍼로지의 메시지 중심 슬라이드 구성, 강한 크기 대비, 화면을 좌우 두 덩어리로 나누는 정보 위계.</p></article><article><b>바꿀 것</b><p>설정은 보조로 밀고 “질문 → 행동 → 발견” 문장을 화면마다 하나만 크게 보여 줍니다.</p></article><article><b>주의점</b><p>발표에서는 강하지만 반복 학습 화면 전체에 쓰면 피로할 수 있어 시작·설명·완료 화면에 집중 적용합니다.</p></article></div>
+    </section>
+
+    <section class="recommend">
+      <div class="recommend-grid"><div><p class="eyebrow" style="color:#e4d96f">RECOMMENDATION</p><h2>A를 기반으로 B의 학습 흐름, C의 설명 화면을 섞는 안을 추천합니다.</h2><p>현재 구현 자산과 가장 가까운 A로 일정 리스크를 줄이고, B의 “먼저 예상하기”와 C의 “한 화면 한 메시지”만 선택적으로 가져오면 팀원이 다시 만드는 양을 최소화하면서도 발표 화면이 또렷해집니다.</p></div><div class="score"><div class="score-row"><span>A 구현 부담</span><div class="score-bar"><i style="--w:88%"></i></div><b>낮음</b></div><div class="score-row"><span>A 브랜드 연결</span><div class="score-bar"><i style="--w:96%"></i></div><b>높음</b></div><div class="score-row"><span>B 학습 명료도</span><div class="score-bar"><i style="--w:94%"></i></div><b>높음</b></div><div class="score-row"><span>C 발표 주목도</span><div class="score-bar"><i style="--w:98%"></i></div><b>높음</b></div></div></div>
+      <div class="use-note" style="color:#201f1b"><b>옆에서 보여 줄 때:</b> 먼저 상단의 세 카드만 보여 주고 한 안을 고르게 합니다. 그다음 선택한 안의 3개 화면을 넘기며 “시작 → 탐색 → 이해” 흐름을 확인합니다. 마지막으로 추천 혼합안을 보여 주면 10분 안에 방향을 합의할 수 있습니다.</div>
+    </section>
+
+    <section id="sources">
+      <div class="section-head"><span class="section-number">04 / SOURCES</span><div><h2>어디서 무엇을 가져왔나</h2><p class="section-lead">외형을 그대로 복제하지 않고, 정보 구조·학습 흐름·시각 원칙만 추출했습니다. 링크와 적용 지점은 조사 결과를 교차 확인해 정리했습니다.</p></div></div>
+      <h3 style="margin:0 0 8px;font-size:24px;letter-spacing:-.04em">페이퍼로지에서 가져온 화면 구성 원칙</h3>
+      <p class="section-lead" style="margin-top:0">영상의 문장을 복제하지 않고, Foldy 웹 UI에 적용 가능한 시각 원칙으로 번역했습니다. C안에 가장 강하게 적용했고 A·B안에도 정보 위계 원칙을 공통으로 사용했습니다.</p>
+      <div class="source-list">
+        <a class="source" href="https://www.youtube.com/watch?v=5quqvuW2AGg" target="_blank" rel="noreferrer"><small>2023-09-07 · Layout hierarchy</small><b>당신의 PPT가 예뻐지는 단 하나의 원칙</b><p>Big–Medium–Small 크기 대비 → 3D·질문·상태의 시선 순서.</p></a>
+        <a class="source" href="https://www.youtube.com/watch?v=tLSHZ7A5Tpc" target="_blank" rel="noreferrer"><small>2024-07-28 · White canvas</small><b>하얀 배경 PPT 디자인 완벽 가이드</b><p>여백·옅은 면·키 컬러로 밀도 조절 → 오프화이트 바탕과 제한된 강조색.</p></a>
+        <a class="source" href="https://www.youtube.com/watch?v=CsueNw1V1eg" target="_blank" rel="noreferrer"><small>2021-12-31 · Composition</small><b>PPT 레이아웃 고민 이제 그만</b><p>개별 카드보다 전체 실루엣 우선 → 뷰어 60–65%, 설명 35–40%.</p></a>
+        <a class="source" href="https://www.youtube.com/watch?v=FsRX9TtRHQw" target="_blank" rel="noreferrer"><small>2019-01-22 · Color</small><b>피피티 디자인의 반은 색조합이었다</b><p>주제 이미지에서 제한된 팔레트 추출 → Primary 1색+Neutral+상태색.</p></a>
+        <a class="source" href="https://www.youtube.com/watch?v=MG0taiecDC0" target="_blank" rel="noreferrer"><small>2018-11-08 · Typography</small><b>파워포인트 폰트 잘 쓰는 방법</b><p>폰트 수보다 크기·굵기·행간 대비 → 한 패밀리, 최대 3개 굵기.</p></a>
+        <a class="source" href="https://www.youtube.com/watch?v=TSsNW9mEOHQ" target="_blank" rel="noreferrer"><small>2023-11-14 · First impression</small><b>PPT 표지 디자인의 모든 것</b><p>첫 화면에 핵심 메시지 하나 → 대표 도형·가치 문장·CTA만 남김.</p></a>
+      </div>
+      <h3 style="margin:42px 0 8px;font-size:24px;letter-spacing:-.04em">디자인·교육 UX 레퍼런스</h3>
+      <div class="source-list" id="source-list">
+        <a class="source" href="https://iamtechartist.com/every-joule/" target="_blank" rel="noreferrer"><small>Spatial UI · Existing Foldy reference</small><b>Every Joule</b><p>책 위에서 그래픽이 일어나는 공간감 → A안의 책상·종이 무대.</p></a>
+        <a class="source" href="https://github.com/iamtechartist/every-joule-lesson1" target="_blank" rel="noreferrer"><small>Open source · Visual tokens</small><b>Every Joule 공개 소스</b><p>종이·카드·잉크색과 타이포 물성 → A안 토큰 검증.</p></a>
+        <a class="source" href="https://lusion.co/projects/my_little_story_book/" target="_blank" rel="noreferrer"><small>Awwwards · Hand-drawn 3D</small><b>My Little Storybook</b><p>손그림과 WebGL의 결합 → A안의 친근한 3D 연출.</p></a>
+        <a class="source" href="https://wehatevanilla.com/work/why-zero-website/" target="_blank" rel="noreferrer"><small>Awwwards · Interactive story</small><b>Why Zero</b><p>한 화면 한 행동과 3D 중심 진행 → C안의 메시지 집중.</p></a>
+        <a class="source" href="https://shapes.learnteachexplore.com/shapes-3d-geometry-learning/" target="_blank" rel="noreferrer"><small>3D geometry learning</small><b>Shapes 3D</b><p>입체↔전개도를 연속 상태로 탐색 → 세 안의 3단계 흐름.</p></a>
+        <a class="source" href="https://www.geogebra.org/m/aWhYSpvy" target="_blank" rel="noreferrer"><small>Interactive geometry</small><b>GeoGebra 3D</b><p>큰 조작 캔버스와 보조 패널 분리 → B안의 실험 레이아웃.</p></a>
+        <a class="source" href="https://mathigon.org/polypad" target="_blank" rel="noreferrer"><small>Direct manipulation</small><b>Mathigon Polypad</b><p>객체 직접 조작과 맥락형 도구 → B안의 선택 후 옵션 노출.</p></a>
+        <a class="source" href="https://brilliant.org/faq/" target="_blank" rel="noreferrer"><small>Interactive learning</small><b>Brilliant</b><p>짧은 질문과 직접 조작 중심 학습 → B·C안의 예상 질문.</p></a>
+        <a class="source" href="https://phet.colorado.edu/en/inclusive-design/features" target="_blank" rel="noreferrer"><small>Inclusive simulation</small><b>PhET Inclusive Design</b><p>키보드·음성 설명·모션 감소 → 공통 접근성 기준.</p></a>
+        <a class="source" href="https://www.figma.com/community/file/1097612753915899812" target="_blank" rel="noreferrer"><small>Figma Community · EdTech</small><b>Ed-tech Learning App UI Kit</b><p>학습 카드·진행 상태·컴포넌트 변형 → 화면 패턴 비교.</p></a>
+        <a class="source" href="https://help.figma.com/hc/en-us/articles/14552740206743-Lesson-2-Define-your-design-system" target="_blank" rel="noreferrer"><small>Design systems</small><b>Figma 디자인 시스템 가이드</b><p>색·형태·타이포 토큰을 분리해 비교하는 방식.</p></a>
+        <a class="source" href="https://www.youtube.com/@%ED%8E%98%EC%9D%B4%ED%8D%BC%EB%A1%9C%EC%A7%80" target="_blank" rel="noreferrer"><small>Presentation composition</small><b>페이퍼로지 YouTube</b><p>큰 메시지·대비·시선 흐름 → C안의 화면별 한 문장.</p></a>
+        <a class="source" href="https://www.nngroup.com/articles/progressive-disclosure/" target="_blank" rel="noreferrer"><small>UX principle</small><b>NN/g 점진적 공개</b><p>고급 옵션을 늦게 보여 주어 기본 화면의 복잡도 제한.</p></a>
+        <a class="source" href="https://www.w3.org/TR/WCAG22/" target="_blank" rel="noreferrer"><small>Accessibility standard</small><b>WCAG 2.2</b><p>드래그 대안·타깃 크기·색 이외 구분의 공통 기준.</p></a>
+      </div>
+      <p class="method">조사일: 2026-10-31 · 현재 Foldy 토큰은 <code>frontend/src/index.css</code>와 <code>docs/specs/ui.md</code>에서 추출했습니다. 링크는 각 원문으로 이동합니다.</p>
+    </section>
+  </main>
+</body>
+</html>

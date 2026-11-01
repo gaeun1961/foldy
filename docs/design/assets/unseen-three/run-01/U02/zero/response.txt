@@ -1,0 +1,84 @@
+{
+  "kind": "cuboid",
+  "decision": "scene",
+  "dimension_source": "extracted",
+  "assumptions": [
+    "width = 5",
+    "depth = 7",
+    "height = 8"
+  ],
+  "scene": {
+    "shape": "cuboid",
+    "size": {
+      "width": 5,
+      "depth": 7,
+      "height": 8
+    },
+    "vertexLabels": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "lines": [],
+    "net": {
+      "layout": "grid",
+      "faces": [
+        {
+          "x": 0,
+          "y": 1,
+          "w": 5,
+          "h": 8,
+          "text": null,
+          "fill": null
+        },
+        {
+          "x": 5,
+          "y": 1,
+          "w": 7,
+          "h": 8,
+          "text": null,
+          "fill": null
+        },
+        {
+          "x": 12,
+          "y": 1,
+          "w": 5,
+          "h": 8,
+          "text": null,
+          "fill": null
+        },
+        {
+          "x": 17,
+          "y": 1,
+          "w": 7,
+          "h": 8,
+          "text": null,
+          "fill": null
+        },
+        {
+          "x": 5,
+          "y": 9,
+          "w": 7,
+          "h": 5,
+          "text": null,
+          "fill": true
+        },
+        {
+          "x": 17,
+          "y": -7,
+          "w": 7,
+          "h": 8,
+          "text": null,
+          "fill": null
+        }
+      ],
+      "cornerLabels": [],
+      "lines": []
+    }
+  }
+}

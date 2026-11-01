@@ -1,0 +1,30 @@
+{
+  "kind": "cuboid",
+  "decision": "scene",
+  "dimension_source": "exact",
+  "assumptions": [],
+  "scene": {
+    "shape": "cuboid",
+    "size": {
+      "width": 9.0,
+      "depth": 4.0,
+      "height": 6.0
+    },
+    "vertexLabels": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "lines": [],
+    "net": {
+      "layout": "cross",
+      "faces": []
+    },
+    "problem": "직육면체에서 색칠한 면과 평행한 면의 네 변의 길이의 합은 몇 cm인지 풀이 과정을 쓰고 답을 구해 보세요."
+  }
+}

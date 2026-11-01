@@ -1,0 +1,126 @@
+{
+  "id": "U02",
+  "condition": "zero",
+  "requested_model": "gemini-3.5-flash-lite",
+  "example_count": 0,
+  "example_ids": [],
+  "query_teacher_in_prompt": false,
+  "visual_evaluation_status": "pending",
+  "expected_checklist": "inputs/evaluation-checklist.json",
+  "schema_valid": true,
+  "image_hashes": {
+    "shape": "ec012768d8eb63855f3504646d02c96aa15a131cc2a7755e0999ef5b8c2dfa29",
+    "problem": "b01e7be53dce4cc23ec75f5f9a3cd310f165caa4c37cf4803a00fc5cc9137f43"
+  },
+  "started_at": "2026-11-01T04:54:05.403682+00:00",
+  "seconds": 2.737,
+  "usage": {
+    "cache_tokens_details": null,
+    "cached_content_token_count": null,
+    "candidates_token_count": 509,
+    "candidates_tokens_details": null,
+    "prompt_token_count": 7062,
+    "prompt_tokens_details": [
+      {
+        "modality": "TEXT",
+        "token_count": 4872
+      },
+      {
+        "modality": "IMAGE",
+        "token_count": 2190
+      }
+    ],
+    "thoughts_token_count": null,
+    "tool_use_prompt_token_count": null,
+    "tool_use_prompt_tokens_details": null,
+    "total_token_count": 7571,
+    "traffic_type": null
+  },
+  "resolved_model": "gemini-3.5-flash-lite",
+  "output": {
+    "kind": "cuboid",
+    "decision": "scene",
+    "dimension_source": "extracted",
+    "assumptions": [
+      "width = 5",
+      "depth = 7",
+      "height = 8"
+    ],
+    "scene": {
+      "shape": "cuboid",
+      "size": {
+        "width": 5,
+        "depth": 7,
+        "height": 8
+      },
+      "vertexLabels": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [],
+      "net": {
+        "layout": "grid",
+        "faces": [
+          {
+            "x": 0,
+            "y": 1,
+            "w": 5,
+            "h": 8,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 5,
+            "y": 1,
+            "w": 7,
+            "h": 8,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 12,
+            "y": 1,
+            "w": 5,
+            "h": 8,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 17,
+            "y": 1,
+            "w": 7,
+            "h": 8,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 5,
+            "y": 9,
+            "w": 7,
+            "h": 5,
+            "text": null,
+            "fill": true
+          },
+          {
+            "x": 17,
+            "y": -7,
+            "w": 7,
+            "h": 8,
+            "text": null,
+            "fill": null
+          }
+        ],
+        "cornerLabels": [],
+        "lines": []
+      }
+    }
+  },
+  "status": "response",
+  "teacher_scene_exact_match": null
+}

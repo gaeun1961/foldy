@@ -1,0 +1,101 @@
+{
+  "kind": "cube_net",
+  "decision": "scene",
+  "dimension_source": "normalized",
+  "assumptions": [
+    "정육면체 전개도(GridNet) 형태이며 6개의 면과 각 꼭짓점 라벨(ㄱ, ㄴ, ㄷ, ㄹ)이 포함됨."
+  ],
+  "scene": {
+    "shape": "cube",
+    "size": {
+      "edge": 1.0
+    },
+    "vertexLabels": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "lines": [],
+    "net": {
+      "layout": "grid",
+      "faces": [
+        {
+          "x": 1.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0,
+          "text": null,
+          "fill": true
+        },
+        {
+          "x": 0.0,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0,
+          "text": null,
+          "fill": true
+        },
+        {
+          "x": 1.0,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0,
+          "text": null,
+          "fill": true
+        },
+        {
+          "x": 2.0,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0,
+          "text": null,
+          "fill": true
+        },
+        {
+          "x": 0.0,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0,
+          "text": null,
+          "fill": true
+        },
+        {
+          "x": 1.0,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0,
+          "text": null,
+          "fill": true
+        }
+      ],
+      "cornerLabels": [
+        {
+          "x": 1.0,
+          "y": 0.0,
+          "text": "ㄱ"
+        },
+        {
+          "x": 2.0,
+          "y": 0.0,
+          "text": "ㄹ"
+        },
+        {
+          "x": 1.0,
+          "y": 1.0,
+          "text": "ㄴ"
+        },
+        {
+          "x": 2.0,
+          "y": 1.0,
+          "text": "ㄷ"
+        }
+      ],
+      "lines": []
+    }
+  }
+}

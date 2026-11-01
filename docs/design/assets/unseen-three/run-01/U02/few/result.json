@@ -1,0 +1,128 @@
+{
+  "id": "U02",
+  "condition": "few",
+  "requested_model": "gemini-3.5-flash-lite",
+  "example_count": 3,
+  "example_ids": [
+    "D02",
+    "D01",
+    "H03"
+  ],
+  "query_teacher_in_prompt": false,
+  "visual_evaluation_status": "pending",
+  "expected_checklist": "inputs/evaluation-checklist.json",
+  "schema_valid": true,
+  "image_hashes": {
+    "shape": "ec012768d8eb63855f3504646d02c96aa15a131cc2a7755e0999ef5b8c2dfa29",
+    "problem": "b01e7be53dce4cc23ec75f5f9a3cd310f165caa4c37cf4803a00fc5cc9137f43"
+  },
+  "started_at": "2026-11-01T04:54:08.728064+00:00",
+  "seconds": 2.09,
+  "usage": {
+    "cache_tokens_details": null,
+    "cached_content_token_count": null,
+    "candidates_token_count": 390,
+    "candidates_tokens_details": null,
+    "prompt_token_count": 11194,
+    "prompt_tokens_details": [
+      {
+        "modality": "TEXT",
+        "token_count": 5698
+      },
+      {
+        "modality": "IMAGE",
+        "token_count": 5496
+      }
+    ],
+    "thoughts_token_count": null,
+    "tool_use_prompt_token_count": null,
+    "tool_use_prompt_tokens_details": null,
+    "total_token_count": 11584,
+    "traffic_type": null
+  },
+  "resolved_model": "gemini-3.5-flash-lite",
+  "output": {
+    "kind": "net",
+    "decision": "scene",
+    "dimension_source": "printed",
+    "assumptions": [
+      "직육면체 치수 5×7×8, 전개도 면 구성 및 색칠된 면 반영"
+    ],
+    "scene": {
+      "vertexLabels": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "shape": "cuboid",
+      "size": {
+        "width": 5.0,
+        "depth": 7.0,
+        "height": 8.0
+      },
+      "lines": [],
+      "net": {
+        "layout": "grid",
+        "faces": [
+          {
+            "x": 0.0,
+            "y": 8.0,
+            "w": 5.0,
+            "h": 7.0,
+            "text": null,
+            "fill": true
+          },
+          {
+            "x": 5.0,
+            "y": 8.0,
+            "w": 7.0,
+            "h": 7.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 12.0,
+            "y": 8.0,
+            "w": 5.0,
+            "h": 7.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 17.0,
+            "y": 8.0,
+            "w": 7.0,
+            "h": 7.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 5.0,
+            "y": 1.0,
+            "w": 7.0,
+            "h": 7.0,
+            "text": null,
+            "fill": null
+          },
+          {
+            "x": 17.0,
+            "y": 15.0,
+            "w": 7.0,
+            "h": 5.0,
+            "text": null,
+            "fill": null
+          }
+        ],
+        "cornerLabels": [],
+        "lines": []
+      }
+    }
+  },
+  "status": "response",
+  "teacher_scene_exact_match": null
+}
