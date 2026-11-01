@@ -206,7 +206,21 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             setBox({ ...p, w: 0, h: 0 })
           }}
           onPointerMove={(e) => drag && setBox(boxOf(drag, pointAt(e)))}
-          onPointerUp={() => setDrag(null)}
+          onPointerUp={(e) => {
+            // 끌지 않고 한 번 누르면(탭·클릭) 그 자리의 도형 네모를 지운다. 겹쳐 있으면 가장 작은 것 (추천 네모가 엉뚱한 곳을 잡을 때, 휴대폰 실측)
+            const p = pointAt(e)
+            if (drag && Math.abs(p.x - drag.x) < MIN_BOX && Math.abs(p.y - drag.y) < MIN_BOX) {
+              const hit = shapes
+                .map((s, i) => ({ i, area: s.w * s.h, inside: p.x >= s.x && p.x <= s.x + s.w && p.y >= s.y && p.y <= s.y + s.h }))
+                .filter((s) => s.inside)
+                .sort((a, b) => a.area - b.area)[0]
+              if (hit) {
+                setShapes(shapes.filter((_, i) => i !== hit.i))
+                setBox(null)
+              }
+            }
+            setDrag(null)
+          }}
         >
           <img ref={img} src={photo.url} alt="올린 학습지 사진" draggable={false} />
           {state.kind === 'loading' && <div className="reading-scan" aria-hidden />}
@@ -324,9 +338,9 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
           (step === 'problem'
             ? '① 문제 전체(문장과 그림)를 네모로 감싸 주세요'
             : shapes.length && suggested
-              ? `② 찾은 도형 ${shapes.length}개를 감쌌어요. 맞으면 읽고, 틀리면 "네모 지우기" 뒤 직접 감싸 주세요`
+              ? `② 찾은 도형 ${shapes.length}개를 감쌌어요. 맞으면 읽고, 틀린 네모는 한 번 누르면 지워져요`
               : shapes.length
-              ? `② 도형 ${shapes.length}개를 골랐어요. 더 있으면 감싸고 "도형 더하기", 다 골랐으면 읽어요`
+              ? `② 도형 ${shapes.length}개를 골랐어요. 더 있으면 감싸고 "도형 더하기", 다 골랐으면 읽어요. 네모를 한 번 누르면 지워져요`
               : '② 이제 도형(그림)만 네모로 딱 맞게 감싸 주세요. 도형이 여러 개면 하나씩 감싸고 "도형 더하기"')}
         {state.kind === 'loading' && (
           <>
