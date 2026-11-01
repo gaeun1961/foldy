@@ -61,7 +61,12 @@ export function findShapeBoxes(px: Pixels): PhotoBox[] {
     const mx = bright[i]
     const sat = mx - Math.min(r, g, b)
     const red = r - Math.max(g, b) > 40 // 빨간 펜·채점 표시
-    mask[i] = mx < paper[i] * TUNE.drop && mx > paper[i] * TUNE.dark && sat < 60 && !red ? 1 : 0 // 종이보다 어둡고 글자(검정)보다 밝은 색칠
+    const shaded = mx < paper[i] * TUNE.drop && mx > paper[i] * TUNE.dark && sat < 60 && !red
+    // 밝은 노란 면은 R이 종이만큼 밝아 기존 마스크에서 윤곽만 남고 opening에서 사라졌다.
+    // 채널 차이로 밝은 색칠을 보완하되 회색 종이·검은 글자와 붉은 채점은 제외한다.
+    const redInk = red && g - b < 20
+    const colored = mx > paper[i] * 0.7 && Math.min(r, g, b) < paper[i] * 0.92 && sat >= 25 && sat < 150 && !redInk
+    mask[i] = shaded || colored ? 1 : 0
   }
   const k = Math.max(1, Math.round(Math.max(W, H) / 480)) // 줄인 크기 기준 걸음
   mask = dilate(erode(mask, W, H, TUNE.open * k), W, H, TUNE.open * k) // 작은 얼룩·글자 지우기 (빽빽한 글 줄은 줄이면 회색 띠가 된다)
@@ -78,8 +83,12 @@ export function findShapeBoxes(px: Pixels): PhotoBox[] {
 
   const { blobs, ids } = label(mask, W, H)
   const sharp = edgeSharpness(ids, blobs.length, bright, W, H)
+  // 노란 면과 흰 종이는 R 최댓값이 비슷하다. 가장 어두운 채널의 경계도 확인한다.
+  const low = new Uint8Array(n)
+  for (let i = 0; i < n; i++) low[i] = Math.min(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])
+  const colorSharp = edgeSharpness(ids, blobs.length, low, W, H)
   // 인쇄된 그림은 테두리가 또렷하다. 그림자·조명 얼룩은 밝기가 서서히 바뀌어 테두리가 흐리다 (브라우저 실측 인쇄 14~61, 그림자 3.6~8.8)
-  const found = blobs.filter((c, i) => c.area >= 0.01 * n && c.w >= 0.06 * Math.min(W, H) && c.h >= 0.06 * Math.min(W, H) && !onEdge(c, W, H, textAtBottom) && sharp[i] >= TUNE.sharp )
+  const found = blobs.filter((c, i) => c.area >= 0.01 * n && c.w >= 0.06 * Math.min(W, H) && c.h >= 0.06 * Math.min(W, H) && !onEdge(c, W, H, textAtBottom) && Math.max(sharp[i], colorSharp[i]) >= TUNE.sharp )
   // 둘레를 넓히고 (라벨 자리), 서로 닿은 것은 한 도형으로
   const raw = merge(found.map((c) => ({ x: c.x / W, y: c.y / H, w: c.w / W, h: c.h / H })))
   const boxes = raw.map((b) => stopAtText(pad(b, raw), b, ink, W, H))

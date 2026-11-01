@@ -76,6 +76,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
   const [step, setStep] = useState<'problem' | 'shape'>('problem')
   const [shapes, setShapes] = useState<PhotoBox[]>([]) // ② 에서 "도형 더하기"로 모은 네모 (①②③…, 최대 6개)
   const [suggested, setSuggested] = useState(false) // shapes 가 ① 문제 칸에서 찾은 추천 네모인지 (worksheets.md "추천 네모")
+  const [suggestionEmpty, setSuggestionEmpty] = useState(false)
   const [verdict, setVerdict] = useState<'right' | 'wrong' | null>(null) // 기록 모드: 결과에 누른 [맞음][틀림]
   const [lying, setLying] = useState(false) // 문제 칸 글 줄이 세로 (사진이 누움) → 추천 대신 "돌려 주세요"
   const img = useRef<HTMLImageElement>(null)
@@ -105,6 +106,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
     setBox(null)
     setProblemBox(null)
     setShapes([])
+    setSuggested(false)
+    setSuggestionEmpty(false)
     setLying(false)
     setStep('problem')
     startSession() // 기록 모드: 기준 사진마다 새 묶음 (#160)
@@ -237,6 +240,21 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
   })
   const usable = !!box && box.w > MIN_BOX && box.h > MIN_BOX
 
+  const findShapes = (problem: PhotoBox | null) => {
+    const region = problem ?? { x: 0, y: 0, w: 1, h: 1 }
+    const found = img.current ? suggestShapes(img.current, region) : { boxes: [], sideways: false }
+    const boxes = found.boxes.slice(0, MAX_ITEMS)
+    setProblemBox(problem)
+    setBox(null)
+    setStep('shape')
+    setShapes(boxes)
+    setSuggested(boxes.length > 0)
+    setSuggestionEmpty(boxes.length === 0 && !found.sideways)
+    setLying(found.sideways)
+    const rec = recSession()
+    if (rec) Object.assign(rec, { suggested: boxes, sideways: found.sideways, removed: [], added: 0 })
+  }
+
   return (
     <div className="photo-upload" data-state={state.kind}>
       <div className="upload-buttons">
@@ -313,22 +331,11 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             className="primary-button"
             style={{ gridColumn: '1 / -1' }}
             disabled={loading || !usable}
-            onClick={() => {
-              setProblemBox(box)
-              setBox(null)
-              setStep('shape')
-              // 문제 칸 안 색칠된 도형을 찾아 ② 네모로 미리 깔아 둔다. 못 찾으면 빈 목록 → 지금처럼 직접 감싼다
-              const found = img.current && box ? suggestShapes(img.current, box) : { boxes: [], sideways: false }
-              setShapes(found.boxes.slice(0, MAX_ITEMS))
-              const rec = recSession()
-              if (rec) Object.assign(rec, { suggested: found.boxes.slice(0, MAX_ITEMS), sideways: found.sideways, removed: [], added: 0 })
-              setSuggested(found.boxes.length > 0)
-              setLying(found.sideways)
-            }}
+            onClick={() => findShapes(box)}
           >
-            다음: 도형 고르기
+            선택한 문제에서 도형 찾기
           </button>
-          <button type="button" className="secondary-button" disabled={loading} onClick={() => setStep('shape')}>
+          <button type="button" className="secondary-button" disabled={loading} onClick={() => findShapes(null)}>
             문제 없이 도형만
           </button>
           <button type="button" className="secondary-button" disabled={loading} onClick={() => read([])}>
@@ -370,6 +377,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
                 if (rec) rec.removed.push(...shapes)
                 setShapes([])
                 setSuggested(false)
+                setSuggestionEmpty(false)
               }}
             >
               네모 지우기
@@ -417,6 +425,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
               ? `② 찾은 도형 ${shapes.length}개를 감쌌어요. 맞으면 읽고, 틀린 네모는 한 번 누르면 지워져요`
               : shapes.length
               ? `② 도형 ${shapes.length}개를 골랐어요. 더 있으면 감싸고 "도형 더하기", 다 골랐으면 읽어요. 네모를 한 번 누르면 지워져요`
+              : suggestionEmpty
+              ? '② 도형을 자동으로 찾지 못했어요. 그림을 직접 감싸 주세요. 여러 개면 하나씩 감싸고 "도형 더하기"를 누르세요.'
               : '② 이제 도형(그림)만 네모로 딱 맞게 감싸 주세요. 도형이 여러 개면 하나씩 감싸고 "도형 더하기"')}
         {state.kind === 'loading' && (
           <>
