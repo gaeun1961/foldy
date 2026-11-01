@@ -410,7 +410,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             {seconds >= 30 && (
               <>
                 <br />
-                조금 더 걸려요. 그동안 <a href="#manual-input">아래에서 직접 그려 봐도 돼요</a>
+                조금 더 걸려요. 취소한 뒤 직접 만들 수도 있어요.
               </>
             )}
           </>
