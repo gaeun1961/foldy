@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Foldy · 사진 인식 개선 과정</title><link rel="stylesheet" href="recognition-process.css"></head><body>
+<main>
+<section class="slide" aria-labelledby="title1">
+<header><span>FOLDY · 인식 개선 과정</span><span>01 / 02</span></header>
+<h1 id="title1">사진 한 장에서, 다음 인식의 개선까지</h1>
+<p class="lead">학생의 선택과 피드백을 남기고, 확인한 결과만 다시 사용합니다.</p>
+<ol class="flow">
+<li><b>01 · 사진 고르기</b><p>문제와 도형을 감싸요</p><small>추천 네모 → 학생 수정</small></li>
+<li><b>02 · 도형 읽기</b><p>사진을 3D 데이터로</p><small>결과·엔진·시간 기록</small></li>
+<li><b>03 · 결과 확인</b><p>맞음 · 틀림</p><small>취소하면 늦은 결과 무시</small></li>
+<li><b>04 · 실패 모으기</b><p>놓친 네모와 오류 분류</p><small>규칙·퓨샷 후보 정리</small></li>
+</ol>
+<div class="lower">
+<figure class="photo-frame"><div class="placeholder"><span class="paper-icon">▱</span><strong>학생이 고른 문제·도형 화면</strong><span>승인된 실측 화면을 넣는 자리</span></div><figcaption>기록: 추천 · 삭제 · 추가 · 실제 선택 · 맞음/틀림</figcaption></figure>
+<div class="review"><h2>정답 후보는 한 번 더 확인</h2><p>독립 심사 두 개 → 불일치 재심 → 사람 확인</p><p class="note">현재 교차 심사는 지정 모델 접근 대기 중입니다.</p><h2>같은 문제는 저장된 답으로</h2><p>‘맞음’으로 확인한 결과만 저장 · ‘틀림’이면 제거</p><small>개발 모드에서 도형과 문제 사진이 모두 정확히 같은 경우만 재사용합니다.</small></div>
+</div>
+<footer>사진은 로컬 보관 · 기록 모드는 개발/실측 빌드 전용 · 증류는 실패·규칙·퓨샷 정리이며 모델 가중치 학습 완료를 뜻하지 않습니다.</footer>
+</section>
+<section class="slide" aria-labelledby="title2">
+<header><span>FOLDY · 측정과 검증</span><span>02 / 02</span></header>
+<h1 id="title2">기다림은 줄이고, 개선은 숫자로 확인</h1>
+<p class="lead">대기 프로세스 예열과 늦은 요청 재시도로 지연을 줄였습니다.</p>
+<div class="metrics"><article><span>후속 측정 · 도형 2개</span><strong>17.0–17.8<span>초</span></strong><small>같은 사진 3회 · 데스크톱 · 예열 agy</small></article><article><span>추천 네모 찾기</span><strong>0.02–0.08<span>초</span></strong><small>학습지 2장 · 전체 인식 시간과 별개</small></article></div>
+<div class="evidence"><div><h2>전후 반복 측정 전체를 공개</h2><table><thead><tr><th>회차</th><th>개선 전</th><th>개선 후</th></tr></thead><tbody><tr><td>1</td><td>22.3초</td><td>21.8초</td></tr><tr><td>2</td><td>61.8초</td><td>14.0초</td></tr><tr><td>3</td><td>19.0초</td><td>36.7초</td></tr><tr><td>4</td><td>56.5초</td><td>15.7초</td></tr></tbody></table><small>도형 두 개 + 문제 글. 개선 후에도 긴 지연은 남아 있습니다.</small></div><aside><h2>현재 검증 상태</h2><p><b>구현·검증</b><br>기록 UI, 입력 잠금, 엄격한 정답 은행</p><p><b>추가 확인 필요</b><br>Android 앱 실측 · 지정 모델 교차 심사 · 사람 정답 승인</p><p class="note">작업 브랜치/초안 PR 상태입니다. 배포 성능 보장이나 전체 학습지 정탐률이 아닙니다.</p></aside></div>
+<footer>근거: <a href="T00-agy-speed.md">T00-agy-speed</a> · <a href="T00-suggest-box.md">T00-suggest-box</a> · <a href="T00-recognition-process.md">측정 조건과 구현 상태</a> · 2026-11-01</footer>
+</section>
+</main></body></html>
