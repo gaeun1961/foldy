@@ -56,6 +56,24 @@ assert r.status_code == 422 and r.json()["detail"] == "사진에서 도형을 �
     r.text
 )
 
+# 입체도형 문제가 아님 (#163): 모델이 {"notSolid": true} 로 답하면 다른 안내로 422, 기억하지 않는다
+try:
+    vision.to_scene('{"notSolid": true, "problem": "직사각형 종이 ABCD 를 접었다"}')
+    raise AssertionError("notSolid 인데 ShapeScene 이 됐다")
+except vision.NotSolidError:
+    pass
+try:
+    cli_scene(json.dumps({"response": '```json {"notSolid": true} ```'}))
+    raise AssertionError("CLI 답의 notSolid 를 놓쳤다")
+except vision.NotSolidError:
+    pass
+fake(vision.NotSolidError(), vision.NotSolidError())
+r = post(b"photo-flat")
+assert r.status_code == 422 and r.json()["detail"].startswith(
+    "이 문제는 입체도형 전개도 문제가 아니에요"
+), r.text
+assert post(b"photo-flat").status_code == 422 and calls.count(b"photo-flat") == 2, calls
+
 # 한도 초과·키 없음·시간 초과 → 503, 다시 부르지 않는다
 fake(VisionError("ClientError: 429 RESOURCE_EXHAUSTED"))
 r = post(b"photo-3")
@@ -347,5 +365,5 @@ assert any(
 del os.environ["VISION_RECORD"]
 
 print(
-    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, agy 미리 띄워 두기·늦으면 하나 더, 문제 칸, 기록 모드)"
+    "ok: /analyze (400·422·503, 과부하 한 번 재시도, 같은 사진 기억, 실패는 기억 안 함, Gemini CLI 비상 경로, agy 팀 테스트 엔진, agy 미리 띄워 두기·늦으면 하나 더, 문제 칸, 입체도형 문제가 아님, 기록 모드)"
 )

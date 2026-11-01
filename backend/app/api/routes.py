@@ -65,6 +65,13 @@ async def analyze(
         keep({"error": str(e)[:500], "status": status, "kind": type(e).__name__})
         if e.unavailable:
             raise HTTPException(503, "지금은 사진 인식을 쓸 수 없어요") from e
+        if isinstance(
+            e, vision.NotSolidError
+        ):  # 입체도형 문제가 아님 (#163, api.md "/analyze 에러")
+            raise HTTPException(
+                422,
+                "이 문제는 입체도형 전개도 문제가 아니에요. 아래에서 직접 만들어 볼 수 있어요",
+            ) from e
         raise HTTPException(422, "사진에서 도형을 찾지 못했어요") from e
     keep(scene.model_dump(by_alias=True, exclude_none=True))
     return scene
