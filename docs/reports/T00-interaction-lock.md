@@ -20,6 +20,9 @@
 - 개발 서버 실행 및 화면 확인. 가짜 인식 응답과 합성 이미지로 LLM 호출 없이 검사했다.
 - 로컬 시험 스크립트: D:/_개발/foldy-test-plan/interaction-test.mjs. 결과: interaction-results.json.
 - 추가 경계 검사: 종료 버튼 위 wheel/Ctrl+wheel, 두 손가락 touchstart, touchmove, Ctrl+확대 키도 차단하고 Enter 종료는 허용한다. activity-button-test.mjs와 activity-button-results.json으로 확인했다.
+- 빌드본 1280px·390px에서 422·503·연결 실패를 각각 주입했다. 3시점의 5연타에도 요청은 1건이고 오류 후 잠금·덮개·읽기 표시가 해제된다. 실패 뒤 재시도·취소도 통과했다(interaction-error-results.json).
+- 사진 준비·회전·종이 펴기의 이미지 생성을 2.2초 지연시키고 3시점 연타를 주입해 중복 생성이 없음을 확인했다. 이미지 생성 실패 후 재시도 버튼과 잠금 해제도 통과했다(photo-operation-results.json).
+- 보관함 IndexedDB 완료를 2.2초 지연시켜 3시점 연타를 주입했고 읽기는 1건이었다. 펜으로 인계한 뒤 여러 도형 간 접기 값 복원, 접는 중 도형 전환 차단, 홀로그램 왕복 4회 후 선택 유지·canvas 1개를 두 화면 크기로 확인했다(shelf-operation-results.json).
 - Android 에뮬레이터는 자동 승인 검토의 Chrome 실행 거절로 미검증. 전체 O1~O14×I1~I34 조합을 모두 실행했다고 주장하지 않는다.
 
 ## 의존성
