@@ -88,6 +88,7 @@ export function ThreeViewer({
   onFacePick,
   faceMarking = false,
   onFaceMark,
+  resetCameraRef,
 }: ViewerProps) {
   const activityRef = useRef(onActivity)
   useEffect(() => { activityRef.current = onActivity }, [onActivity])
@@ -717,6 +718,8 @@ export function ThreeViewer({
       const newTarget = view.target
       const newPos = newTarget.clone().addScaledVector(dir, view.distance)
       world.fog = new THREE.Fog(DESK_COLOR, view.distance * 2, view.distance * 6) // 책 너머 책상만 흐리게
+      controls.minDistance = view.distance * 0.5
+      controls.maxDistance = view.distance * 2
       if (smooth) {
         snapTo = { pos: newPos, target: newTarget }
       } else {
@@ -737,6 +740,7 @@ export function ThreeViewer({
       resize(true)
     }
     rebuildBookRef.current = rebuildBook
+    if (resetCameraRef) resetCameraRef.current = () => resize(true)
     const observer = new ResizeObserver(() => resize())
     observer.observe(container)
     resize()
