@@ -1,3 +1,4 @@
+import type React from 'react'
 import { polyhedronOf } from './polyhedra'
 import type { Line, PolyhedronPoint, ShapeScene } from '../shared/types'
 import type { BookResult } from './bookScene'
@@ -31,6 +32,7 @@ export interface ViewerProps {
   galleryIndex?: number
   onPickGallery?: (index: number) => void
   onReady?: () => void // 도형을 만들고 첫 프레임을 그렸을 때 (다시 만들 때마다). 사진을 읽은 뒤 UI가 빈 책을 걷는 때 (viewer.md ViewerProps)
+  resetCameraRef?: React.MutableRefObject<(() => void) | null> // 카메라 처음 구도로 리셋하는 함수. UI가 ref 를 넘기면 뷰어가 채운다
   penFromTable?: boolean // 펜이 책상 초록 색연필 자리에서 날아오는가 (기본 true). 읽는 중에 이미 펜이 책 위에 있었으면 false (viewer.md "책상 색연필과 오가기")
   drawIn?: number // 펜으로 그려 내기: 이전에 그린 값과 다를 때 도형을 만들면 펜이 전개도와 왼쪽 쪽 글을 그려 낸다 (viewer.md "펜으로 그려 내기")
   onFacePick?: (pick: FacePick | null) => void // 마주 보는 면 보기: 누른 면과 마주 보는 면 (풀리면 null, viewer.md)
