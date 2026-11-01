@@ -80,6 +80,7 @@ export function ThreeViewer({
   galleryIndex = 0,
   onPickGallery,
   onReady,
+  onActivity,
   edgeDivisions = 2,
   onSceneChange,
   onDrawState,
@@ -89,6 +90,8 @@ export function ThreeViewer({
   onFaceMark,
   resetCameraRef,
 }: ViewerProps) {
+  const activityRef = useRef(onActivity)
+  useEffect(() => { activityRef.current = onActivity }, [onActivity])
   const containerRef = useRef<HTMLDivElement>(null)
   // 도형을 새로 만들 때 지금 값으로 시작하려고
   const viewRef = useRef({ unfold, foldMode, showHiddenEdges, showMatchingEdges, showVertexLabels, highlightVertices, drawLines, edgeDivisions, faceMarking, lesson })
@@ -690,6 +693,7 @@ export function ThreeViewer({
         },
       })
       penBusy = true
+      activityRef.current?.(() => penDraw?.skip())
       world.add(penDraw.pen)
       apply()
     }
@@ -861,6 +865,7 @@ export function ThreeViewer({
         }
       }
       penDraw?.update(now)
+      if (penDraw && !penDraw.pen.visible) activityRef.current?.(null)
       controls.update()
       renderer.render(world, camera)
       liftLastFrame()
@@ -906,6 +911,7 @@ export function ThreeViewer({
       }
       for (const g of [edgeGeometry, hitGeometry, markerGeometry, vertexHitGeometry, divisionGeometry, pickMarker.geometry]) g.dispose()
       penDraw?.dispose()
+      activityRef.current?.(null)
       blankPage?.dispose()
       book.dispose()
       photoMesh?.material.map?.dispose()

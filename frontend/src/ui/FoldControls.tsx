@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useOperation } from './activity'
 import type { ViewerProps } from '../viewer'
 import { foldPercent, stepTargets, unfoldOf } from './foldStatus.ts'
 import { animate, SPEEDS, type Speed } from './player.ts'
@@ -17,10 +18,12 @@ interface Props {
 }
 
 export function FoldControls({ unfold, onChange, mode, speed, steps, onPlayingChange, target }: Props) {
+  const { begin, end } = useOperation()
   const cancel = useRef(() => {})
   const stop = () => {
     cancel.current()
     onPlayingChange(false)
+    end()
   }
   useEffect(() => () => cancel.current(), [])
   useEffect(stop, [mode]) // eslint-disable-line react-hooks/exhaustive-deps -- 보기 메뉴에서 방식을 바꾸면 멈춘다
@@ -30,7 +33,8 @@ export function FoldControls({ unfold, onChange, mode, speed, steps, onPlayingCh
     stop()
     if (targets.length === 0) return
     onPlayingChange(true)
-    cancel.current = animate(unfold, targets, msPerUnit, pauseMs, onChange, () => onPlayingChange(false))
+    begin({ label: '멈추기', run: stop })
+    cancel.current = animate(unfold, targets, msPerUnit, pauseMs, onChange, () => { onPlayingChange(false); end() })
   }
 
   const stepMode = mode === 'step' && steps > 0

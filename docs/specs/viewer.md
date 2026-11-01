@@ -1,5 +1,9 @@
 # three.js 뷰어 규칙
 
+## 동작 잠금 알림 (#167)
+
+`ViewerProps.onActivity?: (finish: (() => void) | null) => void`는 펜 그리기의 시작(완성 상태로 건너뛰는 함수)과 종료(null)를 UI에 알린다. EmptyBook도 같은 콜백으로 페이지 넘김을 알린다. 정리 때도 null을 알려 잠금이 남지 않게 한다. UI는 DOM 입력을 캡처하고 잠긴 장면을 inert로 만들어 OrbitControls와 책 메뉴까지 입력을 막는다. 뷰어는 UI 모듈을 import하지 않는다.
+
 3D 뷰어(`frontend/src/viewer/`)의 좌표, 면 트리, 접기, 곡면 말기, 선, 꼭짓점 복사본·하이라이트, 클릭 규칙입니다. 데이터 형식은 [shape-scene.md](shape-scene.md)를 따릅니다.
 
 TODO-1의 GeoGebra 실험(`frontend/lab/geogebra.ts`, 서비스에 쓰지 않음)에서 확인한 배치·동작을 three.js로 직접 구현한다.

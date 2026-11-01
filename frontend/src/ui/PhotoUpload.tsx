@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useOperation } from './activity'
 import type { ShapeScene } from '../shared/types'
 import { analyze, OfflineError } from './api'
 import { ITEM_LABELS, MAX_ITEMS } from '../viewer'
@@ -60,6 +61,9 @@ async function picOf(file: File, fallback: HTMLImageElement) {
 }
 
 export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }: Props) {
+  const { begin } = useOperation()
+  const request = useRef<AbortController | null>(null)
+  useEffect(() => () => request.current?.abort(), [])
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
   const [box, setBox] = useState<PhotoBox | null>(null)
@@ -106,11 +110,14 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
 
   // 사진 준비·돌리기가 실패하면(메모리 부족, 모르는 형식) 버튼이 꺼진 채 멈추지 않게 오류로 돌린다 (코드 검토)
   const prepare = async (make: () => Promise<File>) => {
+    const done = begin()
     setState({ kind: 'preparing' })
     try {
       setBase(await make())
     } catch {
       setState({ kind: 'error', message: '사진을 열지 못했어요. 다른 사진으로 해 볼까요?' })
+    } finally {
+      done()
     }
   }
 
@@ -124,6 +131,8 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
 
   // 보관함에서 열기: 사진 인식이 성공했을 때와 같은 길 (onPhoto → onScene). App 은 다르게 다루지 않는다
   const openSaved = async (id: string) => {
+    const done = begin()
+    try {
     const w = await getWorksheet(id)
     if (!w) return refreshShelf()
     const file = new File([w.photo], 'photo.jpg', { type: w.photo.type || 'image/jpeg' })
@@ -131,6 +140,9 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
     if (w.more?.length && onShapes) onShapes([{ scene: w.scene, place: w.place }, ...w.more])
     else onScene(w.scene, w.place)
     setState({ kind: 'done', scene: w.scene })
+    } catch {
+      setState({ kind: 'error', message: '저장한 학습지를 열지 못했어요. 다시 골라 주세요.' })
+    } finally { done() }
   }
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,7 +153,16 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
 
   // parts: 도형 네모들 (없으면 사진 전체). 여러 개면 동시에 읽고, 문제 글은 ① 하나에만 보내 모두에 붙인다 (worksheets.md 여러 도형)
   const read = async (parts: PhotoBox[] | null, problemPart: PhotoBox | null = null) => {
-    if (!photo || !img.current) return
+    if (!photo || !img.current || request.current) return
+    const controller = new AbortController()
+    request.current = controller
+    const done = begin({ label: '취소', run: () => {
+      controller.abort()
+      if (request.current === controller) request.current = null
+      setState({ kind: 'picking' })
+      onReading?.(false)
+      done()
+    } })
     setState({ kind: 'loading', since: Date.now() })
     setNow(Date.now())
     try {
@@ -150,16 +171,18 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
       const problemFile = problemPart ? await crop(pic, problemPart) : undefined
       const boxes = parts?.length ? parts : [null] // null 도 사진 전체로 (화면 갱신 중 옛 버튼이 read(null) 로 부른 적이 있다)
       const files = await Promise.all(boxes.map((b) => (b ? crop(pic, b) : Promise.resolve(photo.file))))
+      if (controller.signal.aborted) return
       // 기록 모드: 읽은 네모·학생이 한 일을 record 로, 원본 사진은 묶음마다 처음 한 번 (#160)
       const json = readRecord(boxes, problemPart)
       const rec = recSession()
       const sendPhoto = RECORD && !!rec && !rec.photoSent
       setVerdict(null)
       const scenes = await Promise.all(files.map(async (f, i) => {
-        const result = await analyze(f, i === 0 ? problemFile : undefined, json ? { json, photo: i === 0 && sendPhoto ? photo.file : undefined } : undefined)
+        const result = await analyze(f, i === 0 ? problemFile : undefined, json ? { json, photo: i === 0 && sendPhoto ? photo.file : undefined } : undefined, controller.signal)
         if (RECORD && i === 0 && rec && sendPhoto) rec.photoSent = true
         return result
       }))
+      if (controller.signal.aborted || request.current !== controller) return
       const problem = scenes[0].problem
       const found = scenes.map((scene, i) => {
         const withProblem = problem && !scene.problem ? ({ ...scene, problem } as ShapeScene) : scene
@@ -177,8 +200,12 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
         .then((thumb) => saveWorksheet({ name: defaultName(first.scene, new Date()) + (more.length ? ` 외 ${more.length}개` : ''), photo: photo.file, thumb, scene: first.scene, place: first.place, more }))
         .then(refreshShelf, () => {})
     } catch (e) {
+      if (controller.signal.aborted || request.current !== controller) return
       setState({ kind: e instanceof OfflineError ? 'soft' : 'error', message: (e as Error).message })
       onManual?.()
+    } finally {
+      if (request.current === controller) request.current = null
+      done()
     }
   }
 
@@ -383,7 +410,7 @@ export function PhotoUpload({ onScene, onPhoto, onManual, onReading, onShapes }:
             {seconds >= 30 && (
               <>
                 <br />
-                조금 더 걸려요. 그동안 <a href="#manual-input">아래에서 직접 그려 봐도 돼요</a>
+                조금 더 걸려요. 취소한 뒤 직접 만들 수도 있어요.
               </>
             )}
           </>

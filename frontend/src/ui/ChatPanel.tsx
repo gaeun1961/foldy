@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useOperation } from './activity'
 import type { ShapeScene } from '../shared/types'
 import { chat, type ChatView, OfflineError } from './api'
 
@@ -14,6 +15,9 @@ interface Message {
 const CLEAR: ChatView = { highlightVertices: [], foldPercent: null }
 
 export function ChatPanel({ scene, onView }: { scene: ShapeScene | null; onView: (view: ChatView) => void }) {
+  const { begin } = useOperation()
+  const request = useRef<AbortController | null>(null)
+  useEffect(() => () => request.current?.abort(), [])
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -31,18 +35,29 @@ export function ChatPanel({ scene, onView }: { scene: ShapeScene | null; onView:
 
   const send = async () => {
     const text = input.trim()
-    if (!text || !scene || waiting) return
+    if (!text || !scene || waiting || request.current) return
+    const controller = new AbortController()
+    request.current = controller
+    const done = begin({ label: '취소', run: () => {
+      controller.abort()
+      request.current = null
+      setWaiting(false)
+      done()
+    } })
     setInput('')
     setMessages((m) => [...m, { from: 'me', text }])
     setWaiting(true)
     try {
-      const { reply, view } = await chat(text, scene)
+      const { reply, view } = await chat(text, scene, controller.signal)
+      if (controller.signal.aborted || request.current !== controller) return
       setMessages((m) => [...m, { from: 'bot', text: reply }])
       onView(view ?? CLEAR)
     } catch (e) {
+      if (controller.signal.aborted || request.current !== controller) return
       setMessages((m) => [...m, { from: e instanceof OfflineError ? 'bot' : 'error', text: (e as Error).message }])
     } finally {
-      setWaiting(false)
+      if (request.current === controller) { request.current = null; setWaiting(false) }
+      done()
     }
   }
 
