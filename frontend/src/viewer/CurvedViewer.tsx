@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { ViewerProps } from '.'
 import type { ConePoint, CylinderPoint, Line, RoundSize } from '../shared/types.ts'
-import { aimLight, bookLights, bookView, buildBook, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
+import { aimLight, bookLights, bookRenderer, bookView, buildBook, liftLastFrame, DESK_COLOR, fitOf, readingRange, VIEW_DIR } from './bookScene.ts'
 import { buildCurvedNet, curvedLineRadius, roundSizeOf, seamOf, type CurvedShape } from './curved.ts'
 import { textSprite } from './lessons/draw.ts'
 import { buildCurvedLesson } from './lessons/curvedLessons.ts'
@@ -50,9 +50,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
 
   useEffect(() => {
     const container = containerRef.current!
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.shadowMap.enabled = true
+    const renderer = bookRenderer()
     container.appendChild(renderer.domElement)
     const world = new THREE.Scene()
     world.background = new THREE.Color(DESK_COLOR)
@@ -149,13 +147,12 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     apply()
     applyRef.current = apply
 
-    // 왼쪽 쪽 메뉴 누르기: 끌어서 돌린 것은 클릭이 아니다. 앞에 도형이 있으면 메뉴를 누른 것이 아니다
+    // 왼쪽 쪽 메뉴·공부 타이머 누르기: 끌어서 돌린 것은 클릭이 아니다. 앞에 도형이 있으면 메뉴를 누른 것이 아니다
     const raycaster = new THREE.Raycaster()
     const menuAt = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera)
-      const left = book.leftPage()
-      return left ? book.menuAt(raycaster.intersectObjects([...(lessonObject ? [lessonObject.group] : [net.group]), left], true).find((h) => (h.object as THREE.Mesh).isMesh && !(h.object as THREE.InstancedMesh).isInstancedMesh)) : null
+      return book.menuAt(raycaster.intersectObjects([...(lessonObject ? [lessonObject.group] : [net.group]), ...book.menuTargets()], true).find((h) => (h.object as THREE.Mesh).isMesh && !(h.object as THREE.InstancedMesh).isInstancedMesh))
     }
     let down: { x: number; y: number } | null = null
     const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY })
@@ -173,6 +170,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
     renderer.setAnimationLoop(() => {
       controls.update()
       renderer.render(world, camera)
+      liftLastFrame()
       if (!told) {
         told = true
         readyRef.current?.()
@@ -195,6 +193,7 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
       book.dispose()
       light.shadow.map?.dispose()
       renderer.dispose()
+      renderer.forceContextLoss()
       container.removeChild(renderer.domElement)
     }
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps -- shape·size·라벨은 key 에 들어 있다
