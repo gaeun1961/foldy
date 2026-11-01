@@ -189,6 +189,8 @@ export default function App() {
     setMarking(false)
     setDrawLines(false)
     setFacePick(null)
+    setEmptyBookTrigger(null)
+    photoAnalysisResult.current = null
   }
   const pickMenu = (id: string) => {
     if (!scene) return
@@ -331,6 +333,7 @@ export default function App() {
               if (photoAnalysisResult.current) {
                 const keep = photoAnalysisResult.current
                 photoAnalysisResult.current = null
+                setEmptyBookTrigger(null)
                 setGallery(keep.length > 1 ? keep : null)
                 setGalleryIndex(0)
                 showShape(keep[0].scene, keep[0].place)

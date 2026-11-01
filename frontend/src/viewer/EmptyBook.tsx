@@ -35,8 +35,6 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
   const openingRef = useRef(opening)
   const openedRef = useRef(onOpened)
   const lastTurnRef = useRef(onLastTurn)
-  const triggerPickRef = useRef<{ k: number; id: number } | null>(null)
-  const triggerPickLastId = useRef<number | null>(null)
   useEffect(() => {
     pickRef.current = onPick
     pageOfRef.current = pageOf
@@ -44,17 +42,12 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
     openedRef.current = onOpened
     lastTurnRef.current = onLastTurn
   }, [onPick, pageOf, opening, onOpened, onLastTurn])
-  useEffect(() => {
-    if (triggerPick && triggerPick.id !== triggerPickLastId.current) {
-      triggerPickLastId.current = triggerPick.id
-      triggerPickRef.current = triggerPick
-    }
-  }, [triggerPick])
-  const key = JSON.stringify({ pageText, contents, pageNumbers, reading })
+  // triggerPick.id 를 key 에 넣어서 바뀔 때마다 ThreeJS 씬을 새로 열고 바로 페이지 넘기기를 시작한다
+  const key = JSON.stringify({ pageText, contents, pageNumbers, reading, triggerPickId: triggerPick?.id })
 
   useEffect(() => {
     const container = containerRef.current!
-    const { pageText, contents, pageNumbers, reading } = JSON.parse(key) as Props
+    const { pageText, contents, pageNumbers, reading } = JSON.parse(key) as Props & { triggerPickId?: number }
     const renderer = bookRenderer()
     container.appendChild(renderer.domElement)
 
@@ -152,25 +145,22 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
       })
     }
 
+    // triggerPick 이 있으면 씬을 열자마자 해당 줄로 페이지 넘기기를 시작한다 (사진 인식 결과 등)
+    if (triggerPick && triggerPick.k >= 0 && triggerPick.k < contents.length && contents[triggerPick.k].page !== null) {
+      const k = triggerPick.k
+      const first = Math.max(0, k + 1 - MAX_SHEETS)
+      turn = { k, t: 0, show: buildPageTurn(book, size, Array.from({ length: k + 1 - first }, (_, j) => pageOfRef.current?.(first + j) ?? { text: [] })), from: camera.position.clone().sub(controls.target).normalize() }
+    }
+
     // 시간은 프레임마다 더한다(한 번에 최대 1/30초). 첫 프레임이 늦거나 멈칫해도 단계를 건너뛰지 않는다
     let t = 0
     let last = -1
     let picked: number | null = null
     let lastTurn = false
-    controls.enabled = !intro
+    controls.enabled = !intro && !turn
     renderer.setAnimationLoop((now) => {
       const dt = last < 0 ? 0 : Math.min(now - last, 1000 / 30) / 1000
       last = now
-      // 바깥에서 요청한 페이지 넘기기 (사진 인식 결과 등): intro·turn 이 없을 때만
-      if (triggerPickRef.current && !turn && !intro) {
-        const { k } = triggerPickRef.current
-        triggerPickRef.current = null
-        if (k >= 0 && k < contents.length && contents[k].page !== null) {
-          const first = Math.max(0, k + 1 - MAX_SHEETS)
-          turn = { k, t: 0, show: buildPageTurn(book, size, Array.from({ length: k + 1 - first }, (_, j) => pageOfRef.current?.(first + j) ?? { text: [] })), from: camera.position.clone().sub(controls.target).normalize() }
-          controls.enabled = false
-        }
-      }
       if (turn && turn.t < turn.show.seconds) {
         turn.t += dt
         turn.show.update(turn.t)
