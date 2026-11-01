@@ -108,6 +108,8 @@ export function CurvedViewer({ scene, unfold = 0, showMatchingEdges = true, show
       controls.target.copy(target)
       camera.position.copy(controls.target).addScaledVector(dir, distance)
       world.fog = new THREE.Fog(DESK_COLOR, distance * 2, distance * 6) // 책 너머 책상만 흐리게
+      controls.minDistance = distance * 0.5
+      controls.maxDistance = distance * 2
     }
     // 설명마다 책 크기가 달라서 다시 만들면 빛·카메라도 다시 맞춘다
     const rebuildBook = () => {

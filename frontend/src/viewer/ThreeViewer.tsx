@@ -713,6 +713,8 @@ export function ThreeViewer({
       const newTarget = view.target
       const newPos = newTarget.clone().addScaledVector(dir, view.distance)
       world.fog = new THREE.Fog(DESK_COLOR, view.distance * 2, view.distance * 6) // 책 너머 책상만 흐리게
+      controls.minDistance = view.distance * 0.5
+      controls.maxDistance = view.distance * 2
       if (smooth) {
         snapTo = { pos: newPos, target: newTarget }
       } else {
