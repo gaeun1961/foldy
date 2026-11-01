@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { aimLight, bookLights, bookRenderer, buildBook, keepLastFrame, DESK_COLOR, VIEW_DIR, bookView, fitOf, readingRange, type BookContent, type BookMenuItem } from './bookScene.ts'
 import { buildOpening, buildPageTurn, LOW_ANGLE, OPENING_SECONDS } from './opening.ts'
-import { startPenSketch } from './penDraw.ts'
+import { findTablePencil, startPenSketch } from './penDraw.ts'
 
 // 빈 책 (docs/specs/viewer.md "빈 책"): 도형이 없을 때 같은 책 장면을 도형 없이 그린다.
 // 왼쪽 쪽은 pageText, 오른쪽 쪽은 차례(contents, 줄 끝에 쪽 번호). 쪽 번호가 있는 줄을 누르면 차례 쪽이 넘어간 뒤 onPick(번호)
@@ -138,7 +138,7 @@ export function EmptyBook({ pageText, contents, pageNumbers, onPick, pageOf, ope
         photo.position.set(cx, book.top, book.center.z)
         world.add(photo)
         if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
-        sketch = startPenSketch({ x: cx - w / 2, z: book.center.z - d / 2, w, d, y: book.top }, book.page.w * 0.28)
+        sketch = startPenSketch({ x: cx - w / 2, z: book.center.z - d / 2, w, d, y: book.top }, book.page.w * 0.28, findTablePencil(book.group)) // 책상 초록 색연필에서 날아와 칠한다
         world.add(sketch.group)
       })
     }

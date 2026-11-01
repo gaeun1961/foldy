@@ -334,6 +334,7 @@ export default function App() {
             pageNumbers={pageNumbersOf(scene)}
             photo={photo && scene.net.layout === 'grid' ? netPhoto(photo, fit) : undefined}
             drawIn={drawIn || undefined}
+            penFromTable={holdFrom === null} // 읽는 중 빈 책에서 이미 펜이 책 위에 있었으면 그 자리에서 바로 (viewer.md "책상 색연필과 오가기")
             onReady={() => setHoldFrom(null)}
             gallery={gallery && gallery.length > 1 ? gallery.map((g) => g.scene) : undefined}
             galleryIndex={galleryIndex}

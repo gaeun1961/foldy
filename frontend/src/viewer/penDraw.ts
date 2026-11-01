@@ -153,7 +153,50 @@ function penModel(length: number) {
   return group
 }
 
-export type PenDraw = { pen: THREE.Group; update: (now: number) => void; retargetPage: (material: THREE.MeshStandardMaterial) => void; dispose: () => void }
+// 책상 색연필과 오가기 (viewer.md "책상 색연필과 오가기"): 펜은 책상 위 초록 색연필 자리·크기·방향에서 날아오고, 다 그리면 돌아가 내려앉는다
+const FLY_IN = 250 // 칠하기는 처음부터 시작하고, 펜이 이 시간 동안 칠하는 끝을 따라잡는다 (늦어지지 않게)
+const FLY_BACK = 300 // 끝난 뒤 돌아가기. 아무것도 막지 않는다
+
+// 책 장면의 책상 위 초록 색연필 (bookScene 색연필 네 자루: 첫 자식이 칠한 육각 몸통인 그룹). 못 찾으면 null
+export function findTablePencil(root: THREE.Object3D): THREE.Object3D | null {
+  const green = new THREE.Color(PENCIL_GREEN)
+  const found: THREE.Object3D[] = []
+  root.traverse((o) => {
+    const body = o.children[0]
+    if (found.length || !(o instanceof THREE.Group) || !(body instanceof THREE.Mesh) || !(body.geometry instanceof THREE.CylinderGeometry)) return
+    if ((body.material as THREE.MeshStandardMaterial).color?.equals(green)) found.push(o)
+  })
+  return found[0] ?? null
+}
+
+// 펜(바깥 그룹)을 책상 색연필에 겹치는 자세: 색연필 끝 자리, 방향(색연필은 +y 가 끝, 펜은 끝이 원점이고 몸통이 +y 라 뒤집음), 크기 비율
+type Pose = { position: THREE.Vector3; quaternion: THREE.Quaternion; scale: number }
+function tablePose(pencil: THREE.Object3D, penLength: number, tilt: THREE.Quaternion): Pose {
+  pencil.updateWorldMatrix(true, true)
+  let [minY, maxY] = [Infinity, -Infinity]
+  for (const c of pencil.children) {
+    const g = (c as THREE.Mesh).geometry
+    if (!g) continue
+    g.computeBoundingBox()
+    minY = Math.min(minY, c.position.y + g.boundingBox!.min.y)
+    maxY = Math.max(maxY, c.position.y + g.boundingBox!.max.y)
+  }
+  const flip = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
+  const quaternion = pencil.getWorldQuaternion(new THREE.Quaternion()).multiply(flip).multiply(tilt.clone().invert())
+  const scale = ((maxY - minY) * pencil.getWorldScale(new THREE.Vector3()).y) / penLength
+  return { position: pencil.localToWorld(new THREE.Vector3(0, maxY, 0)), quaternion, scale }
+}
+
+// 펜을 from 자세에서 지금 자리(그리는 자세: 회전 없음, 크기 1)로 k(0~1)만큼. 가운데서 살짝 떠오른다
+const NO_TURN = new THREE.Quaternion()
+function blendPose(pen: THREE.Object3D, from: Pose, to: THREE.Vector3, k: number, lift: number) {
+  pen.position.lerpVectors(from.position, to, k)
+  pen.position.y += Math.sin(Math.PI * k) * lift
+  pen.quaternion.slerpQuaternions(from.quaternion, NO_TURN, k)
+  pen.scale.setScalar(from.scale + (1 - from.scale) * k)
+}
+
+export type PenDraw = { pen: THREE.Group; update: (now: number) => void; retargetPage: (material: THREE.MeshStandardMaterial) => void; rehome: (pencil: THREE.Object3D | null) => void; dispose: () => void }
 
 // 그릴 판 하나: frame(판 좌표계, 없으면 월드) 안의 전개도 범위 box(x·z), 판 높이 y, 가릴 재질. 판마다 재질이 따로여야 한다(가림 그림이 판마다 다름)
 // onDrawn: 그 판을 다 칠했을 때 (그림자처럼 가림 셰이더가 안 걸리는 것을 그때 켠다)
@@ -165,9 +208,12 @@ export function startPenDraw(opts: {
   page: { material: THREE.MeshStandardMaterial; blank: THREE.Texture; x0: number; z0: number; w: number; d: number; y: number } | null
   size: number
   pace?: number // 시간 배수 (시연에서 천천히 보기, 기본 1)
+  home?: THREE.Object3D | null // 책상 위 초록 색연필 (findTablePencil). 있으면 펜이 여기서 날아오고 돌아간다
+  fromHome?: boolean // false 면 날아오지 않고 칠하는 자리에서 바로 (읽는 중에 이미 펜이 책 위에 있었을 때, 기본 true)
   onDone: () => void
 }): PenDraw {
-  const { floors, page, size, onDone, pace = 1 } = opts
+  const { floors, page, size, onDone, pace = 1, fromHome = true } = opts
+  let home = opts.home ?? null
   const many = floors.length > 1
   const netMs = many ? 450 : MS.net // 여럿이면 하나씩 짧게 (모두 합쳐 길어지지 않게)
   const crossMs = many ? 180 : MS.cross
@@ -245,20 +291,45 @@ export function startPenDraw(opts: {
     })
   }
   let liftFrom: THREE.Vector3 | null = null
-  steps.push({
-    ms: MS.lift,
-    run: (k) => {
-      liftFrom ??= pen.position.clone()
-      pen.position.copy(liftFrom).setY(liftFrom.y + smooth(k) * size * 1.5)
-    },
-  })
+  // 책상 색연필이 없으면 끝에 들어 올려 사라진다 (있으면 끝난 뒤 책상으로 날아가며, 기다리지 않는다)
+  if (!home)
+    steps.push({
+      ms: MS.lift,
+      run: (k) => {
+        liftFrom ??= pen.position.clone()
+        pen.position.copy(liftFrom).setY(liftFrom.y + smooth(k) * size * 1.5)
+      },
+    })
 
-  const pen = penModel(size)
-  pen.position.copy(sheets[0]?.start ?? new THREE.Vector3())
+  // 펜 = 바깥 그룹(자리·날아가는 회전·크기) + 모형(손 기울기)
+  const model = penModel(size)
+  const pen = new THREE.Group()
+  pen.add(model)
+  const homePose = home ? tablePose(home, size, model.quaternion) : null
+  if (home) home.visible = false // 책상 색연필을 펜이 들고 나간다
+  if (homePose && fromHome) {
+    pen.position.copy(homePose.position)
+    pen.quaternion.copy(homePose.quaternion)
+    pen.scale.setScalar(homePose.scale)
+  } else pen.position.copy(sheets[0]?.start ?? new THREE.Vector3())
   let start: number | null = null // 지금 단계를 시작한 때
+  let began: number | null = null // 칠하기를 시작한 때 (날아오기)
   let warm = 0 // 처음 두 프레임은 장면을 만들고 셰이더를 컴파일하느라 길다(PC 에서 0.5초 넘게). 그 뒤부터 시간을 잰다
   let step = 0
-  let done = false
+  let done = false // 그리기가 끝났다 (학습 화면으로)
+  let back: { from: THREE.Vector3; at: number } | null = null // 책상으로 돌아가는 중
+  let parked = false // 책상 색연필로 돌아갔다
+  const park = () => {
+    if (parked) return
+    parked = true
+    pen.visible = false
+    if (home) home.visible = true
+  }
+  // 그리는 중에 책을 다시 만들면 책상 색연필도 새로 생긴다: 새 것을 숨기고 그리로 돌아간다 (자리는 같다)
+  const rehome = (pencil: THREE.Object3D | null) => {
+    home = pencil
+    if (home && !parked) home.visible = false
+  }
   const finish = (tell = true) => {
     if (done) return
     done = true
@@ -267,32 +338,54 @@ export function startPenDraw(opts: {
       s.on.value = 0
     }
     pageOn.value = 0
-    pen.visible = false
+    if (!homePose) park()
     if (tell) onDone()
   }
   const update = (now: number) => {
-    if (done) return
+    if (parked) return
+    if (done) {
+      // 책상으로 돌아가기: 끝난 자리에서 색연필 자세로. 아무것도 막지 않는다
+      if (!back || !homePose) return park()
+      const k = Math.min(1, (now - back.at) / (FLY_BACK * pace))
+      blendPose(pen, homePose, back.from, 1 - smooth(k), size * 0.25)
+      if (k >= 1) park()
+      return
+    }
     for (const s of sheets) s.syncFrame()
     if (warm < 2) {
       warm++
       return
     }
     start ??= now
+    began ??= now
     // 프레임이 띄엄띄엄 와도 지난 단계는 끝까지 한 번 마치고 넘어간다
     while (step < steps.length && now - start >= steps[step].ms * pace) {
       steps[step].run(1)
       start += steps[step].ms * pace
       step++
     }
-    if (step < steps.length) steps[step].run((now - start) / (steps[step].ms * pace))
-    else finish()
+    if (step < steps.length) {
+      steps[step].run((now - start) / (steps[step].ms * pace))
+      // 날아오기: 단계가 정한 자리(칠하는 끝)를 책상 색연필 자세에서 따라잡는다
+      const e = (now - began) / (FLY_IN * pace)
+      if (homePose && fromHome && e < 1) blendPose(pen, homePose, pen.position.clone(), smooth(e), size * 0.25)
+      else {
+        pen.quaternion.identity()
+        pen.scale.setScalar(1)
+      }
+    } else {
+      back = { from: pen.position.clone(), at: now }
+      finish()
+    }
   }
   return {
     pen,
     update,
     retargetPage,
+    rehome,
     dispose: () => {
       finish(false)
+      park()
       for (const s of sheets) s.mask.texture.dispose()
       pageMask?.mask.texture.dispose()
       pen.traverse((o) => {
@@ -309,7 +402,7 @@ export function startPenDraw(opts: {
 // 얼마나 걸릴지 몰라서 다 칠하면 칠을 지우고 처음부터 되풀이한다. 칠은 가림 그림을 alphaMap 으로 쓰는 판 하나
 const SKETCH_MS = 3500
 const PENCIL_SKETCH = '#b3d9ba' // 초록 색연필을 종이색에 옅게 섞은 칠 (초록 35% + 종이 #fbf9f4 65%). 사진이 비쳐 보이게 반투명
-export function startPenSketch(rect: { x: number; z: number; w: number; d: number; y: number }, size: number) {
+export function startPenSketch(rect: { x: number; z: number; w: number; d: number; y: number }, size: number, home: THREE.Object3D | null = null) {
   const scale = 512 / Math.max(rect.w, rect.d)
   const area = { x: 0, y: 0, w: rect.w * scale, h: rect.d * scale }
   const mask = new SweepMask(area.w, area.h, area, 9)
@@ -319,9 +412,14 @@ export function startPenSketch(rect: { x: number; z: number; w: number; d: numbe
   )
   paint.rotation.x = -Math.PI / 2 // 판 위쪽(캔버스 위) = 먼 쪽(−z)
   paint.position.set(rect.x + rect.w / 2, rect.y, rect.z + rect.d / 2)
-  const pen = penModel(size)
+  // 펜 = 바깥 그룹 + 모형. 책상 초록 색연필이 있으면 그 자리에서 날아와 칠한다 (칠하기는 처음부터)
+  const model = penModel(size)
+  const pen = new THREE.Group()
+  pen.add(model)
+  const homePose = home ? tablePose(home, size, model.quaternion) : null
+  if (home) home.visible = false
   const at = (p: Point) => new THREE.Vector3(rect.x + p.x / scale, rect.y, rect.z + p.y / scale)
-  pen.position.copy(at(mask.points[0]))
+  pen.position.copy(homePose?.position ?? at(mask.points[0]))
   const group = new THREE.Group()
   group.add(paint, pen)
   let start: number | null = null
@@ -338,8 +436,15 @@ export function startPenSketch(rect: { x: number; z: number; w: number; d: numbe
       const d = mask.length * smooth(t - round)
       mask.paint(d)
       pen.position.copy(at(pointAt(mask.points, d)))
+      const e = Math.min(1, (now - start) / FLY_IN)
+      if (homePose && e < 1) blendPose(pen, homePose, pen.position.clone(), smooth(e), size * 0.25)
+      else {
+        pen.quaternion.identity()
+        pen.scale.setScalar(1)
+      }
     },
     dispose: () => {
+      if (home) home.visible = true
       mask.texture.dispose()
       paint.geometry.dispose()
       ;(paint.material as THREE.Material).dispose()
