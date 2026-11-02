@@ -108,4 +108,17 @@ const inside = (b: { x: number; y: number; w: number; h: number }, x: number, y:
   check(boxes[0].y < boxes[4].y && boxes[0].x < boxes[1].x, '위 줄 왼쪽부터')
 }
 
-console.log('ok: 추천 네모 (누운 사진 알아채기·어두운 사진·두 가장자리에 닿은 전개도, 겨냥도·전개도 둘, 옅은 날개, 옆 도형 안 넘김, 책 그림자 띠·흐린 얼룩·위 가장자리 그림 빼기, 글 줄 앞에서 멈춤, 선만이면 없음, 여섯까지)')
+// 밝은 노란색 면 셋: RGB 최댓값이 종이와 비슷해도 별도 후보로 보존 (#187).
+// 채점 표시가 면만큼 넓어도 네 번째 객체로 잡지 않는다.
+{
+  const [W, H] = [480, 240]
+  const s = sheet(W, H, () => 255)
+  const colors = [[241, 216, 184], [252, 209, 153], [250, 225, 170]]
+  for (let i = 0; i < colors.length; i++) s.fill(35 + i * 145, 95, 70, 85, colors[i])
+  s.fill(190, 25, 65, 35, [220, 60, 70])
+  const boxes = findShapeBoxes(s)
+  check(boxes.length === 3, `밝은 면 셋, 붉은 채점 제외: ${JSON.stringify(boxes)}`)
+  boxes.forEach((b, i) => check(inside({ x: b.x * W, y: b.y * H, w: b.w * W, h: b.h * H }, 35 + i * 145, 95, 70, 85), `밝은 면 ${i + 1} 전체 보존`))
+}
+
+console.log('ok: 추천 네모 (밝은 색칠 셋·붉은 채점 제외, 누운 사진·어두운 사진·가장자리·그림자·글 줄·복수 도형 회귀)')
